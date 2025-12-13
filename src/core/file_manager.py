@@ -53,7 +53,9 @@ class ParquetStorage:
 
     def read(self, filename: str) -> pl.DataFrame:
         """Read parquet file into a Polars DataFrame."""
-        target_path = self.base_path / f"{filename}.parquet"
+        if not filename.endswith(".parquet"):
+            filename += ".parquet"
+        target_path = self.base_path / filename
 
         if not target_path.exists():
             logger.warning(f"File not found: {target_path}")
@@ -61,6 +63,6 @@ class ParquetStorage:
 
         logger.debug(f"Reading {target_path}")
         data = pl.read_parquet(target_path)
-        logger.info(f"Read {len(data)} rows from {filename}.parquet")
+        logger.info(f"Read {len(data)} rows from {filename}")
 
         return data
