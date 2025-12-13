@@ -68,6 +68,7 @@ class DataExtractor:
                 start=start_date,
                 progress=False,
                 auto_adjust=True,
+                actions=True,
             )
 
             if price_data.empty:

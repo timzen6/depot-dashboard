@@ -18,6 +18,7 @@ STOCK_PRICE_SCHEMA = {
     "close": pl.Float64,
     "adj_close": pl.Float64,
     "volume": pl.Int64,
+    "dividend": pl.Float64,
 }
 
 
@@ -47,12 +48,14 @@ class StockPrice(BaseModel):
 
     ticker: str
     date: date
+    currency: str
     open: float
     high: float
     low: float
     close: float
     adj_close: float
     volume: int
+    dividend: float = 0.0
 
 
 class FinancialReport(BaseModel):
