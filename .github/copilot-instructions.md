@@ -1,54 +1,67 @@
 # GitHub Copilot Instructions for Quality Core
 
-## Project Guidelines
+## Project Context
+- **Goal:** Local High-Conviction Portfolio Dashboard.
+- **Stack:** Python 3.11+, Polars, Streamlit, Pydantic, yfinance.
 
-### Code Style & Standards
-- **Python Version**: 3.11+
-- **Type Hints**: Use strict typing throughout the codebase (enforced by mypy)
-- **Linting**: Ruff configured with line-length=100
+## Critical Guidelines
 
-### Core Libraries & Patterns
+### 1. Polars & Data
+- **Mode:** Use **Eager execution** (`DataFrame`) by default for readability. Use `LazyFrame` only for `scan_parquet` or heavy aggregations.
+- **Style:** Strictly use **method chaining**.
+- **Pandas:** Only allowed at the I/O boundary. Convert to Polars immediately.
 
-#### Polars
-- Use **method chaining** for data transformations
-- Prefer lazy evaluation with `.lazy()` and `.collect()` where appropriate
-- Use Polars expressions (`.pl.col()`, `.pl.lit()`, etc.)
-- Example:
-  ```python
-  result = (
-      df.lazy()
-      .filter(pl.col("value") > 0)
-      .group_by("category")
-      .agg(pl.col("amount").sum())
-      .collect()
-  )
-  ```
+### 2. Streamlit Architecture (MVC-Pattern)
+- **Pages (`src/app/pages`)**: Minimal entry points. NO calculation logic.
+- **Logic (`src/app/logic`)**: Data fetching, caching, and processing.
+- **Views (`src/app/views`)**: Pure UI rendering (Plotly, Streamlit widgets).
+- **Organization Rule**:
+    - Simple Feature -> Single File (e.g., `overview.py`).
+    - Complex Feature -> Subdirectory with `__init__.py` (e.g., `stock_detail/`).
 
-#### Pydantic
-- Use **Pydantic V2** syntax and features
-- Leverage `Field()` for validation and metadata
-- Use `ConfigDict` for model configuration
-- Example:
-  ```python
-  from pydantic import BaseModel, Field, ConfigDict
+### 3. File I/O
+- **Atomic Writes:** Always write to `.tmp` and rename to target path.
+- **Paths:** Use `pathlib.Path`.
 
-  class DataModel(BaseModel):
-      model_config = ConfigDict(strict=True, frozen=True)
+## Project File Structure (Strict Reference)
 
-      name: str = Field(..., min_length=1)
-      value: float = Field(..., gt=0)
-  ```
+```text
+quality-core/
+├── data/
+│   ├── input/                  # User data (Depot exports .csv/.xlsx, Watchlists)
+│   ├── prices/                 # Parquet files for daily OHLCV
+│   └── fundamentals/           # Parquet files for financial metrics
+├── docs/                       # Architecture decisions (ADR) & Structure
+├── src/
+│   ├── app/                    # Streamlit Application
+│   │   ├── common/             # Shared Widgets (Layouts, Cards)
+│   │   ├── pages/              # Entry Points (Wiring only)
+│   │   │   ├── 01_overview.py
+│   │   │   └── 02_stock_detail.py
+│   │   ├── logic/              # Business Logic (Data & Calc)
+│   │   │   ├── overview.py             # Simple logic file
+│   │   │   └── stock_detail/           # Complex logic package
+│   │   │       ├── __init__.py         # Exposes main logic class/func
+│   │   │       ├── metrics.py          # Specific metric calc
+│   │   │       └── helpers.py
+│   │   ├── views/              # UI Rendering (No logic)
+│   │   │   ├── overview.py             # Simple view file
+│   │   │   └── stock_detail/           # Complex view package
+│   │   │       ├── __init__.py         # Exposes render() function
+│   │   │       ├── charts.py           # Charting functions
+│   │   │       └── financial_tab.py    # Sub-component
+│   │   └── main.py             # App Root
+│   ├── core/                   # Domain Core (Shared)
+│   │   ├── models.py           # Pydantic Domain Models
+│   │   ├── storage.py          # Parquet I/O Engine (Atomic)
+│   │   └── types.py            # Enums
+│   └── etl/                    # Data Pipeline
+│       ├── pipeline.py         # Orchestration
+│       └── mapper.py           # yfinance -> Domain Model
+├── pyproject.toml
+└── uv.lock
+```
 
-#### Streamlit
-- Keep UI components in `src/app/views/`
-- Use session state for data persistence
-- Apply caching with `@st.cache_data` and `@st.cache_resource`
-
-### Project Structure
-- `src/core/`: Domain models and configuration (Pydantic models)
-- `src/etl/`: Pipeline logic (Polars transformations)
-- `src/app/`: Streamlit dashboard and views
-- `tests/`: Unit and integration tests
 
 ### Best Practices
 - Always use type hints
