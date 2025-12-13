@@ -1,0 +1,159 @@
+"""
+ETL Mapping Layer: Transforms external data provider formats to domain models.
+
+This module bridges the gap between raw data (yfinance pandas DataFrames)
+and our internal domain representation (Polars DataFrames + Pydantic models).
+"""
+
+from datetime import datetime
+
+import pandas as pd
+import polars as pl
+from loguru import logger
+
+from src.core.domain_models import STOCK_PRICE_SCHEMA, FinancialReport, ReportType
+
+
+def map_prices_to_df(pdf: pd.DataFrame, ticker: str) -> pl.DataFrame:
+    """
+    Convert yfinance price history to Polars DataFrame with strict schema.
+
+    Args:
+        pdf: Raw pandas DataFrame from yfinance.history()
+        ticker: Stock ticker symbol
+
+    Returns:
+        Polars DataFrame matching STOCK_PRICE_SCHEMA
+    """
+    # Reset index (yfinance typically uses Date as index)
+    pdf_reset = pdf.reset_index()
+
+    # remove multi-index and lowercase columns
+    pdf_reset.columns = [col[0].lower() for col in pdf_reset.columns]
+
+    # Convert to Polars immediately
+    prices = pl.from_pandas(pdf_reset)
+
+    # Add ticker column
+    prices = prices.with_columns(pl.lit(ticker).alias("ticker"))
+
+    # Ensure Date column exists (might be named differently)
+    if "date" not in prices.columns and "index" in prices.columns:
+        prices = prices.rename({"index": "date"})
+
+    # Handle adj_close column name variation
+    if "adj close" in prices.columns and "adj_close" not in prices.columns:
+        prices = prices.rename({"adj close": "adj_close"})
+    if "adj_close" not in prices.columns:
+        # If adj_close is missing, close is already adjusted itself hence copy close to adj_close
+        prices = prices.with_columns(pl.col("close").alias("adj_close"))
+
+    # Select required columns and cast to STOCK_PRICE_SCHEMA
+    prices = prices.select([pl.col(name).cast(dtype) for name, dtype in STOCK_PRICE_SCHEMA.items()])
+
+    logger.debug(f"Mapped {len(prices)} price rows for {ticker}")
+    return prices
+
+
+def map_fundamentals_to_domain(
+    pdf: pd.DataFrame, ticker: str, report_type: ReportType
+) -> list[FinancialReport]:
+    """
+    Transform yfinance financial statements to domain models.
+
+    yfinance returns transposed data (metrics as rows, dates as columns).
+    We transpose it to have dates as rows for iteration.
+
+    Args:
+        pdf: Raw pandas DataFrame from yfinance (quarterly_financials, etc.)
+        ticker: Stock ticker symbol
+        report_type: ANNUAL or QUARTERLY
+
+    Returns:
+        List of FinancialReport domain objects
+    """
+    if pdf.empty:
+        logger.warning(f"Empty financial data for {ticker} ({report_type})")
+        return []
+
+    # Transpose: dates become rows, metrics become columns
+    pdf_transposed = pdf.T
+
+    # Normalize column names to lowercase and strip whitespace
+    pdf_transposed.columns = pdf_transposed.columns.str.lower().str.strip()
+
+    reports = []
+
+    for report_date, row in pdf_transposed.iterrows():
+        try:
+            # Parse date (yfinance returns datetime-like index)
+            if isinstance(report_date, pd.Timestamp):
+                parsed_date = report_date.date()
+            elif isinstance(report_date, datetime):
+                parsed_date = report_date.date()
+            else:
+                parsed_date = pd.to_datetime(report_date).date()
+
+            # Map yfinance keys to domain model fields
+            # Note: yfinance column names can vary slightly
+            report = FinancialReport(
+                ticker=ticker,
+                report_date=parsed_date,
+                period_type=report_type,
+                currency="USD",  # yfinance doesn't provide this reliably
+                # Income Statement
+                revenue=_safe_float(row, ["total revenue", "revenue"]),
+                ebit=_safe_float(row, ["ebit", "earnings before interest and tax"]),
+                net_income=_safe_float(row, ["net income", "net income common stockholders"]),
+                # Cash Flow
+                operating_cash_flow=_safe_float(
+                    row, ["operating cash flow", "total cash from operating activities"]
+                ),
+                capital_expenditure=_safe_float(
+                    row, ["capital expenditure", "capital expenditures"]
+                ),
+                free_cash_flow=_safe_float(row, ["free cash flow"]),
+                # Balance Sheet
+                total_assets=_safe_float(row, ["total assets"]),
+                total_current_liabilities=_safe_float(
+                    row, ["total current liabilities", "current liabilities"]
+                ),
+                total_equity=_safe_float(
+                    row,
+                    ["total equity", "stockholders equity", "total stockholder equity"],
+                ),
+                long_term_debt=_safe_float(row, ["long term debt", "long-term debt"]),
+                cash_and_equivalents=_safe_float(row, ["cash and cash equivalents", "cash"]),
+            )
+
+            reports.append(report)
+            logger.debug(f"Mapped {report_type} report for {ticker} on {parsed_date}")
+
+        except Exception as e:
+            logger.error(f"Failed to map report for {ticker} at {report_date}: {e}")
+            continue
+
+    logger.info(f"Mapped {len(reports)} {report_type} reports for {ticker}")
+    return reports
+
+
+def _safe_float(row: pd.Series, keys: list[str]) -> float | None:
+    """
+    Extract numeric value from pandas Series using multiple possible keys.
+
+    Args:
+        row: pandas Series (one row from transposed DataFrame)
+        keys: List of possible column names to try
+
+    Returns:
+        Float value if found and valid, None otherwise
+    """
+    for key in keys:
+        if key in row.index:
+            value = row[key]
+            if pd.notna(value):
+                try:
+                    return float(value)
+                except (ValueError, TypeError):
+                    continue
+    return None

@@ -10,6 +10,7 @@ dependencies = [
     "streamlit>=1.30.0",
     "plotly>=5.18.0",
     "yfinance>=0.2.35",
+    "loguru>=0.7.3",
 ]
 
 [project.optional-dependencies]

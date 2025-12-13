@@ -207,6 +207,7 @@ marimo/_lsp/
 __marimo__/
 
 # Data folders (keep .gitkeep files)
+data/test_wi02/*
 data/raw/*
 data/staging/*
 data/production/*
