@@ -49,7 +49,7 @@ uv venv --python 3.11
 source .venv/bin/activate  # macOS/Linux
 
 # Install dependencies
-uv pip install -e ".[dev]"
+uv sync --all-extras
 ```
 
 ### 3. Setup pre-commit hooks
