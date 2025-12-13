@@ -49,6 +49,18 @@ def setup() -> tuple[Path, Path]:
     return prices_dir, fundamentals_dir
 
 
+def try_fetch_currency(ticker: str) -> str:
+    """Attempt to fetch the currency for a ticker, defaulting to USD on failure."""
+    yf_ticker = yf.Ticker(ticker)
+    try:
+        currency = str(yf_ticker.info.get("currency", "USD"))
+        logger.info(f"[{ticker}] Detected currency: {currency}")
+    except Exception:
+        currency = "USD"
+        logger.warning(f"[{ticker}] Could not fetch currency info, defaulting to USD.")
+    return currency
+
+
 def fetch_and_test_prices(storage: ParquetStorage) -> None:
     logger.info("--- Testing Prices (High Frequency) ---")
 
@@ -69,7 +81,8 @@ def fetch_and_test_prices(storage: ParquetStorage) -> None:
                 continue
 
             # 2. Map
-            df_pl = map_prices_to_df(raw_pdf, ticker)
+            currency = try_fetch_currency(ticker)
+            df_pl = map_prices_to_df(raw_pdf, ticker, currency)
 
             # 3. Validate Schema
             assert df_pl.schema == pl.Schema(STOCK_PRICE_SCHEMA)
@@ -95,6 +108,7 @@ def fetch_and_test_fundamentals(storage: ParquetStorage) -> None:
     for ticker in TEST_TICKERS:
         try:
             yf_ticker = yf.Ticker(ticker)
+            ticker_currency = try_fetch_currency(ticker)
 
             # 1. Fetch Annual Statements
             # yfinance returns 3 separate DataFrames (Income, Balance Sheet, Cash Flow)
@@ -113,7 +127,12 @@ def fetch_and_test_fundamentals(storage: ParquetStorage) -> None:
             raw_combined = raw_combined[~raw_combined.index.duplicated(keep="first")]
 
             # 2. Map
-            reports = map_fundamentals_to_domain(raw_combined, ticker, ReportType.ANNUAL)
+            reports = map_fundamentals_to_domain(
+                raw_combined,
+                ticker,
+                ReportType.ANNUAL,
+                currency=ticker_currency,
+            )
 
             if not reports:
                 logger.warning(f"[{ticker}] Mapping produced 0 reports (Check Key-Mapping?)")

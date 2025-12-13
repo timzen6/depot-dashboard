@@ -14,7 +14,7 @@ from loguru import logger
 from src.core.domain_models import STOCK_PRICE_SCHEMA, FinancialReport, ReportType
 
 
-def map_prices_to_df(pdf: pd.DataFrame, ticker: str) -> pl.DataFrame:
+def map_prices_to_df(pdf: pd.DataFrame, ticker: str, currency: str) -> pl.DataFrame:
     """
     Convert yfinance price history to Polars DataFrame with strict schema.
 
@@ -35,7 +35,11 @@ def map_prices_to_df(pdf: pd.DataFrame, ticker: str) -> pl.DataFrame:
     prices = pl.from_pandas(pdf_reset)
 
     # Add ticker column
-    prices = prices.with_columns(pl.lit(ticker).alias("ticker"))
+    prices = prices.with_columns(
+        pl.lit(ticker).alias("ticker"),
+        pl.lit(currency).alias("currency"),
+        pl.col("date").cast(pl.Date),
+    )
 
     # Ensure Date column exists (might be named differently)
     if "date" not in prices.columns and "index" in prices.columns:
@@ -56,7 +60,10 @@ def map_prices_to_df(pdf: pd.DataFrame, ticker: str) -> pl.DataFrame:
 
 
 def map_fundamentals_to_domain(
-    pdf: pd.DataFrame, ticker: str, report_type: ReportType
+    pdf: pd.DataFrame,
+    ticker: str,
+    report_type: ReportType,
+    currency: str,
 ) -> list[FinancialReport]:
     """
     Transform yfinance financial statements to domain models.
@@ -100,7 +107,7 @@ def map_fundamentals_to_domain(
                 ticker=ticker,
                 report_date=parsed_date,
                 period_type=report_type,
-                currency="USD",  # yfinance doesn't provide this reliably
+                currency=currency,
                 # Income Statement
                 revenue=_safe_float(row, ["total revenue", "revenue"]),
                 ebit=_safe_float(row, ["ebit", "earnings before interest and tax"]),

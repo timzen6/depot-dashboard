@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict
 STOCK_PRICE_SCHEMA = {
     "ticker": pl.Utf8,
     "date": pl.Date,
+    "currency": pl.Utf8,
     "open": pl.Float64,
     "high": pl.Float64,
     "low": pl.Float64,
