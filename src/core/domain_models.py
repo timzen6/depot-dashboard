@@ -86,6 +86,10 @@ class FinancialReport(BaseModel):
     capital_expenditure: float | None = None  # Crucial for FCF
     free_cash_flow: float | None = None  # Often provided directly, but verify with OCF - Capex
 
+    # Shares
+    # We need this to calculate market-cap based metrics
+    basic_average_shares: float | None = None  # For per-share metrics
+
     # Balance Sheet (Snapshot at report_date)
     total_assets: float | None = None
     total_current_liabilities: float | None = None

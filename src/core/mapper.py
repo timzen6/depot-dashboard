@@ -126,6 +126,10 @@ def map_fundamentals_to_domain(
                     row, ["capital expenditure", "capital expenditures"]
                 ),
                 free_cash_flow=_safe_float(row, ["free cash flow"]),
+                # Shares
+                basic_average_shares=_safe_float(
+                    row, ["basic average shares", "ordinary shares number"]
+                ),
                 # Balance Sheet
                 total_assets=_safe_float(row, ["total assets"]),
                 total_current_liabilities=_safe_float(
