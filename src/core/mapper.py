@@ -116,8 +116,19 @@ def map_fundamentals_to_domain(
                 currency=currency,
                 # Income Statement
                 revenue=_safe_float(row, ["total revenue", "revenue"]),
+                gross_profit=_safe_float(row, ["gross profit"]),
                 ebit=_safe_float(row, ["ebit", "earnings before interest and tax"]),
                 net_income=_safe_float(row, ["net income", "net income common stockholders"]),
+                tax_provision=_safe_float(
+                    row,
+                    [
+                        "tax provision",
+                        "income tax expense",
+                        "provision for income taxes",
+                    ],
+                ),
+                diluted_eps=_safe_float(row, ["diluted eps", "diluted earnings per share"]),
+                basic_eps=_safe_float(row, ["basic eps", "basic earnings per share"]),
                 # Cash Flow
                 operating_cash_flow=_safe_float(
                     row, ["operating cash flow", "total cash from operating activities"]
@@ -130,6 +141,7 @@ def map_fundamentals_to_domain(
                 basic_average_shares=_safe_float(
                     row, ["basic average shares", "ordinary shares number"]
                 ),
+                diluted_average_shares=_safe_float(row, ["diluted average shares"]),
                 # Balance Sheet
                 total_assets=_safe_float(row, ["total assets"]),
                 total_current_liabilities=_safe_float(

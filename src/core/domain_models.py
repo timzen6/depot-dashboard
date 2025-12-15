@@ -78,8 +78,14 @@ class FinancialReport(BaseModel):
 
     # Income Statement
     revenue: float | None = None
+    gross_profit: float | None = None
     ebit: float | None = None  # Crucial for ROCE
     net_income: float | None = None
+    tax_provision: float | None = None
+
+    # Per Share Data
+    diluted_eps: float | None = None
+    basic_eps: float | None = None
 
     # Cash Flow
     operating_cash_flow: float | None = None
@@ -89,6 +95,7 @@ class FinancialReport(BaseModel):
     # Shares
     # We need this to calculate market-cap based metrics
     basic_average_shares: float | None = None  # For per-share metrics
+    diluted_average_shares: float | None = None
 
     # Balance Sheet (Snapshot at report_date)
     total_assets: float | None = None

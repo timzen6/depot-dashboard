@@ -176,3 +176,76 @@ class MetricsEngine:
         )
 
         return result
+
+    def calculate_fair_value_history(
+        self,
+        df_prices: pl.DataFrame,
+        df_fundamentals: pl.DataFrame,
+        years: int = 5,
+    ) -> pl.DataFrame:
+        """Calculate fair value history based on historical fundamentals.
+
+        Args:
+            df_prices: Daily price data with columns: ticker, date, close.
+            df_fundamentals: Enriched fundamentals from calculate_fundamental_metrics().
+            years: Number of years to look back for fair value calculation.
+
+        Returns:
+            Original DataFrame with added fair_value column
+            (None for dates outside calculation window).
+        """
+        if "diluted_eps" in df_fundamentals.columns:
+            eps_col = "diluted_eps"
+        elif "basic_eps" in df_fundamentals.columns:
+            eps_col = "basic_eps"
+        else:
+            eps_col = None
+
+        if eps_col is None:
+            logger.warning("No EPS column found for fair value calculation")
+            return df_prices
+        logger.info(f"Calculating fair value history using EPS column: {eps_col}")
+
+        q_fund = (
+            df_fundamentals.sort("date")
+            .fill_null(strategy="forward")
+            .select(["ticker", "date", eps_col])
+        )
+
+        start_date = df_prices["date"].max() - pl.duration(days=years * 365)
+
+        df_p = df_prices.filter(pl.col("date") >= start_date).sort("date")
+
+        df_combined = df_p.join_asof(
+            q_fund,
+            on="date",
+            by="ticker",
+            strategy="backward",
+        )
+        logger.info(f"Calculating fair value history since {start_date}")
+
+        df_combined = df_combined.with_columns(
+            # P/E Ratio
+            (pl.col("close") / pl.col(eps_col)).alias("pe_ratio"),
+        ).filter((pl.col("diluted_eps").gt(0)) & (pl.col("pe_ratio").lt(150)))
+
+        if df_combined.is_empty():
+            logger.warning("No data available after filtering for fair value calculation")
+            return df_prices
+        pe_median = (
+            df_combined.group_by("ticker")
+            .agg(pl.col("pe_ratio").median().alias("median_pe"))
+            .select(["ticker", "median_pe"])
+        )
+
+        df_fair_value = (
+            df_combined.join(pe_median, on="ticker")
+            .with_columns((pl.col("diluted_eps") * pl.col("median_pe")).alias("fair_value"))
+            .select(["ticker", "date", "fair_value"])
+        )
+
+        # Join fair_value back to original prices
+        result = df_prices.join(df_fair_value, on=["ticker", "date"], how="left")
+
+        logger.info(f"Added fair_value column to {result.height} price records")
+        return result

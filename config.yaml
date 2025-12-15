@@ -23,6 +23,11 @@ universe:
   price_only:
     # Currencies & Crypto
     - EURUSD=X
+    - EURCHF=X
+    - EURGBP=X
+    - EURJPY=X
+    - EURDKK=X
+    - EURSEK=X
     - CHFEUR=X
     - DKKEUR=X
     - SEKEUR=X
