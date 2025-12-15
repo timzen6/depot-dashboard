@@ -28,6 +28,7 @@ def main() -> None:
 
     df_fund_calc = engine.calculate_fundamental_metrics(df_fund)
     df_val = engine.calculate_valuation_metrics(df_prices, df_fund_calc)
+    df_prices = engine.calculate_fair_value_history(df_prices, df_fund_calc, years=5)
     for ticker in test_tickers:
         # 1. Fundamentals
         print(f"--- Fundamentals (ROCE Example: {ticker}) ---")

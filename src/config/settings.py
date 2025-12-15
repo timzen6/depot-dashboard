@@ -10,6 +10,8 @@ import yaml
 from loguru import logger
 from pydantic import BaseModel, Field
 
+from src.config.models import PortfoliosConfig
+
 
 class UniverseConfig(BaseModel):
     """Ticker universe configuration."""
@@ -46,6 +48,25 @@ class Config(BaseModel):
 
     universe: UniverseConfig
     settings: AppSettings
+    portfolios: PortfoliosConfig | None = Field(
+        default=None, description="Portfolio configurations"
+    )
+
+    @property
+    def all_tickers(self) -> list[str]:
+        """Merged ticker list: universe + portfolios.
+
+        Automatically includes tickers from portfolio definitions to ensure
+        ETL pipeline fetches all necessary data.
+        """
+        # Start with universe tickers
+        tickers = set(self.universe.all_tickers)
+
+        # Add portfolio tickers if portfolios config exists
+        if self.portfolios:
+            tickers.update(self.portfolios.all_tickers)
+
+        return sorted(list(tickers))
 
 
 def load_config(config_path: Path = Path("config.yaml")) -> Config:
@@ -69,7 +90,21 @@ def load_config(config_path: Path = Path("config.yaml")) -> Config:
     with config_path.open("r") as f:
         raw_config: dict[str, Any] = yaml.safe_load(f)
 
+    # Load portfolios config if it exists
+    portfolios_path = Path("portfolios.yaml")
+    portfolios_config = None
+
+    if portfolios_path.exists():
+        logger.info(f"Loading portfolios from {portfolios_path}")
+        with portfolios_path.open("r") as f:
+            portfolios_raw: dict[str, Any] = yaml.safe_load(f)
+            portfolios_config = PortfoliosConfig(**portfolios_raw)
+            logger.debug(f"Loaded {len(portfolios_config.portfolios)} portfolios")
+
+    # Merge into main config
+    raw_config["portfolios"] = portfolios_config
+
     config = Config(**raw_config)
-    logger.debug(f"Loaded {len(config.universe.all_tickers)} tickers from config")
+    logger.debug(f"Total tickers (universe + portfolios): {len(config.all_tickers)}")
 
     return config
