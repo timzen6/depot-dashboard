@@ -247,7 +247,7 @@ class MetricsEngine:
             .select(["ticker", "date", eps_col])
         )
 
-        df_combined = df_prices.join_asof(
+        df_combined = df_prices.sort(["ticker", "date"]).join_asof(
             q_fund,
             on="date",
             by="ticker",

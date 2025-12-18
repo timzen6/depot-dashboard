@@ -1,3 +1,6 @@
+BASE_BRANCH ?= origin/main
+EXCLUDES := ':!uv.lock' ':!*.pyc' ':!data/*' ':!llm_inputs/*'
+
 .PHONY: pc etl snapshot restore test app help
 
 help:
@@ -32,11 +35,14 @@ pr-diff: pc
 		START_POINT=$$(git merge-base $(BASE_BRANCH) HEAD); \
 		echo "# PR Context Report"; \
 		echo "Generated on: $$(date)"; \
-		echo "\n## 1. Commit History (unique to Branch)"; \
+		echo ""; \
+		echo "## 1. Commit History (unique to Branch)"; \
 		git log --format="- %s" $$START_POINT..HEAD; \
-		echo "\n## 2. Code Change Stats (unique to Branch)"; \
+		echo ""; \
+		echo "## 2. Code Change Stats (unique to Branch)"; \
 		git diff --stat $$START_POINT..HEAD -- . $(EXCLUDES); \
-		echo "\n## 3. Code Diff (unique to Branch)"; \
+		echo ""; \
+		echo "## 3. Code Diff (unique to Branch)"; \
 		git diff $$START_POINT..HEAD -- . $(EXCLUDES); \
 	} > llm_inputs/pr_context_report.txt
 	@cat llm_inputs/pr_context_report.txt | pbcopy

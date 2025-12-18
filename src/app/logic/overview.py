@@ -24,7 +24,6 @@ def get_portfolio_performance(
     logger.info(f"Calculating performance for portfolio '{portfolio.name}'")
 
     df_history_raw = portfolio_engine.calculate_portfolio_history(portfolio, df_prices, fx_engine)
-    print(df_history_raw.head())  # Debug print
 
     df_history_target_currency = fx_engine.convert_to_target(
         df_history_raw,

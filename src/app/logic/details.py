@@ -32,8 +32,8 @@ class StockDetailsLogic:
         last_two_days = stock.prices.tail(2)
         change_pct = None
         if last_two_days.height == 2:
-            prev_close = last_two_days["close"][0]
-            curr_close = last_two_days["close"][1]
+            prev_close = last_two_days.get_column("close").item(0)
+            curr_close = last_two_days.get_column("close").item(1)
             if prev_close > 0 and curr_close > 0:
                 change_pct = ((curr_close - prev_close) / prev_close) * 100
 
