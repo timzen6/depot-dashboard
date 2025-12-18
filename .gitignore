@@ -216,3 +216,5 @@ data/production/*
 
 # Streamlit
 .streamlit/secrets.toml
+
+playground
