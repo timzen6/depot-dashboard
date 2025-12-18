@@ -5,6 +5,39 @@ Pure rendering functions for reusable Streamlit widgets.
 
 import streamlit as st
 
+from src.config.models import Portfolio
+
+
+def portfolio_selection(
+    portfolios: list[Portfolio],
+    on_sidebar: bool = True,
+    allow_none: bool = False,
+) -> Portfolio | None:
+    """Render a portfolio selection dropdown in the sidebar.
+
+    Args:
+        portfolios: List of Portfolio objects to choose from
+
+    Returns:
+        Selected Portfolio object or None if no selection
+    """
+    portfolio_options: dict[str, Portfolio | None] = {p.ui_name: p for p in portfolios}
+    if allow_none:
+        portfolio_options = {"-- None --": None, **portfolio_options}
+    if on_sidebar:
+        selected_ui_name = st.sidebar.selectbox(
+            "Select Portfolio",
+            options=list(portfolio_options.keys()),
+            index=0,
+        )
+    else:
+        selected_ui_name = st.selectbox(
+            "Select Portfolio",
+            options=list(portfolio_options.keys()),
+            index=0,
+        )
+    return portfolio_options.get(selected_ui_name)
+
 
 def render_kpi_cards(metrics: dict[str, float | str]) -> None:
     """Render key performance indicators as metric cards.

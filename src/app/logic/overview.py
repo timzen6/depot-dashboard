@@ -4,7 +4,6 @@ Handles portfolio performance calculations and KPI aggregation.
 """
 
 from datetime import timedelta
-from pathlib import Path
 
 import polars as pl
 from loguru import logger
@@ -12,52 +11,28 @@ from loguru import logger
 from src.analysis.fx import FXEngine
 from src.analysis.portfolio import PortfolioEngine
 from src.config.models import Portfolio
-from src.config.settings import load_config
 
 
 def get_portfolio_performance(
-    portfolio_id: str,
+    portfolio: Portfolio,
     df_prices: pl.DataFrame,
-    config_path: Path = Path("config.yaml"),
+    fx_engine: FXEngine,
+    portfolio_engine: PortfolioEngine,
 ) -> pl.DataFrame:
-    """Calculate historical performance for a specific portfolio.
+    """Calculate historical performance for a specific portfolio."""
 
-    Args:
-        portfolio_id: Portfolio identifier from configuration
-        df_prices: Price data with valuation metrics
-        config_path: Path to configuration file
+    logger.info(f"Calculating performance for portfolio '{portfolio.name}'")
 
-    Returns:
-        DataFrame with daily portfolio values and performance metrics
+    df_history_raw = portfolio_engine.calculate_portfolio_history(portfolio, df_prices, fx_engine)
+    print(df_history_raw.head())  # Debug print
 
-    Raises:
-        ValueError: If portfolio_id not found in configuration
-    """
-    config = load_config(config_path)
-
-    if not config.portfolios:
-        raise ValueError("No portfolios configured in portfolios.yaml")
-
-    # Find portfolio by name
-    portfolio = config.portfolios.portfolios.get(portfolio_id)
-
-    if portfolio is None:
-        available = list(config.portfolios.portfolios.keys()) if config.portfolios else []
-        raise ValueError(f"Portfolio '{portfolio_id}' not found. Available: {available}")
-
-    logger.info(f"Calculating performance for portfolio '{portfolio_id}'")
-
-    engine = PortfolioEngine()
-    fx_engine = FXEngine(df_prices, target_currency="EUR")
-    df_history_raw = engine.calculate_portfolio_history(portfolio, df_prices, fx_engine)
-
-    df_history_eur = fx_engine.convert_to_target(
+    df_history_target_currency = fx_engine.convert_to_target(
         df_history_raw,
         amount_col="position_value",
         source_currency_col="currency",
     )
 
-    return df_history_eur
+    return df_history_target_currency
 
 
 def filter_days_with_incomplete_tickers(df_history: pl.DataFrame) -> pl.DataFrame:
@@ -126,7 +101,7 @@ def get_portfolio_kpis(df_history: pl.DataFrame) -> dict[str, float | str]:
     # Year-over-year return (last 365 days)
     one_year_ago = latest_date - timedelta(days=365) or latest_date
 
-    df_yoy = df_daily.filter(pl.col("date") >= one_year_ago)
+    df_yoy = df_daily.filter(pl.col("date") >= one_year_ago).sort("date")
     if df_yoy.height > 0:
         yoy_start = df_yoy.select(pl.first("total_value")).item()
         yoy_return_pct = ((current_value - yoy_start) / yoy_start * 100) if yoy_start else 0.0
@@ -143,16 +118,57 @@ def get_portfolio_kpis(df_history: pl.DataFrame) -> dict[str, float | str]:
     }
 
 
-def get_all_portfolios() -> dict[str, Portfolio]:
-    """Load all configured portfolios.
+def get_market_snapshot(
+    df_prices: pl.DataFrame,
+    df_fundamentals: pl.DataFrame,
+    tickers: list[str] | None = None,
+) -> pl.DataFrame:
+    if tickers is not None:
+        df_prices = df_prices.filter(pl.col("ticker").is_in(tickers))
+        df_fundamentals = df_fundamentals.filter(pl.col("ticker").is_in(tickers))
+    latest_prices = (
+        df_prices.sort("date")
+        .group_by("ticker")
+        .last()
+        .rename({"close": "latest_price", "date": "price_date"})
+        .with_columns(
+            # market cap in billion euros
+            (pl.col("adj_close") * pl.col("diluted_average_shares") / 1_000_000_000).alias(
+                "market_cap_b_eur"
+            )
+        )
+    )
+    duplicate_columns = [
+        col for col in df_fundamentals.columns if col in latest_prices.columns and col != "ticker"
+    ]
 
-    Returns:
-        Dict of Portfolio objects from configuration
-    """
-    config = load_config()
+    latest_fundamentals = (
+        df_fundamentals.sort("date")
+        .group_by("ticker")
+        .last()
+        .rename({"date": "fundamentals_date"})
+        .drop(duplicate_columns)
+    )
 
-    if not config.portfolios:
-        logger.warning("No portfolios configured")
-        return {}
+    percentage_cols = ["fcf_yield", "roce", "gross_margin", "revenue_growth"]
+    percent_transforms = [(pl.col(col) * 100).alias(col) for col in percentage_cols]
 
-    return config.portfolios.portfolios
+    snapshot = (
+        latest_prices.join(latest_fundamentals, on="ticker", how="left")
+        .select(
+            [
+                "ticker",
+                "latest_price",
+                "market_cap_b_eur",
+                "pe_ratio",
+                "fcf_yield",
+                "roce",
+                "gross_margin",
+                "revenue_growth",
+                "net_debt_to_ebit",
+            ]
+        )
+        .with_columns(percent_transforms)
+    )
+
+    return snapshot

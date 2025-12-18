@@ -10,20 +10,23 @@ from loguru import logger
 from src.analysis.fx import FXEngine
 from src.app.logic.data_loader import GlobalDataLoader
 from src.app.logic.stock_detail import (
-    filter_data_by_date_range,
-    get_available_tickers,
-    get_ticker_data,
-    get_ticker_fundamentals,
+    get_all_tickers,
 )
-from src.app.views.common import render_empty_state, render_sidebar_header
+from src.app.views.common import (
+    portfolio_selection,
+    render_empty_state,
+    render_sidebar_header,
+)
 from src.app.views.stock_detail import (
-    render_fundamental_chart,
-    render_price_chart,
-)
-from src.app.views.stock_detail.charts import (
+    render_growth_data,
+    render_health_data,
     render_latest_price_info,
-    render_quality_metrics_data,
+    render_pe_ratio_chart,
+    render_price_chart,
+    render_quality_data,
+    render_valuation_data,
 )
+from src.core.stock_data import StockData
 
 # Page config
 st.set_page_config(
@@ -42,28 +45,18 @@ try:
 except Exception as e:
     st.error(f"Failed to load data: {e}")
     logger.error(f"Data loading error: {e}", exc_info=True)
-    st.stop()
-
+    raise e
 # Get available tickers
 if df_prices.is_empty():
     render_empty_state("No price data available")
     st.stop()
 
-
-portfolio_name_dict = (
-    {p.ui_name: p.name for p in loader.config.portfolios.portfolios.values()}
-    if loader.config.portfolios
-    else {}
+selected_portfolio = portfolio_selection(
+    (list(loader.config.portfolios.portfolios.values()) if loader.config.portfolios else []),
+    allow_none=True,
+    on_sidebar=True,
 )
-
-# Ticker selector
-selected_portfolio_name = st.sidebar.selectbox(
-    "Select Portfolio (optional)",
-    options=["All"] + list(portfolio_name_dict.keys()),
-    index=0,
-)
-selected_portfolio = portfolio_name_dict.get(selected_portfolio_name, None)
-tickers = get_available_tickers(selected_portfolio)
+tickers = selected_portfolio.tickers if selected_portfolio else get_all_tickers()
 if not tickers:
     render_empty_state("No tickers found in dataset")
     st.stop()
@@ -94,52 +87,50 @@ st.title(f"🔍 {selected_ticker}")
 
 try:
     # Load ticker data
-    df_ticker_prices = get_ticker_data(selected_ticker, df_prices)
-    df_ticker_fund = get_ticker_fundamentals(selected_ticker, df_fund)
+    stock_data = StockData.from_dataset(selected_ticker, df_prices, df_fund)
     fx_engine = FXEngine(df_prices, target_currency="EUR")
 
-    try:
-        result = filter_data_by_date_range(
-            df_ticker_prices,
-            df_ticker_fund,
-            start_date=date_range[0],
-            end_date=date_range[1],
-        )
-        df_ticker_prices = result[0]
-        df_ticker_fund = result[1]
-    except ValueError as ve:
-        logger.error(f"Date range error: {ve}")
+    filtered_stock_data = stock_data.filter_date_range(
+        start_date=date_range[0],
+        end_date=date_range[1],
+    )
 
-    if df_ticker_prices.is_empty():
+    if filtered_stock_data.is_empty:
         render_empty_state(f"No data available for {selected_ticker}")
         st.stop()
 
     # Create tabs for different analyses
-    st.subheader("Price History")
-    render_latest_price_info(df_ticker_prices, selected_ticker, fx_engine)
-    tab1, tab2 = st.tabs(["Simple Chart", "Analyst Style Chart"])
+    st.subheader("📈 Price History")
+    render_latest_price_info(filtered_stock_data.prices, fx_engine)
+    tab1, tab2, tab3 = st.tabs(["Simple Chart", "Analyst Style Chart", "PE Ratio Chart"])
     with tab1:
         render_price_chart(
-            df_ticker_prices,
+            filtered_stock_data.prices,
             selected_ticker,
             simple_display_mode=True,
         )
     with tab2:
         render_price_chart(
-            df_ticker_prices,
+            filtered_stock_data.prices,
             selected_ticker,
             simple_display_mode=False,
         )
+    with tab3:
+        render_pe_ratio_chart(
+            filtered_stock_data.prices,
+            selected_ticker,
+        )
 
-    # Show latest price info
-    render_quality_metrics_data(df_ticker_fund, df_ticker_prices)
-
-    st.subheader("Quality Metrics")
-    if df_ticker_fund.is_empty():
+    if filtered_stock_data.fundamentals.is_empty():
         st.info("No fundamental data available for this ticker")
-    else:
-        render_fundamental_chart(df_ticker_fund, selected_ticker)
+        st.stop()
 
+    # Valuation Metrics
+    render_valuation_data(stock_data)
+    # Quality
+    render_quality_data(stock_data)
+    render_growth_data(stock_data)
+    render_health_data(stock_data)
 except Exception as e:
     st.error(f"Error loading stock data: {e}")
     logger.error(f"Stock detail error: {e}", exc_info=True)

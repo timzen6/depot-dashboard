@@ -1,6 +1,7 @@
 universe:
   stocks:
     # US Stocks
+    - AAPL
     - MSFT
     - SPGI
     - GOOG
@@ -28,11 +29,6 @@ universe:
     - EURJPY=X
     - EURDKK=X
     - EURSEK=X
-    - CHFEUR=X
-    - DKKEUR=X
-    - SEKEUR=X
-    - JPYEUR=X
-    - BTC-EUR
     # ETFs (via Xetra in EUR)
     - EUNL.DE  # iShares Core MSCI World
     - M7U.DE

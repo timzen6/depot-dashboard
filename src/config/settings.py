@@ -68,6 +68,22 @@ class Config(BaseModel):
 
         return sorted(list(tickers))
 
+    @property
+    def all_stock_tickers(self) -> list[str]:
+        """Merged stock ticker list: universe stocks + portfolio stocks.
+
+        Automatically includes stock tickers from portfolio definitions to ensure
+        ETL pipeline fetches all necessary fundamental data.
+        """
+        # Start with universe stock tickers
+        tickers = set(self.universe.stocks)
+
+        # Add portfolio stock tickers if portfolios config exists
+        if self.portfolios:
+            tickers.update(self.portfolios.all_tickers_filtered(filter_type="stock"))
+
+        return sorted(list(tickers))
+
 
 def load_config(config_path: Path = Path("config.yaml")) -> Config:
     """Load configuration from YAML file.

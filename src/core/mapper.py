@@ -115,33 +115,64 @@ def map_fundamentals_to_domain(
                 period_type=report_type,
                 currency=currency,
                 # Income Statement
-                revenue=_safe_float(row, ["total revenue", "revenue"]),
-                gross_profit=_safe_float(row, ["gross profit"]),
-                ebit=_safe_float(row, ["ebit", "earnings before interest and tax"]),
-                net_income=_safe_float(row, ["net income", "net income common stockholders"]),
+                revenue=_safe_float(row, ["total revenue", "revenue", "operating revenue"]),
+                gross_profit=_safe_float(row, ["gross profit", "gross income"]),
+                ebit=_safe_float(
+                    row,
+                    [
+                        "ebit",
+                        "earnings before interest and tax",
+                        "operating income",
+                        "operating profit",
+                    ],
+                ),
+                net_income=_safe_float(
+                    row,
+                    [
+                        "net income",
+                        "net income common stockholders",
+                        "net income from continuing operations",
+                    ],
+                ),
                 tax_provision=_safe_float(
                     row,
                     [
                         "tax provision",
+                        "tax expense",
                         "income tax expense",
                         "provision for income taxes",
                     ],
                 ),
-                diluted_eps=_safe_float(row, ["diluted eps", "diluted earnings per share"]),
+                diluted_eps=_safe_float(
+                    row,
+                    [
+                        "diluted eps",
+                        "diluted earnings per share",
+                        "earnings per share diluted",
+                    ],
+                ),
                 basic_eps=_safe_float(row, ["basic eps", "basic earnings per share"]),
                 # Cash Flow
                 operating_cash_flow=_safe_float(
                     row, ["operating cash flow", "total cash from operating activities"]
                 ),
                 capital_expenditure=_safe_float(
-                    row, ["capital expenditure", "capital expenditures"]
+                    row,
+                    [
+                        "capital expenditure",
+                        "capital expenditures",
+                        "purchase of property, plant and equipment",
+                        "purchase of ppe",
+                    ],
                 ),
                 free_cash_flow=_safe_float(row, ["free cash flow"]),
                 # Shares
                 basic_average_shares=_safe_float(
                     row, ["basic average shares", "ordinary shares number"]
                 ),
-                diluted_average_shares=_safe_float(row, ["diluted average shares"]),
+                diluted_average_shares=_safe_float(
+                    row, ["diluted average shares", "ordinary shares number"]
+                ),
                 # Balance Sheet
                 total_assets=_safe_float(row, ["total assets"]),
                 total_current_liabilities=_safe_float(
@@ -149,9 +180,21 @@ def map_fundamentals_to_domain(
                 ),
                 total_equity=_safe_float(
                     row,
-                    ["total equity", "stockholders equity", "total stockholder equity"],
+                    [
+                        "total equity",
+                        "stockholders equity",
+                        "total stockholder equity",
+                        "total equity and gross minority interest",
+                    ],
                 ),
-                long_term_debt=_safe_float(row, ["long term debt", "long-term debt"]),
+                long_term_debt=_safe_float(
+                    row,
+                    [
+                        "long term debt",
+                        "long-term debt",
+                        "long term debt and capital lease obligations",
+                    ],
+                ),
                 cash_and_equivalents=_safe_float(row, ["cash and cash equivalents", "cash"]),
             )
 
@@ -169,19 +212,28 @@ def map_fundamentals_to_domain(
 def _safe_float(row: pd.Series, keys: list[str]) -> float | None:
     """
     Extract numeric value from pandas Series using multiple possible keys.
+    Due to variations in yfinance column names, we try several options.
+    The matching is case-insensitive and ignores leading/trailing whitespace.
 
     Args:
         row: pandas Series (one row from transposed DataFrame)
-        keys: List of possible column names to try
+        keys: List of possible column names to try (case-insensitive)
 
     Returns:
         Float value if found and valid, None otherwise
     """
+    # Create lowercase index for case-insensitive lookup
+    lookup_map = {idx.strip().lower(): idx for idx in row.index if isinstance(idx, str)}
+
     for key in keys:
-        if key in row.index:
-            value = row[key]
+        key_clean = key.strip().lower()
+        if key_clean in lookup_map:
+            original_key = lookup_map[key_clean]
+            value = row[original_key]
             if pd.notna(value):
                 try:
+                    if isinstance(value, str):
+                        return float(value.replace(",", ""))
                     return float(value)
                 except (ValueError, TypeError):
                     continue

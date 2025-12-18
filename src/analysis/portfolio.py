@@ -35,6 +35,7 @@ class PortfolioEngine:
         """
         logger.info(
             f"Calculating history for portfolio '{portfolio.name}' ({portfolio.type.value})"
+            f" Tickers: {portfolio.tickers}"
         )
 
         # Filter to portfolio tickers
