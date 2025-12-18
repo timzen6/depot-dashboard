@@ -62,6 +62,15 @@ def _calculate_metrics(
     """
     if not fundamentals.is_empty():
         fundamentals = metrics_engine.calculate_fundamental_metrics(fundamentals)
+        fundamentals = metrics_engine.calculate_growth_metrics(
+            fundamentals,
+            metric_columns=[
+                "revenue",
+                "net_income",
+                "diluted_eps",
+                "basic_eps",
+            ],
+        )
 
     # Enrich prices with valuation metrics if we have both datasets
     if not prices.is_empty() and not fundamentals.is_empty():

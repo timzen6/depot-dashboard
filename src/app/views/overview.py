@@ -24,7 +24,7 @@ def render_portfolio_chart(df_history: pl.DataFrame) -> None:
     df_plot = (
         df_history.pipe(filter_days_with_incomplete_tickers)
         .group_by("date")
-        .agg(pl.sum("position_value").alias("total_value"))
+        .agg(pl.sum("position_value_EUR").alias("total_value"))
         .sort("date")
     )
 
@@ -94,9 +94,18 @@ def render_positions_table(df_history: pl.DataFrame, portfolio_name: str) -> Non
         df_display,
         column_config={
             "ticker": "Ticker",
-            "position_value": "Value (Original Currency)",
-            "position_value_EUR": "Value (EUR)",
-            "weight_pct": "Weight",
+            "position_value": st.column_config.NumberColumn(
+                "Value (Original Currency)",
+                format="%.0f",
+            ),
+            "position_value_EUR": st.column_config.NumberColumn(
+                "Value (EUR)",
+                format="%.0f",
+            ),
+            "weight_pct": st.column_config.NumberColumn(
+                "Weight",
+                format="%.1f %%",
+            ),
             "currency": "Currency",
         },
         hide_index=True,

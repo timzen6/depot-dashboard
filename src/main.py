@@ -34,15 +34,16 @@ def cmd_etl(args: argparse.Namespace) -> None:
     extractor = DataExtractor()
 
     # Run price updates for ALL tickers (universe + portfolios)
-    logger.info(f"Updating prices for {len(config.all_tickers)} tickers (universe + portfolios)")
+    total_tickers = config.all_tickers
+    logger.info(f"Updating prices for {len(total_tickers)} tickers (universe + portfolios)")
     price_pipeline = ETLPipeline(prices_storage, extractor)
-    price_pipeline.run_price_update(config.all_tickers)
+    price_pipeline.run_price_update(total_tickers)
 
     # Run fundamental updates only for stocks (not FX/crypto)
-    logger.info(f"Updating fundamentals for {len(config.universe.stocks)} stocks")
+    stock_tickers = config.all_stock_tickers
+    logger.info(f"Updating fundamentals for {len(stock_tickers)} stocks")
     fundamental_pipeline = ETLPipeline(fundamentals_storage, extractor)
-    fundamental_pipeline.run_fundamental_update(config.universe.stocks)
-
+    fundamental_pipeline.run_fundamental_update(stock_tickers)
     logger.success("✅ ETL Pipeline completed successfully")
 
 

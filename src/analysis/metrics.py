@@ -49,6 +49,7 @@ class MetricsEngine:
         )
 
         expr_list = []
+        derived_expr_list = []
 
         # ROCE = EBIT / Capital Employed (handle division by zero)
         expr_list.append((pl.col("ebit") / pl.col("capital_employed")).fill_nan(None).alias("roce"))
@@ -67,6 +68,17 @@ class MetricsEngine:
         expr_list.append(
             (pl.col("long_term_debt") - pl.col("cash_and_equivalents")).alias("net_debt")
         )
+        # Net Debt / EBITDA (using EBIT as proxy)
+        if "ebit" in cols_available:
+            derived_expr_list.append(
+                (pl.col("net_debt") / pl.col("ebit")).fill_nan(None).alias("net_debt_to_ebit")
+            )
+        # cash conversion ratio
+        expr_list.append(
+            (pl.col("free_cash_flow") / pl.col("net_income"))
+            .fill_nan(None)
+            .alias("cash_conversion_ratio")
+        )
 
         # Interest Coverage = EBIT / Interest Expense (conditional)
         if "interest_expense" in cols_available:
@@ -79,7 +91,15 @@ class MetricsEngine:
         else:
             logger.debug("interest_expense not available, skipping interest_coverage")
 
-        result = fundamental_metrics.with_columns(expr_list)
+        # gross margin
+        expr_list.append(
+            (pl.col("gross_profit") / pl.col("revenue")).fill_nan(None).alias("gross_margin")
+        )
+
+        # ebit margin
+        expr_list.append((pl.col("ebit") / pl.col("revenue")).fill_nan(None).alias("ebit_margin"))
+
+        result = fundamental_metrics.with_columns(expr_list).with_columns(derived_expr_list)
 
         logger.info(f"Added {len(expr_list)} fundamental metrics")
         return result
@@ -162,10 +182,17 @@ class MetricsEngine:
                     .alias("fcf_yield")
                 )
 
-        # Net Debt / EBITDA (using EBIT as proxy)
-        if "net_debt" in df_merged.columns and "ebit" in df_merged.columns:
+        # PE Ratio = Price / EPS
+        eps_col = (
+            "diluted_eps"
+            if "diluted_eps" in df_merged.columns
+            else "basic_eps"
+            if "basic_eps" in df_merged.columns
+            else None
+        )
+        if eps_col is not None:
             valuation_cols.append(
-                (pl.col("net_debt") / pl.col("ebit")).fill_nan(None).alias("net_debt_ebitda")
+                (pl.col("close") / pl.col(eps_col)).fill_nan(None).alias("pe_ratio")
             )
 
         result = df_merged.with_columns(intermediate_cols).with_columns(valuation_cols)
@@ -184,6 +211,14 @@ class MetricsEngine:
         years: int = 5,
     ) -> pl.DataFrame:
         """Calculate fair value history based on historical fundamentals.
+        At the moment this uses a simple PE ratio based approach.
+        Due to the limited data available, this is a simplified model.
+
+        General Approach:
+        1. For each ticker, determine the median PE ratio over the past `years` years
+           where EPS > 0 and PE < 150 to avoid outliers.
+        2. For each date in price history, find the most recent fundamental report
+           and use its EPS to calculate fair value = EPS * median PE.
 
         Args:
             df_prices: Daily price data with columns: ticker, date, close.
@@ -212,40 +247,52 @@ class MetricsEngine:
             .select(["ticker", "date", eps_col])
         )
 
-        start_date = df_prices["date"].max() - pl.duration(days=years * 365)
-
-        df_p = df_prices.filter(pl.col("date") >= start_date).sort("date")
-
-        df_combined = df_p.join_asof(
+        df_combined = df_prices.sort(["ticker", "date"]).join_asof(
             q_fund,
             on="date",
             by="ticker",
             strategy="backward",
         )
-        logger.info(f"Calculating fair value history since {start_date}")
+        start_date_limit = df_prices["date"].max() - pl.duration(days=years * 365)
 
-        df_combined = df_combined.with_columns(
-            # P/E Ratio
-            (pl.col("close") / pl.col(eps_col)).alias("pe_ratio"),
-        ).filter((pl.col("diluted_eps").gt(0)) & (pl.col("pe_ratio").lt(150)))
-
-        if df_combined.is_empty():
-            logger.warning("No data available after filtering for fair value calculation")
+        df_combined_filter = df_combined.filter(pl.col("date") >= start_date_limit)
+        if df_combined_filter.is_empty():
             return df_prices
-        pe_median = (
-            df_combined.group_by("ticker")
-            .agg(pl.col("pe_ratio").median().alias("median_pe"))
-            .select(["ticker", "median_pe"])
+
+        pe_stats = (
+            df_combined_filter.filter(pl.col(eps_col).gt(0))
+            .with_columns((pl.col("close") / pl.col(eps_col)).alias("pe_temp"))
+            .filter(pl.col("pe_temp").lt(150))
         )
+        if pe_stats.is_empty():
+            return df_prices
 
-        df_fair_value = (
-            df_combined.join(pe_median, on="ticker")
-            .with_columns((pl.col("diluted_eps") * pl.col("median_pe")).alias("fair_value"))
-            .select(["ticker", "date", "fair_value"])
+        pe_median = pe_stats.group_by("ticker").agg(pl.col("pe_temp").median().alias("median_pe"))
+
+        result = (
+            df_combined.join(pe_median, on="ticker", how="left")
+            .with_columns((pl.col(eps_col) * pl.col("median_pe")).alias("fair_value"))
+            .drop(["median_pe"])
         )
-
-        # Join fair_value back to original prices
-        result = df_prices.join(df_fair_value, on=["ticker", "date"], how="left")
-
-        logger.info(f"Added fair_value column to {result.height} price records")
         return result
+
+    def calculate_growth_metrics(
+        self,
+        df_fundamentals: pl.DataFrame,
+        metric_columns: list[str],
+        period: int = 1,
+    ) -> pl.DataFrame:
+        """Calculate period-over-period growth rates for specified metrics.
+
+        Computes g(i) = v(i) / v(i-period) for each ticker separately.
+        Sorts data by ticker and date to ensure correct temporal ordering.
+        """
+        # Sort by ticker and date to ensure shift operates on correct temporal order
+        df_sorted = df_fundamentals.sort(["ticker", "date"])
+
+        growth_cols = [
+            (((pl.col(c) / pl.col(c).shift(period)) - 1).over("ticker")).alias(f"{c}_growth")
+            for c in metric_columns
+        ]
+
+        return df_sorted.with_columns(growth_cols)

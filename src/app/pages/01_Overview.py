@@ -7,13 +7,16 @@ Shows portfolio performance and current positions.
 import streamlit as st
 from loguru import logger
 
+from src.analysis.fx import FXEngine
+from src.analysis.portfolio import PortfolioEngine
 from src.app.logic.data_loader import GlobalDataLoader
 from src.app.logic.overview import (
-    get_all_portfolios,
+    get_market_snapshot,
     get_portfolio_kpis,
     get_portfolio_performance,
 )
 from src.app.views.common import (
+    portfolio_selection,
     render_empty_state,
     render_kpi_cards,
     render_sidebar_header,
@@ -41,54 +44,54 @@ try:
 except Exception as e:
     st.error(f"Failed to load data: {e}")
     logger.error(f"Data loading error: {e}", exc_info=True)
-    st.stop()
+    raise e
 
+portfolios_config = loader.config.portfolios
 # Get available portfolios
-portfolios = get_all_portfolios()
+if portfolios_config is None:
+    render_empty_state("No portfolios configured. Please add portfolios to portfolios.yaml")
+    st.stop()
+assert portfolios_config is not None  # Type narrowing for mypy
+
+portfolios = portfolios_config.portfolios
+if portfolios is None:
+    st.error("No portfolios found in configuration")
+    st.stop()
+assert portfolios is not None  # Type narrowing for mypy
+
+
+fx_engine = FXEngine(df_prices=df_prices, target_currency="EUR")
+portfolio_engine = PortfolioEngine()
 
 if not portfolios:
     render_empty_state("No portfolios configured. Please add portfolios to portfolios.yaml")
     st.stop()
 
-# Portfolio selector
-# Build mapping: UI name -> portfolio ID
-ui_name_to_id = {p.ui_name: pid for pid, p in portfolios.items()}
-ui_names = list(ui_name_to_id.keys())
-
-selected_ui_name = st.sidebar.selectbox(
-    "Select Portfolio",
-    options=ui_names,
-    index=0,
-)
-
-# Get portfolio ID from UI name selection
-selected_portfolio_id = ui_name_to_id[selected_ui_name]
-
-
-# Display portfolio info
-selected = portfolios.get(selected_portfolio_id)
-if selected is None:
-    st.error(f"Portfolio '{selected_portfolio_id}' not found")
+selected_portfolio = portfolio_selection(portfolios=list(portfolios.values()), on_sidebar=True)
+if selected_portfolio is None:
+    st.error("No portfolio selected")
     st.stop()
 
-assert selected is not None  # Type narrowing for mypy
+assert selected_portfolio is not None  # Type narrowing for mypy
 
 st.sidebar.info(
-    f"**Type:** {selected.type.value.title()}\n\n"
-    f"**Positions:** {len(selected.positions)}\n\n"
-    f"**Start Date:** {selected.start_date or 'N/A'}"
+    f"**Type:** {selected_portfolio.type.value.title()}\n\n"
+    f"**Positions:** {len(selected_portfolio.positions)}\n\n"
+    f"**Start Date:** {selected_portfolio.start_date or 'N/A'}"
 )
 
 # Main content
-st.title(f"📊 {selected.ui_name}")
+st.title(f"📊 {selected_portfolio.ui_name}")
 
 try:
     # Get portfolio performance
-    df_history = get_portfolio_performance(selected_portfolio_id, df_prices)
+    df_history = get_portfolio_performance(
+        selected_portfolio, df_prices, fx_engine, portfolio_engine
+    )
 
     if df_history.is_empty():
         render_empty_state(
-            f"No price data available for {selected.ui_name} positions",
+            f"No price data available for {selected_portfolio.ui_name} positions",
             icon="⚠️",
         )
         st.stop()
@@ -113,7 +116,32 @@ try:
     st.divider()
 
     # Positions table
-    render_positions_table(df_history, selected_ui_name)
+    render_positions_table(df_history, selected_portfolio.display_name or selected_portfolio.name)
+    # Market snapshot
+    snapshot = get_market_snapshot(df_prices, df_fund, selected_portfolio.tickers)
+    st.subheader("📋 Market Fundamentals")
+    st.dataframe(
+        snapshot,
+        column_order=[
+            "ticker",
+            "market_cap_b_eur",
+            "pe_ratio",
+            "fcf_yield",
+            "roce",
+            "gross_margin",
+            "revenue_growth",
+            "net_debt_to_ebit",
+        ],
+        column_config={
+            "market_cap_b_eur": st.column_config.NumberColumn("Market Cap 💶", format="%.1f B€"),
+            "pe_ratio": st.column_config.NumberColumn("P/E 💰", format="%.1f"),
+            "fcf_yield": st.column_config.NumberColumn("FCF Yield 💰", format="%.2f%%"),
+            "gross_margin": st.column_config.NumberColumn("Gross Margin 💎", format="%.1f%%"),
+            "roce": st.column_config.NumberColumn("ROCE 💎", format="%.1f%%"),
+            "revenue_growth": st.column_config.NumberColumn("Revenue Growth 🚀", format="%.1f%%"),
+            "net_debt_to_ebit": st.column_config.NumberColumn("🏥 Debt/EBIT 🏥", format="%.1fx"),
+        },
+    )
 
 except Exception as e:
     st.error(f"Error calculating portfolio performance: {e}")

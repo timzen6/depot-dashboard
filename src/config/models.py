@@ -2,7 +2,7 @@
 
 from datetime import date as date_type
 from enum import Enum
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, ValidationInfo, field_validator
 
@@ -25,6 +25,17 @@ class Position(BaseModel):
     shares: float | None = Field(
         default=None, description="Number of shares (for absolute portfolios)"
     )
+    type: Literal["stock", "etf", "fund", "bond"] = Field(
+        default="stock", description="Type of asset"
+    )
+
+    @field_validator("type")
+    @classmethod
+    def validate_type(cls, v: str) -> str:
+        """Validate the type of asset."""
+        if v not in {"stock", "etf", "fund", "bond"}:
+            raise ValueError("Type must be one of: stock, etf, fund, bond")
+        return v
 
     @field_validator("weight")
     @classmethod
@@ -56,6 +67,21 @@ class Portfolio(BaseModel):
         default=None, description="Starting capital (for weighted portfolios)"
     )
     positions: list[Position] = Field(description="List of positions")
+
+    @property
+    def tickers(
+        self,
+    ) -> list[str]:
+        """Extract all tickers from positions, optionally filtered by type."""
+        return self.tickers_filtered(filter_type=None)
+
+    def tickers_filtered(
+        self, filter_type: Literal["stock", "etf", "fund", "bond"] | None
+    ) -> list[str]:
+        """Extract unique tickers from positions filtered by type."""
+        if filter_type is None:
+            return list({pos.ticker for pos in self.positions})
+        return list({pos.ticker for pos in self.positions if pos.type == filter_type})
 
     @property
     def ui_name(self) -> str:
@@ -115,11 +141,6 @@ class Portfolio(BaseModel):
             if any(pos.shares is None for pos in self.positions):
                 raise ValueError("All positions must have shares in absolute portfolios")
 
-    @property
-    def tickers(self) -> list[str]:
-        """Extract all tickers from positions."""
-        return [pos.ticker for pos in self.positions]
-
 
 class PortfoliosConfig(BaseModel):
     """Root configuration for portfolios."""
@@ -138,9 +159,16 @@ class PortfoliosConfig(BaseModel):
         return v
 
     @property
-    def all_tickers(self) -> set[str]:
-        """Extract unique tickers across all portfolios."""
+    def all_tickers(
+        self,
+    ) -> list[str]:
+        return self.all_tickers_filtered(filter_type=None)
+
+    def all_tickers_filtered(
+        self, filter_type: Literal["stock", "etf", "fund", "bond"] | None
+    ) -> list[str]:
+        """Extract unique tickers across all portfolios filtered by type."""
         tickers = set()
         for portfolio in self.portfolios.values():
-            tickers.update(portfolio.tickers)
-        return tickers
+            tickers.update(portfolio.tickers_filtered(filter_type=filter_type))
+        return list(tickers)
