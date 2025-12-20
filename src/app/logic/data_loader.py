@@ -4,14 +4,23 @@ Handles loading and enriching price and fundamental data for the UI.
 Uses Streamlit caching to avoid reloading data on every interaction.
 """
 
+from dataclasses import dataclass
 from pathlib import Path
 
 import polars as pl
-import streamlit as st
 from loguru import logger
 
 from src.analysis.metrics import MetricsEngine
 from src.config.settings import load_config
+
+
+@dataclass
+class DashboardData:
+    """Container for dashboard data."""
+
+    prices: pl.DataFrame
+    fundamentals: pl.DataFrame
+    metadata: pl.DataFrame
 
 
 class GlobalDataLoader:
@@ -30,7 +39,7 @@ class GlobalDataLoader:
         self.config = load_config(config_path)
         self.metrics_engine = MetricsEngine()
 
-    def load_data(self) -> tuple[pl.DataFrame, pl.DataFrame]:
+    def load_data(self) -> DashboardData:
         """Load and enrich price and fundamental data.
 
         Loads raw parquet files and calculates derived metrics.
@@ -40,11 +49,20 @@ class GlobalDataLoader:
             Tuple of (prices, fundamentals) DataFrames with calculated metrics
         """
         raw_data = _load_cached_raw_data(
+            self.config.settings.metadata_dir,
             self.config.settings.prices_dir,
             self.config.settings.fundamentals_dir,
         )
 
-        return _calculate_metrics(raw_data[0], raw_data[1], self.metrics_engine)
+        prices, fundamentals = _calculate_metrics(
+            raw_data.prices, raw_data.fundamentals, self.metrics_engine
+        )
+
+        return DashboardData(
+            prices=prices,
+            fundamentals=fundamentals,
+            metadata=raw_data.metadata,
+        )
 
 
 def _calculate_metrics(
@@ -82,11 +100,12 @@ def _calculate_metrics(
     return prices, fundamentals
 
 
-@st.cache_data(ttl=3600, show_spinner="Loading data...")  # type: ignore[misc]
+# @st.cache_data(ttl=3600, show_spinner="Loading data...")  # type: ignore[misc]
 def _load_cached_raw_data(
+    metadata_dir: Path,
     prices_dir: Path,
     fundamentals_dir: Path,
-) -> tuple[pl.DataFrame, pl.DataFrame]:
+) -> DashboardData:
     """Cached helper to load and enrich data.
 
     Separated from class to work cleanly with Streamlit's caching decorator.
@@ -100,6 +119,11 @@ def _load_cached_raw_data(
         Tuple of (prices, fundamentals) DataFrames
     """
     logger.info("Loading price and fundamental data from disk")
+    # Load metadata
+    df_metadata = pl.read_parquet(metadata_dir / "asset_metadata.parquet").with_columns(
+        pl.col("name").str.replace("   I", "").str.strip_chars(" ").alias("name"),
+        pl.col("short_name").str.replace("   I", "").str.strip_chars(" ").alias("short_name"),
+    )
 
     # Load all price files
     price_files = sorted(prices_dir.glob("*.parquet"))
@@ -119,5 +143,8 @@ def _load_cached_raw_data(
         df_fund = pl.concat([pl.read_parquet(f) for f in fund_files], how="vertical_relaxed")
         logger.info(f"Loaded {df_fund.height:,} fundamental records from {len(fund_files)} files")
 
-        # Enrich with calculated fundamental metrics
-    return df_prices, df_fund
+    return DashboardData(
+        prices=df_prices,
+        fundamentals=df_fund,
+        metadata=df_metadata,
+    )

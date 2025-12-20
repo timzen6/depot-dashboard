@@ -23,6 +23,36 @@ class ParquetStorage:
         self.base_path.mkdir(parents=True, exist_ok=True)
         logger.info(f"ParquetStorage initialized at {self.base_path}")
 
+    def atomic_update(self, df: pl.DataFrame, filename: str) -> None:
+        """Update existing parquet file atomically.
+
+        Reads existing data, merges with new data, and writes back atomically.
+        Ensures no duplicates based on 'ticker' column.
+
+        Args:
+            df: New data to merge
+            filename: Target parquet filename
+        """
+        if not filename.endswith(".parquet"):
+            filename += ".parquet"
+
+        target_path = self.base_path / filename
+
+        if target_path.exists():
+            # Read existing data
+            existing_df = pl.read_parquet(target_path)
+            # Combine and deduplicate
+            combined_df = (
+                pl.concat([existing_df, df])
+                .unique(subset=["ticker"], maintain_order=False)
+                .sort("ticker")
+            )
+        else:
+            combined_df = df.sort("ticker")
+
+        # Write combined data atomically
+        self.atomic_write(combined_df, filename)
+
     def atomic_write(self, df: pl.DataFrame, filename: str) -> None:
         """Write DataFrame to parquet with atomic guarantees.
 

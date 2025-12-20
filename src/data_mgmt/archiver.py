@@ -42,8 +42,10 @@ class DataArchiver:
         Raises:
             ValueError: If data_type is invalid or no data found
         """
-        if data_type not in ("prices", "fundamentals"):
-            raise ValueError(f"Invalid data_type: {data_type}. Must be 'prices' or 'fundamentals'")
+        if data_type not in ("prices", "fundamentals", "metadata"):
+            raise ValueError(
+                f"Invalid data_type: {data_type}. Must be 'prices', 'fundamentals', or 'metadata'"
+            )
 
         source_dir = self.base_dir / data_type
         if not source_dir.exists():

@@ -42,6 +42,11 @@ class AppSettings(BaseModel):
         """Directory for fundamental data."""
         return self.base_dir / "fundamentals"
 
+    @property
+    def metadata_dir(self) -> Path:
+        """Directory for asset metadata."""
+        return self.base_dir / "metadata"
+
 
 class Config(BaseModel):
     """Root configuration model."""
@@ -65,22 +70,6 @@ class Config(BaseModel):
         # Add portfolio tickers if portfolios config exists
         if self.portfolios:
             tickers.update(self.portfolios.all_tickers)
-
-        return sorted(list(tickers))
-
-    @property
-    def all_stock_tickers(self) -> list[str]:
-        """Merged stock ticker list: universe stocks + portfolio stocks.
-
-        Automatically includes stock tickers from portfolio definitions to ensure
-        ETL pipeline fetches all necessary fundamental data.
-        """
-        # Start with universe stock tickers
-        tickers = set(self.universe.stocks)
-
-        # Add portfolio stock tickers if portfolios config exists
-        if self.portfolios:
-            tickers.update(self.portfolios.all_tickers_filtered(filter_type="stock"))
 
         return sorted(list(tickers))
 

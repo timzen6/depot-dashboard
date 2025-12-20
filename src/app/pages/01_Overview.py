@@ -4,6 +4,7 @@ Wiring layer connecting overview logic and views.
 Shows portfolio performance and current positions.
 """
 
+import polars as pl
 import streamlit as st
 from loguru import logger
 
@@ -22,9 +23,11 @@ from src.app.views.common import (
     render_sidebar_header,
 )
 from src.app.views.overview import (
+    render_market_snapshot_table,
     render_portfolio_chart,
     render_portfolio_composition_chart,
     render_positions_table,
+    render_stock_composition_chart,
 )
 
 # Page config
@@ -40,7 +43,9 @@ render_sidebar_header("Portfolio Overview", "Select a portfolio to analyze")
 # Load data
 try:
     loader = GlobalDataLoader()
-    df_prices, df_fund = loader.load_data()
+    data = loader.load_data()
+    df_prices = data.prices
+    df_fund = data.fundamentals
 except Exception as e:
     st.error(f"Failed to load data: {e}")
     logger.error(f"Data loading error: {e}", exc_info=True)
@@ -87,7 +92,7 @@ try:
     # Get portfolio performance
     df_history = get_portfolio_performance(
         selected_portfolio, df_prices, fx_engine, portfolio_engine
-    )
+    ).join(data.metadata, on="ticker", how="left")
 
     if df_history.is_empty():
         render_empty_state(
@@ -104,44 +109,34 @@ try:
 
     st.divider()
 
+    tab1, tab2 = st.tabs(["Complete Portfolio", "Stock Breakdown"])
     # Portfolio chart and composition
-    col1, col2 = st.columns([2, 1])
+    with tab1:
+        col1, col2 = st.columns([3, 2])
+        with col1:
+            render_portfolio_chart(df_history)
 
-    with col1:
-        render_portfolio_chart(df_history)
-
-    with col2:
-        render_portfolio_composition_chart(df_history)
+        with col2:
+            render_portfolio_composition_chart(df_history)
+    with tab2:
+        df_history_stock = df_history.filter(pl.col("asset_type") == "stock")
+        col1, col2 = st.columns([3, 2])
+        with col1:
+            render_portfolio_chart(df_history_stock)
+        with col2:
+            render_stock_composition_chart(df_history_stock)
 
     st.divider()
 
-    # Positions table
-    render_positions_table(df_history, selected_portfolio.display_name or selected_portfolio.name)
+    with st.expander("Show Detailed Positions Table"):
+        render_positions_table(
+            df_history, selected_portfolio.display_name or selected_portfolio.name
+        )
     # Market snapshot
-    snapshot = get_market_snapshot(df_prices, df_fund, selected_portfolio.tickers)
+    snapshot = get_market_snapshot(data, fx_engine, selected_portfolio.tickers)
+
     st.subheader("📋 Market Fundamentals")
-    st.dataframe(
-        snapshot,
-        column_order=[
-            "ticker",
-            "market_cap_b_eur",
-            "pe_ratio",
-            "fcf_yield",
-            "roce",
-            "gross_margin",
-            "revenue_growth",
-            "net_debt_to_ebit",
-        ],
-        column_config={
-            "market_cap_b_eur": st.column_config.NumberColumn("Market Cap 💶", format="%.1f B€"),
-            "pe_ratio": st.column_config.NumberColumn("P/E 💰", format="%.1f"),
-            "fcf_yield": st.column_config.NumberColumn("FCF Yield 💰", format="%.2f%%"),
-            "gross_margin": st.column_config.NumberColumn("Gross Margin 💎", format="%.1f%%"),
-            "roce": st.column_config.NumberColumn("ROCE 💎", format="%.1f%%"),
-            "revenue_growth": st.column_config.NumberColumn("Revenue Growth 🚀", format="%.1f%%"),
-            "net_debt_to_ebit": st.column_config.NumberColumn("🏥 Debt/EBIT 🏥", format="%.1fx"),
-        },
-    )
+    render_market_snapshot_table(snapshot)
 
 except Exception as e:
     st.error(f"Error calculating portfolio performance: {e}")

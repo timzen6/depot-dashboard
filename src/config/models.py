@@ -73,15 +73,7 @@ class Portfolio(BaseModel):
         self,
     ) -> list[str]:
         """Extract all tickers from positions, optionally filtered by type."""
-        return self.tickers_filtered(filter_type=None)
-
-    def tickers_filtered(
-        self, filter_type: Literal["stock", "etf", "fund", "bond"] | None
-    ) -> list[str]:
-        """Extract unique tickers from positions filtered by type."""
-        if filter_type is None:
-            return list({pos.ticker for pos in self.positions})
-        return list({pos.ticker for pos in self.positions if pos.type == filter_type})
+        return list({pos.ticker for pos in self.positions})
 
     @property
     def ui_name(self) -> str:
@@ -162,13 +154,7 @@ class PortfoliosConfig(BaseModel):
     def all_tickers(
         self,
     ) -> list[str]:
-        return self.all_tickers_filtered(filter_type=None)
-
-    def all_tickers_filtered(
-        self, filter_type: Literal["stock", "etf", "fund", "bond"] | None
-    ) -> list[str]:
-        """Extract unique tickers across all portfolios filtered by type."""
         tickers = set()
         for portfolio in self.portfolios.values():
-            tickers.update(portfolio.tickers_filtered(filter_type=filter_type))
+            tickers.update(portfolio.tickers)
         return list(tickers)

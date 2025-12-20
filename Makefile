@@ -14,6 +14,9 @@ help:
 pc:
 	uv run --extra dev pre-commit run --all-files
 
+meta:
+	uv run qc meta
+
 etl:
 	uv run qc etl
 

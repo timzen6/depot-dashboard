@@ -24,6 +24,7 @@ from src.app.views.stock_detail import (
     render_pe_ratio_chart,
     render_price_chart,
     render_quality_data,
+    render_title_section,
     render_valuation_data,
 )
 from src.core.stock_data import StockData
@@ -41,13 +42,13 @@ render_sidebar_header("Stock Detail", "Deep dive into individual stocks")
 # Load data
 try:
     loader = GlobalDataLoader()
-    df_prices, df_fund = loader.load_data()
+    dashboard_data = loader.load_data()
 except Exception as e:
     st.error(f"Failed to load data: {e}")
     logger.error(f"Data loading error: {e}", exc_info=True)
     raise e
 # Get available tickers
-if df_prices.is_empty():
+if dashboard_data.prices.is_empty():
     render_empty_state("No price data available")
     st.stop()
 
@@ -72,8 +73,8 @@ st.sidebar.divider()
 st.sidebar.subheader("Filters")
 
 # Date range filter
-min_date = df_prices.select("date").min().item()
-max_date = df_prices.select("date").max().item()
+min_date = dashboard_data.prices.select("date").min().item()
+max_date = dashboard_data.prices.select("date").max().item()
 
 date_range = st.sidebar.date_input(
     "Date Range",
@@ -82,13 +83,11 @@ date_range = st.sidebar.date_input(
     max_value=max_date,
 )
 
-# Main content
-st.title(f"🔍 {selected_ticker}")
-
 try:
     # Load ticker data
-    stock_data = StockData.from_dataset(selected_ticker, df_prices, df_fund)
-    fx_engine = FXEngine(df_prices, target_currency="EUR")
+    stock_data = StockData.from_dataset(selected_ticker, dashboard_data)
+    fx_engine = FXEngine(dashboard_data.prices, target_currency="EUR")
+    render_title_section(selected_ticker, stock_data.metadata)
 
     filtered_stock_data = stock_data.filter_date_range(
         start_date=date_range[0],
@@ -124,13 +123,15 @@ try:
     if filtered_stock_data.fundamentals.is_empty():
         st.info("No fundamental data available for this ticker")
         st.stop()
-
-    # Valuation Metrics
-    render_valuation_data(stock_data)
-    # Quality
-    render_quality_data(stock_data)
-    render_growth_data(stock_data)
-    render_health_data(stock_data)
+    high_tabs = st.tabs(["💰 Valuation", "💎 Quality", "🚀 Growth", "🏥 Health"])
+    with high_tabs[0]:
+        render_valuation_data(stock_data)
+    with high_tabs[1]:
+        render_quality_data(stock_data)
+    with high_tabs[2]:
+        render_growth_data(stock_data)
+    with high_tabs[3]:
+        render_health_data(stock_data)
 except Exception as e:
-    st.error(f"Error loading stock data: {e}")
+    st.exception(e)
     logger.error(f"Stock detail error: {e}", exc_info=True)

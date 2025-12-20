@@ -1,5 +1,5 @@
 from datetime import date
-from enum import Enum
+from enum import StrEnum
 
 import polars as pl
 from pydantic import BaseModel, ConfigDict
@@ -25,11 +25,37 @@ STOCK_PRICE_SCHEMA = {
 # --- Enums ---
 
 
-class ReportType(str, Enum):
+class ReportType(StrEnum):
     """Distinguishes between Annual (10-K) and Quarterly (10-Q) reports."""
 
     ANNUAL = "annual"
     QUARTERLY = "quarterly"
+
+
+class AssetType(StrEnum):
+    """Type of financial asset."""
+
+    STOCK = "stock"  # Does need financials
+    ETF = "etf"  # Does need info about holdings and costs
+    FX = "fx"  # Just price data
+    COMMODITY = "commodity"  # Just price data (e.g. gold, silver, oil)
+    CRYPTO = "crypto"  # Optional, also just price data
+
+
+class Sector(StrEnum):
+    """Industry sectors based on GICS classification."""
+
+    TECHNOLOGY = "Technology"
+    HEALTHCARE = "Healthcare"
+    FINANCIALS = "Financials"
+    CONSUMER_DISCRETIONARY = "Consumer Discretionary"
+    COMMUNICATION = "Communication"
+    INDUSTRIALS = "Industrials"
+    CONSUMER_STAPLES = "Consumer Staples"
+    ENERGY = "Energy"
+    UTILITIES = "Utilities"
+    REAL_ESTATE = "Real Estate"
+    MATERIALS = "Materials"
 
 
 # --- Domain Models ---
@@ -125,3 +151,60 @@ class FinancialReport(BaseModel):
         if self.long_term_debt is not None and self.cash_and_equivalents is not None:
             return self.long_term_debt - self.cash_and_equivalents
         return None
+
+
+class AssetMetadata(BaseModel):
+    """Metadata about a financial asset."""
+
+    model_config = ConfigDict(frozen=True)
+
+    ticker: str
+    name: str
+    asset_type: AssetType
+    currency: str = "USD"
+    short_name: str | None = None
+    exchange: str | None = None
+    sector_raw: str | None = None
+    sector: Sector | None = None
+    industry: str | None = None
+    country: str | None = None
+
+    def to_dict(self) -> dict[str, str | None]:
+        """Convert AssetMetadata to a dictionary for easy serialization."""
+        return {
+            "ticker": self.ticker,
+            "name": self.name,
+            "asset_type": self.asset_type.value,
+            "currency": self.currency,
+            "short_name": self.short_name,
+            "exchange": self.exchange,
+            "sector_raw": self.sector_raw,
+            "sector": self.sector.value if self.sector else None,
+            "industry": self.industry,
+            "country": self.country,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, str | None]) -> "AssetMetadata":
+        """Create AssetMetadata from a dictionary."""
+        ticker = data.get("ticker")
+        name = data.get("name")
+        asset_type_str = data.get("asset_type")
+        currency = data.get("currency")
+        sector_str = data.get("sector")
+
+        if not ticker or not name or not asset_type_str or not currency:
+            raise ValueError("Missing required fields for AssetMetadata")
+
+        return cls(
+            ticker=ticker,
+            name=name,
+            asset_type=AssetType(asset_type_str),
+            currency=currency,
+            short_name=data.get("short_name"),
+            exchange=data.get("exchange"),
+            sector_raw=data.get("sector_raw"),
+            sector=Sector(sector_str) if sector_str else None,
+            industry=data.get("industry"),
+            country=data.get("country"),
+        )

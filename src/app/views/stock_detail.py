@@ -13,14 +13,8 @@ from plotly.subplots import make_subplots
 from views.colors import Colors
 
 from src.analysis.fx import FXEngine
+from src.app.views.common import COUNTRY_FLAGS, CURRENCY_SYMBOLS, SECTOR_EMOJI
 from src.core.stock_data import StockData
-
-CURRENCY_SYMBOLS = {
-    "USD": "$",
-    "EUR": "€",
-    "GBP": "£",
-    "JPY": "¥",
-}
 
 
 @dataclass
@@ -29,6 +23,35 @@ class MetricDisplayInfo:
     scale: float
     unit: str
     display_name: str
+
+
+def render_title_section(ticker: str, metadata: dict[str, str]) -> None:
+    """Render the title section with ticker and company name.
+
+    Args:
+        ticker: Stock ticker symbol
+        metadata: Metadata dictionary with company info
+    """
+    company_name = metadata.get("short_name", "")
+    if not company_name:
+        company_name = metadata.get("name", "")
+    st.title(f"🔍 {ticker} - {company_name}")
+
+    asset_type = metadata.get("asset_type", "N/A")
+    if asset_type != "stock":
+        st.subheader(f"Asset Type: {asset_type.upper()}")
+        return
+
+    country_name = metadata.get("country", "")
+    country_flag = COUNTRY_FLAGS.get(country_name, "")
+
+    sector = metadata.get("sector") or metadata.get("sector_raw", "N/A")
+    sector_emoji = SECTOR_EMOJI.get(sector, "")
+
+    st.subheader(
+        f"{sector} {sector_emoji} | {metadata.get('industry', 'N/A')} |"
+        f" {country_flag or country_name}"
+    )
 
 
 def render_latest_price_info(
@@ -407,6 +430,10 @@ def render_valuation_data(stock_data: StockData) -> None:
                 "dividend_yield",
                 "pe_ratio",
                 "diluted_average_shares",
+            )
+            .with_columns(
+                (pl.col("fcf_yield") * 100).alias("fcf_yield"),
+                (pl.col("dividend_yield") * 100).alias("dividend_yield"),
             )
             # unpivot for bar chart
             .unpivot(

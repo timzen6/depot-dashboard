@@ -10,6 +10,7 @@ from loguru import logger
 
 from src.analysis.fx import FXEngine
 from src.analysis.portfolio import PortfolioEngine
+from src.app.logic.data_loader import DashboardData
 from src.config.models import Portfolio
 
 
@@ -118,25 +119,30 @@ def get_portfolio_kpis(df_history: pl.DataFrame) -> dict[str, float | str]:
 
 
 def get_market_snapshot(
-    df_prices: pl.DataFrame,
-    df_fundamentals: pl.DataFrame,
+    data: DashboardData,
+    fx_engine: FXEngine,
     tickers: list[str] | None = None,
 ) -> pl.DataFrame:
     if tickers is not None:
-        df_prices = df_prices.filter(pl.col("ticker").is_in(tickers))
-        df_fundamentals = df_fundamentals.filter(pl.col("ticker").is_in(tickers))
+        df_prices = data.prices.filter(pl.col("ticker").is_in(tickers))
+        df_fundamentals = data.fundamentals.filter(pl.col("ticker").is_in(tickers))
+
+    df_prices_currency = fx_engine.convert_to_target(
+        df_prices, "adj_close", source_currency_col="currency"
+    )
     latest_prices = (
-        df_prices.sort("date")
+        df_prices_currency.sort("date")
         .group_by("ticker")
         .last()
         .rename({"close": "latest_price", "date": "price_date"})
         .with_columns(
             # market cap in billion euros
-            (pl.col("adj_close") * pl.col("diluted_average_shares") / 1_000_000_000).alias(
+            (pl.col("adj_close_EUR") * pl.col("diluted_average_shares") / 1_000_000_000).alias(
                 "market_cap_b_eur"
             )
         )
     )
+
     duplicate_columns = [
         col for col in df_fundamentals.columns if col in latest_prices.columns and col != "ticker"
     ]
@@ -168,6 +174,6 @@ def get_market_snapshot(
             ]
         )
         .with_columns(percent_transforms)
-    )
+    ).join(data.metadata, on="ticker", how="left")
 
     return snapshot

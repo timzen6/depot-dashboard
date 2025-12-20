@@ -108,3 +108,41 @@ def render_empty_state(message: str, icon: str = "📊") -> None:
         icon: Emoji icon to show
     """
     st.info(f"{icon} {message}")
+
+
+CURRENCY_SYMBOLS = {
+    "USD": "$",
+    "EUR": "€",
+    "GBP": "£",
+    "JPY": "¥",
+}
+
+COUNTRY_FLAGS = {
+    "United States": "🇺🇸",
+    "Germany": "🇩🇪",
+    "France": "🇫🇷",
+    "United Kingdom": "🇬🇧",
+    "Japan": "🇯🇵",
+    "Canada": "🇨🇦",
+    "Switzerland": "🇨🇭",
+    "Netherlands": "🇳🇱",
+    "Italy": "🇮🇹",
+    "Spain": "🇪🇸",
+    "Sweden": "🇸🇪",
+    "Denmark": "🇩🇰",
+    # Add more countries as needed
+}
+
+SECTOR_EMOJI = {
+    "Technology": "💻",
+    "Healthcare": "💊",
+    "Financials": "💰",
+    "Consumer Discretionary": "🛍️",
+    "Consumer Staples": "🧼",
+    "Energy": "🛢️",
+    "Industrials": "🏭",
+    "Materials": "🧪️",
+    "Utilities": "🔌",
+    "Real Estate": "🏠",
+    "Communication": "📡",
+}
