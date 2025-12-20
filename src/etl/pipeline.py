@@ -8,10 +8,15 @@ from datetime import date, timedelta
 
 import polars as pl
 from loguru import logger
+from tqdm import tqdm
 
-from src.core.domain_models import ReportType
+from src.core.domain_models import AssetMetadata, ReportType
 from src.core.file_manager import ParquetStorage
-from src.core.mapper import map_fundamentals_to_domain, map_prices_to_df
+from src.core.mapper import (
+    map_fundamentals_to_domain,
+    map_prices_to_df,
+    map_ticker_info_to_asset_metadata,
+)
 from src.etl.extract import DataExtractor
 
 
@@ -20,6 +25,25 @@ class ETLPipeline:
 
     # Hard constraint for initial price data fetch
     INITIAL_START_DATE = date(2021, 1, 1)
+    CURRENCY_OVERRIDE = {
+        "WSRI.PA": "EUR",
+    }
+
+    def get_currency(self, ticker: str, metadata: pl.DataFrame | None) -> str:
+        """Determine the currency for a given ticker."""
+        if ticker in self.CURRENCY_OVERRIDE:
+            return self.CURRENCY_OVERRIDE[ticker]
+
+        if (metadata is not None) and (not metadata.is_empty()):
+            # return currency from provided metadata
+            currency_row = metadata.filter(pl.col("ticker") == ticker).select("currency")
+            if not currency_row.is_empty():
+                currency_value: str = currency_row.item()
+                return currency_value
+
+        currency_dict = self.extractor.get_ticker_info(ticker)
+        currency: str = currency_dict.get("currency", "USD")
+        return currency
 
     def __init__(self, storage: ParquetStorage, extractor: DataExtractor) -> None:
         """
@@ -33,7 +57,48 @@ class ETLPipeline:
         self.extractor = extractor
         logger.info("ETLPipeline initialized")
 
-    def run_price_update(self, tickers: list[str]) -> None:
+    def run_metadata_update(self, tickers: list[str]) -> None:
+        """
+        Update metadata for multiple tickers.
+
+        Fetches full ticker info and maps to AssetMetadata domain model.
+        Overwrites existing metadata files.
+
+        Args:
+            tickers: List of stock ticker symbols to update
+        """
+        logger.info(f"Starting metadata update for {len(tickers)} tickers")
+
+        all_metadata = []
+
+        for ticker in tqdm(tickers):
+            try:
+                # Fetch full ticker info from yfinance
+                info = self.extractor.get_full_ticker_info(ticker)
+
+                # Transform to domain model
+                asset_metadata = map_ticker_info_to_asset_metadata(info)
+                # Correct currency if needed
+                if ticker in self.CURRENCY_OVERRIDE:
+                    tmp_dict = asset_metadata.to_dict()
+                    tmp_dict["currency"] = self.CURRENCY_OVERRIDE[ticker]
+                    asset_metadata = AssetMetadata.from_dict(tmp_dict)
+
+                all_metadata.append(asset_metadata)
+                logger.success(f"[{ticker}] Metadata update complete")
+
+            except Exception as e:
+                # Unexpected error - log but don't crash entire pipeline
+                logger.error(f"[{ticker}] Metadata update failed: {e}")
+                continue
+        if all_metadata:
+            # Convert to Polars DataFrame for storage
+            records = [metadata.to_dict() for metadata in all_metadata]
+            new_metadata_df = pl.DataFrame(records)
+            self.storage.atomic_update(new_metadata_df, "asset_metadata")
+            logger.info(f"Metadata update complete for {len(all_metadata)} assets")
+
+    def run_price_update(self, tickers: list[str], metadata: pl.DataFrame | None = None) -> None:
         """
         Update price data for multiple tickers with gap detection.
 
@@ -48,7 +113,7 @@ class ETLPipeline:
         """
         logger.info(f"Starting price update for {len(tickers)} tickers")
 
-        for ticker in tickers:
+        for ticker in tqdm(tickers):
             try:
                 # Gap Detection: Check if we already have data for this ticker
                 filename = f"prices_{ticker}"
@@ -56,7 +121,7 @@ class ETLPipeline:
 
                 # Fetch new data from yfinance
                 raw_pdf = self.extractor.get_prices(ticker, start_date)
-                currency = self.extractor.get_ticker_info(ticker).get("currency", "USD")
+                currency = self.get_currency(ticker, metadata)
 
                 # Transform to domain model
                 new_df = map_prices_to_df(raw_pdf, ticker, currency)
@@ -79,7 +144,9 @@ class ETLPipeline:
                 logger.error(f"[{ticker}] Price update failed: {e}")
                 continue
 
-    def run_fundamental_update(self, tickers: list[str]) -> None:
+    def run_fundamental_update(
+        self, tickers: list[str], metadata: pl.DataFrame | None = None
+    ) -> None:
         """
         Update fundamental data for multiple tickers using full refresh strategy.
 
@@ -92,11 +159,11 @@ class ETLPipeline:
         """
         logger.info(f"Starting fundamental update for {len(tickers)} tickers")
 
-        for ticker in tickers:
+        for ticker in tqdm(tickers):
             try:
                 # Fetch complete financial statements from yfinance
                 raw_pdf = self.extractor.get_financials(ticker)
-                currency = self.extractor.get_ticker_info(ticker).get("currency", "USD")
+                currency = self.get_currency(ticker, metadata)
 
                 # Transform to domain model (list of FinancialReport objects)
                 reports = map_fundamentals_to_domain(raw_pdf, ticker, ReportType.ANNUAL, currency)

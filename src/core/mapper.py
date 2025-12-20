@@ -11,7 +11,145 @@ import pandas as pd
 import polars as pl
 from loguru import logger
 
-from src.core.domain_models import STOCK_PRICE_SCHEMA, FinancialReport, ReportType
+from src.core.domain_models import (
+    STOCK_PRICE_SCHEMA,
+    AssetMetadata,
+    AssetType,
+    FinancialReport,
+    ReportType,
+    Sector,
+)
+
+
+def map_sector(sector_str: str | None) -> Sector | None:
+    """
+    Map yfinance sector string to Sector enum.
+
+    Args:
+        sector_str: yfinance sector string (e.g. "Technology", "Healthcare")
+
+    Returns:
+        Corresponding Sector enum value or None if unrecognized
+    """
+    if not sector_str:
+        return None
+
+    sector_synonyms = {
+        "Technology": ["Tech"],
+        "Healthcare": ["Health Care"],
+        "Financials": ["Finance", "Financial Services"],
+        "Consumer Discretionary": [
+            "Consumer Services",
+            "Consumer Cyclical",
+            "Discretionary",
+        ],
+        "Communication": [
+            "Communication Services",
+            "Telecommunication",
+            "Telecom",
+            "Communications",
+        ],
+        "Industrials": ["Industrial Goods"],
+        "Consumer Staples": ["Staples", "Consumer Defensive"],
+        "Energy": ["Oil & Gas"],
+        "Utilities": ["Utilities"],
+        "Real Estate": ["Property"],
+        "Materials": ["Basic Materials"],
+    }
+
+    tmp_str = sector_str.lower().strip()
+    for sector, synonyms in sector_synonyms.items():
+        if tmp_str == sector.lower().strip() or tmp_str in [s.lower().strip() for s in synonyms]:
+            return Sector(sector)
+
+    logger.warning(f"Unrecognized sector '{sector_str}'")
+    return None
+
+
+def map_asset_type(info: dict[str, str]) -> AssetType:
+    """
+    Map yfinance quoteType string to AssetType enum.
+
+    Args:
+        quote_type: yfinance quoteType string (e.g. "EQUITY", "ETF", "CURRENCY")
+
+    Returns:
+        Corresponding AssetType enum value
+    """
+    quote_type_raw = info.get("quoteType", None)
+    if not quote_type_raw:
+        logger.warning(
+            f"Missing quoteType in ticker info for {info.get('symbol', 'unknown')}. "
+            "Defaulting to STOCK."
+        )
+        return AssetType.STOCK
+
+    direct_type_mapping = {
+        "etf": AssetType.ETF,
+        "currency": AssetType.FX,
+        "index": AssetType.FX,
+        "cryptocurrency": AssetType.CRYPTO,
+        "future": AssetType.COMMODITY,
+        "mutualfund": AssetType.ETF,
+    }
+
+    quote_type = quote_type_raw.lower()
+    if not quote_type:
+        return AssetType.STOCK
+    simple_type = direct_type_mapping.get(quote_type, None)
+    if simple_type is not None:
+        return simple_type
+
+    if quote_type == "equity":
+        fund_family = _safe_str(info, ["fundFamily"])
+
+        if fund_family:
+            fund_lower = fund_family.lower()
+            if "etf" in fund_lower or "exchange traded" in fund_lower:
+                return AssetType.ETF
+            # We might check for commodity funds here as well in future
+        return AssetType.STOCK
+    logger.warning(
+        f"Unrecognized quoteType '{quote_type}' for "
+        f"{info.get('symbol', 'unknown')}. Defaulting to STOCK."
+    )
+    return AssetType.STOCK
+
+
+def map_ticker_info_to_asset_metadata(info: dict[str, str]) -> AssetMetadata:
+    """
+    Map yfinance ticker info dictionary to AssetMetadata domain model.
+
+    Args:
+        info: Dictionary from yfinance.Ticker.info
+
+    Returns:
+        AssetMetadata domain object
+    """
+    asset_type = map_asset_type(info)
+    sector = map_sector(_safe_str(info, ["sector", "sectorDisp", "sectorKey"]))
+    short_name = _safe_str(info, ["shortName", "displayName"])
+    if short_name:
+        short_name = short_name.replace("   I", "").strip()
+    name = _safe_str(info, ["longName", "shortName", "displayName", "name", "ticker"])
+    if name:
+        name = name.replace("   I", "").strip()
+    else:
+        name = "Unknown"
+    asset_metadata = AssetMetadata(
+        ticker=_safe_str(info, ["symbol", "ticker"]) or "UNKNOWN",
+        name=name,
+        asset_type=asset_type,
+        short_name=short_name,
+        exchange=_safe_str(info, ["exchange", "exchangeName"]),
+        currency=_safe_str(info, ["currency"]) or "USD",
+        country=_safe_str(info, ["country", "countryOfIncorporation"]),
+        sector_raw=_safe_str(info, ["sector", "sectorDisp", "sectorKey"]),
+        sector=sector,
+        industry=_safe_str(info, ["industry", "industryDisp", "industryKey"]),
+    )
+    logger.debug(f"Mapped AssetMetadata for {asset_metadata.name} ({asset_metadata.exchange})")
+    return asset_metadata
 
 
 def map_prices_to_df(pdf: pd.DataFrame, ticker: str, currency: str) -> pl.DataFrame:
@@ -207,6 +345,32 @@ def map_fundamentals_to_domain(
 
     logger.info(f"Mapped {len(reports)} {report_type} reports for {ticker}")
     return reports
+
+
+def _safe_str(data: dict[str, str], keys: list[str]) -> str | None:
+    """
+    Extract string value from pandas Series using multiple possible keys.
+    Due to variations in yfinance column names, we try several options.
+    The matching is case-insensitive and ignores leading/trailing whitespace.
+
+    Args:
+        row: pandas Series (one row from transposed DataFrame)
+        keys: List of possible column names to try (case-insensitive)
+
+    Returns:
+        String value if found, None otherwise
+    """
+    # Create lowercase index for case-insensitive lookup
+    lookup_map = {idx.strip().lower(): idx for idx in data.keys() if isinstance(idx, str)}
+
+    for key in keys:
+        key_clean = key.strip().lower()
+        if key_clean in lookup_map:
+            original_key = lookup_map[key_clean]
+            value = data.get(original_key, None)
+            if pd.notna(value):
+                return str(value)
+    return None
 
 
 def _safe_float(row: pd.Series, keys: list[str]) -> float | None:

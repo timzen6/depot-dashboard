@@ -3,6 +3,7 @@
 Handles portfolio performance calculations and KPI aggregation.
 """
 
+from dataclasses import dataclass
 from datetime import timedelta
 
 import polars as pl
@@ -10,6 +11,7 @@ from loguru import logger
 
 from src.analysis.fx import FXEngine
 from src.analysis.portfolio import PortfolioEngine
+from src.app.logic.data_loader import DashboardData
 from src.config.models import Portfolio
 
 
@@ -28,6 +30,11 @@ def get_portfolio_performance(
     df_history_target_currency = fx_engine.convert_to_target(
         df_history_raw,
         amount_col="position_value",
+        source_currency_col="currency",
+    )
+    df_history_target_currency = fx_engine.convert_to_target(
+        df_history_target_currency,
+        amount_col="position_dividend_yoy",
         source_currency_col="currency",
     )
 
@@ -56,7 +63,18 @@ def filter_days_with_incomplete_tickers(df_history: pl.DataFrame) -> pl.DataFram
     return df_history.join(dates_with_all_tickers, on="date", how="inner")
 
 
-def get_portfolio_kpis(df_history: pl.DataFrame) -> dict[str, float | str]:
+@dataclass
+class PortfolioKPIs:
+    current_value: float
+    current_yoy_dividend_value: float
+    start_value: float
+    total_return_pct: float
+    yoy_return_pct: float
+    start_date: str
+    latest_date: str
+
+
+def get_portfolio_kpis(df_history: pl.DataFrame) -> PortfolioKPIs:
     """Calculate key performance indicators from portfolio history.
 
     Args:
@@ -72,24 +90,29 @@ def get_portfolio_kpis(df_history: pl.DataFrame) -> dict[str, float | str]:
     """
     if df_history.is_empty():
         logger.warning("Portfolio history is empty, returning zero KPIs")
-        return {
-            "current_value": 0.0,
-            "start_value": 0.0,
-            "total_return_pct": 0.0,
-            "yoy_return_pct": 0.0,
-            "start_date": "N/A",
-            "latest_date": "N/A",
-        }
+        return PortfolioKPIs(
+            current_value=0.0,
+            current_yoy_dividend_value=0.0,
+            start_value=0.0,
+            total_return_pct=0.0,
+            yoy_return_pct=0.0,
+            start_date="N/A",
+            latest_date="N/A",
+        )
 
     df_daily = (
         df_history.pipe(filter_days_with_incomplete_tickers)
         .group_by("date")
-        .agg(pl.sum("position_value_EUR").alias("total_value"))
+        .agg(
+            pl.sum("position_value_EUR").alias("total_value"),
+            pl.sum("position_dividend_yoy_EUR").alias("total_dividend_yoy_EUR"),
+        )
         .sort("date")
     )
 
     # Current and start values
     current_value = df_daily.select(pl.last("total_value")).item()
+    current_yoy_dividend_value = df_daily.select(pl.last("total_dividend_yoy_EUR")).item()
     start_value = df_daily.select(pl.first("total_value")).item()
     start_date = df_daily.select(pl.first("date")).item()
     latest_date = df_daily.select(pl.last("date")).item()
@@ -107,36 +130,42 @@ def get_portfolio_kpis(df_history: pl.DataFrame) -> dict[str, float | str]:
     else:
         yoy_return_pct = total_return_pct
 
-    return {
-        "current_value": float(current_value),
-        "start_value": float(start_value),
-        "total_return_pct": float(total_return_pct),
-        "yoy_return_pct": float(yoy_return_pct),
-        "start_date": str(start_date),
-        "latest_date": str(latest_date),
-    }
+    return PortfolioKPIs(
+        current_value=float(current_value),
+        current_yoy_dividend_value=float(current_yoy_dividend_value),
+        start_value=float(start_value),
+        total_return_pct=float(total_return_pct),
+        yoy_return_pct=float(yoy_return_pct),
+        start_date=str(start_date),
+        latest_date=str(latest_date),
+    )
 
 
 def get_market_snapshot(
-    df_prices: pl.DataFrame,
-    df_fundamentals: pl.DataFrame,
+    data: DashboardData,
+    fx_engine: FXEngine,
     tickers: list[str] | None = None,
 ) -> pl.DataFrame:
     if tickers is not None:
-        df_prices = df_prices.filter(pl.col("ticker").is_in(tickers))
-        df_fundamentals = df_fundamentals.filter(pl.col("ticker").is_in(tickers))
+        df_prices = data.prices.filter(pl.col("ticker").is_in(tickers))
+        df_fundamentals = data.fundamentals.filter(pl.col("ticker").is_in(tickers))
+
+    df_prices_currency = fx_engine.convert_to_target(
+        df_prices, "adj_close", source_currency_col="currency"
+    )
     latest_prices = (
-        df_prices.sort("date")
+        df_prices_currency.sort("date")
         .group_by("ticker")
         .last()
         .rename({"close": "latest_price", "date": "price_date"})
         .with_columns(
             # market cap in billion euros
-            (pl.col("adj_close") * pl.col("diluted_average_shares") / 1_000_000_000).alias(
+            (pl.col("adj_close_EUR") * pl.col("diluted_average_shares") / 1_000_000_000).alias(
                 "market_cap_b_eur"
             )
         )
     )
+
     duplicate_columns = [
         col for col in df_fundamentals.columns if col in latest_prices.columns and col != "ticker"
     ]
@@ -168,6 +197,6 @@ def get_market_snapshot(
             ]
         )
         .with_columns(percent_transforms)
-    )
+    ).join(data.metadata, on="ticker", how="left")
 
     return snapshot

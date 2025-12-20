@@ -29,12 +29,19 @@ universe:
     - EURJPY=X
     - EURDKK=X
     - EURSEK=X
+    - EURCAD=X
     # ETFs (via Xetra in EUR)
     - EUNL.DE  # iShares Core MSCI World
+    - WSRI.PA
     - M7U.DE
     - EUNM.DE  # iShares MSCI EM (Acc)
     - AEME.PA  # Amundi MSCI EM
     - EXSB.DE  # iShares STOXX Europe Small 200
+    # For testing purposes: Krypto and Gold
+    - BTC-EUR
+    - BTC-USD
+    - GC=F
+    - SI=F
 
 settings:
   base_dir: "data/prod"
