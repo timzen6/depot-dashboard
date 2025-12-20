@@ -12,7 +12,7 @@ def get_sector_emoji_from_str(sector_str: str) -> str:
     try:
         sector = Sector(sector_str)
         return SECTOR_EMOJI.get(sector, default_emoji)
-    except KeyError:
+    except ValueError:
         return default_emoji
 
 

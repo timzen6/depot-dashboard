@@ -4,10 +4,12 @@ Wiring layer for stock-specific analysis with multiple tabs.
 Shows valuation, quality, and financial health metrics.
 """
 
+import polars as pl
 import streamlit as st
 from loguru import logger
 
 from src.analysis.fx import FXEngine
+from src.app.logic.common import get_sorted_occurrences
 from src.app.logic.data_loader import GlobalDataLoader
 from src.app.logic.stock_detail import (
     get_all_tickers,
@@ -52,21 +54,42 @@ if dashboard_data.prices.is_empty():
     render_empty_state("No price data available")
     st.stop()
 
-selected_portfolio = portfolio_selection(
-    (list(loader.config.portfolios.portfolios.values()) if loader.config.portfolios else []),
-    allow_none=True,
-    on_sidebar=True,
+selection_mode = st.sidebar.radio(
+    "Selection Mode",
+    options=["Portfolio", "Sector"],
 )
-tickers = selected_portfolio.tickers if selected_portfolio else get_all_tickers()
+
+if selection_mode == "Portfolio":  # Portfolio mode
+    selected_portfolio = portfolio_selection(
+        (list(loader.config.portfolios.portfolios.values()) if loader.config.portfolios else []),
+        allow_none=True,
+        on_sidebar=True,
+    )
+    tickers = selected_portfolio.tickers if selected_portfolio else get_all_tickers()
+else:  # Sector mode
+    all_sectors = get_sorted_occurrences(dashboard_data.metadata, "sector")
+    selected_sector = st.sidebar.selectbox(
+        "Select Sector",
+        options=["All Sectors"] + all_sectors,
+        index=0,
+    )
+    if selected_sector == "All Sectors":
+        tickers = get_all_tickers()
+    else:
+        df_filtered = dashboard_data.metadata.filter(pl.col("sector") == selected_sector)
+        tickers = df_filtered.select("ticker").to_series().to_list()
+
 if not tickers:
     render_empty_state("No tickers found in dataset")
     st.stop()
+
 
 selected_ticker = st.sidebar.selectbox(
     "Select Ticker",
     options=tickers,
     index=0,
 )
+
 
 # Filters
 st.sidebar.divider()

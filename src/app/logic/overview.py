@@ -3,6 +3,7 @@
 Handles portfolio performance calculations and KPI aggregation.
 """
 
+from dataclasses import dataclass
 from datetime import timedelta
 
 import polars as pl
@@ -62,7 +63,18 @@ def filter_days_with_incomplete_tickers(df_history: pl.DataFrame) -> pl.DataFram
     return df_history.join(dates_with_all_tickers, on="date", how="inner")
 
 
-def get_portfolio_kpis(df_history: pl.DataFrame) -> dict[str, float | str]:
+@dataclass
+class PortfolioKPIs:
+    current_value: float
+    current_yoy_dividend_value: float
+    start_value: float
+    total_return_pct: float
+    yoy_return_pct: float
+    start_date: str
+    latest_date: str
+
+
+def get_portfolio_kpis(df_history: pl.DataFrame) -> PortfolioKPIs:
     """Calculate key performance indicators from portfolio history.
 
     Args:
@@ -78,15 +90,15 @@ def get_portfolio_kpis(df_history: pl.DataFrame) -> dict[str, float | str]:
     """
     if df_history.is_empty():
         logger.warning("Portfolio history is empty, returning zero KPIs")
-        return {
-            "current_value": 0.0,
-            "start_value": 0.0,
-            "total_return_pct": 0.0,
-            "yoy_return_pct": 0.0,
-            "yoy_dividend_value": 0.0,
-            "start_date": "N/A",
-            "latest_date": "N/A",
-        }
+        return PortfolioKPIs(
+            current_value=0.0,
+            current_yoy_dividend_value=0.0,
+            start_value=0.0,
+            total_return_pct=0.0,
+            yoy_return_pct=0.0,
+            start_date="N/A",
+            latest_date="N/A",
+        )
 
     df_daily = (
         df_history.pipe(filter_days_with_incomplete_tickers)
@@ -118,15 +130,15 @@ def get_portfolio_kpis(df_history: pl.DataFrame) -> dict[str, float | str]:
     else:
         yoy_return_pct = total_return_pct
 
-    return {
-        "current_value": float(current_value),
-        "current_yoy_dividend_value": float(current_yoy_dividend_value),
-        "start_value": float(start_value),
-        "total_return_pct": float(total_return_pct),
-        "yoy_return_pct": float(yoy_return_pct),
-        "start_date": str(start_date),
-        "latest_date": str(latest_date),
-    }
+    return PortfolioKPIs(
+        current_value=float(current_value),
+        current_yoy_dividend_value=float(current_yoy_dividend_value),
+        start_value=float(start_value),
+        total_return_pct=float(total_return_pct),
+        yoy_return_pct=float(yoy_return_pct),
+        start_date=str(start_date),
+        latest_date=str(latest_date),
+    )
 
 
 def get_market_snapshot(
