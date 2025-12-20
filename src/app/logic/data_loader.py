@@ -120,10 +120,7 @@ def _load_cached_raw_data(
     """
     logger.info("Loading price and fundamental data from disk")
     # Load metadata
-    df_metadata = pl.read_parquet(metadata_dir / "asset_metadata.parquet").with_columns(
-        pl.col("name").str.replace("   I", "").str.strip_chars(" ").alias("name"),
-        pl.col("short_name").str.replace("   I", "").str.strip_chars(" ").alias("short_name"),
-    )
+    df_metadata = pl.read_parquet(metadata_dir / "asset_metadata.parquet")
 
     # Load all price files
     price_files = sorted(prices_dir.glob("*.parquet"))

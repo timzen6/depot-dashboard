@@ -43,7 +43,7 @@ class ParquetStorage:
             existing_df = pl.read_parquet(target_path)
             # Combine and deduplicate
             combined_df = (
-                pl.concat([existing_df, df])
+                pl.concat([df, existing_df])
                 .unique(subset=["ticker"], maintain_order=False)
                 .sort("ticker")
             )

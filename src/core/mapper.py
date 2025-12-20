@@ -125,13 +125,19 @@ def map_ticker_info_to_asset_metadata(info: dict[str, str]) -> AssetMetadata:
     """
     asset_type = map_asset_type(info)
     sector = map_sector(_safe_str(info, ["sector", "sectorDisp", "sectorKey"]))
+    short_name = _safe_str(info, ["shortName", "displayName"])
+    if short_name:
+        short_name = short_name.replace("   I", "").strip()
+    name = _safe_str(info, ["longName", "shortName", "displayName", "name", "ticker"])
+    if name:
+        name = name.replace("   I", "").strip()
+    else:
+        name = "Unknown"
     asset_metadata = AssetMetadata(
         ticker=_safe_str(info, ["symbol", "ticker"]) or "UNKNOWN",
-        name=(
-            _safe_str(info, ["longName", "shortName", "displayName", "name", "ticker"]) or "Unknown"
-        ),
+        name=name,
         asset_type=asset_type,
-        short_name=_safe_str(info, ["shortName", "displayName"]),
+        short_name=short_name,
         exchange=_safe_str(info, ["exchange", "exchangeName"]),
         currency=_safe_str(info, ["currency"]) or "USD",
         country=_safe_str(info, ["country", "countryOfIncorporation"]),
