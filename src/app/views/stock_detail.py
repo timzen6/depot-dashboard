@@ -13,7 +13,11 @@ from plotly.subplots import make_subplots
 from views.colors import Colors
 
 from src.analysis.fx import FXEngine
-from src.app.views.common import COUNTRY_FLAGS, CURRENCY_SYMBOLS, SECTOR_EMOJI
+from src.app.views.constants import (
+    COUNTRY_FLAGS,
+    CURRENCY_SYMBOLS,
+    get_sector_emoji_from_str,
+)
 from src.core.stock_data import StockData
 
 
@@ -46,7 +50,7 @@ def render_title_section(ticker: str, metadata: dict[str, str]) -> None:
     country_flag = COUNTRY_FLAGS.get(country_name, "")
 
     sector = metadata.get("sector") or metadata.get("sector_raw", "N/A")
-    sector_emoji = SECTOR_EMOJI.get(sector, "")
+    sector_emoji = get_sector_emoji_from_str(sector)
 
     st.subheader(
         f"{sector} {sector_emoji} | {metadata.get('industry', 'N/A')} |"

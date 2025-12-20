@@ -53,7 +53,7 @@ def render_kpi_cards(metrics: dict[str, float | str]) -> None:
             - yoy_return_pct: Year-over-year return percentage
             - latest_date: Most recent data date
     """
-    cols = st.columns([1, 1, 1, 1, 1])
+    cols = st.columns([1, 1, 1, 1, 1, 1])
 
     with cols[0]:
         st.metric(
@@ -86,6 +86,22 @@ def render_kpi_cards(metrics: dict[str, float | str]) -> None:
             value=str(metrics.get("start_date", "N/A")),
         )
 
+    yoy_dividend = metrics.get("current_yoy_dividend_value", 0)
+    start_value = metrics.get("start_value", 0)
+
+    if isinstance(yoy_dividend, float) and isinstance(start_value, float):
+        dividend_percent = (yoy_dividend / start_value * 100) if start_value != 0 else 0.0
+    else:
+        dividend_percent = 0.0
+    with cols[5]:
+        st.metric(
+            label="Dividends (Last 12M)",
+            value=(
+                f"{metrics.get('current_yoy_dividend_value', 0):,.0f} €"
+                f" ({dividend_percent:.2f}%)",
+            ),
+        )
+
 
 def render_sidebar_header(title: str, description: str | None = None) -> None:
     """Render consistent sidebar header with optional description.
@@ -108,41 +124,3 @@ def render_empty_state(message: str, icon: str = "📊") -> None:
         icon: Emoji icon to show
     """
     st.info(f"{icon} {message}")
-
-
-CURRENCY_SYMBOLS = {
-    "USD": "$",
-    "EUR": "€",
-    "GBP": "£",
-    "JPY": "¥",
-}
-
-COUNTRY_FLAGS = {
-    "United States": "🇺🇸",
-    "Germany": "🇩🇪",
-    "France": "🇫🇷",
-    "United Kingdom": "🇬🇧",
-    "Japan": "🇯🇵",
-    "Canada": "🇨🇦",
-    "Switzerland": "🇨🇭",
-    "Netherlands": "🇳🇱",
-    "Italy": "🇮🇹",
-    "Spain": "🇪🇸",
-    "Sweden": "🇸🇪",
-    "Denmark": "🇩🇰",
-    # Add more countries as needed
-}
-
-SECTOR_EMOJI = {
-    "Technology": "💻",
-    "Healthcare": "💊",
-    "Financials": "💰",
-    "Consumer Discretionary": "🛍️",
-    "Consumer Staples": "🧼",
-    "Energy": "🛢️",
-    "Industrials": "🏭",
-    "Materials": "🧪️",
-    "Utilities": "🔌",
-    "Real Estate": "🏠",
-    "Communication": "📡",
-}

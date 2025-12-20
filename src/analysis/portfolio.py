@@ -74,10 +74,22 @@ class PortfolioEngine:
             pl.col("ticker")
             .map_elements(lambda t: shares_map.get(t, 0.0), return_dtype=pl.Float64)
             .alias("shares")
-        ).with_columns((pl.col("shares") * pl.col("close")).alias("position_value"))
+        ).with_columns(
+            (pl.col("shares") * pl.col("close")).alias("position_value"),
+            (pl.col("shares") * pl.col("rolling_dividend_sum")).alias("position_dividend_yoy"),
+        )
 
         logger.success(f"Calculated absolute portfolio: {result.height} records")
-        return result.select(["date", "ticker", "position_value", "currency", "shares"])
+        return result.select(
+            [
+                "date",
+                "ticker",
+                "position_value",
+                "position_dividend_yoy",
+                "currency",
+                "shares",
+            ]
+        )
 
     def _calculate_weighted(
         self,

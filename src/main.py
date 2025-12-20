@@ -14,6 +14,7 @@ import polars as pl
 from loguru import logger
 
 from src.config.settings import load_config
+from src.core.domain_models import AssetType
 from src.core.file_manager import ParquetStorage
 from src.data_mgmt.archiver import DataArchiver
 from src.etl.extract import DataExtractor
@@ -81,7 +82,7 @@ def cmd_etl(args: argparse.Namespace) -> None:
 
     # Run fundamental updates only for stocks (not FX/crypto)
     stock_tickers = (
-        tickers_metadata.filter(pl.col("asset_type") == "stock")
+        tickers_metadata.filter(pl.col("asset_type") == AssetType.STOCK)
         .select("ticker")
         .to_series()
         .to_list()

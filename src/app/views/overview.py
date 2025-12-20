@@ -9,7 +9,8 @@ import streamlit as st
 from views.colors import COLOR_SCALE_CONTRAST, Colors
 
 from src.app.logic.overview import filter_days_with_incomplete_tickers
-from src.app.views.common import COUNTRY_FLAGS, SECTOR_EMOJI
+from src.app.views.constants import COUNTRY_FLAGS, SECTOR_EMOJI
+from src.core.domain_models import AssetType
 
 
 def render_portfolio_chart(df_history: pl.DataFrame) -> None:
@@ -84,6 +85,7 @@ def render_positions_table(df_history: pl.DataFrame, portfolio_name: str) -> Non
             pl.last("asset_type").str.to_uppercase().alias("asset_type"),
             pl.last("sector").alias("sector"),
             pl.last("position_value_EUR").alias("position_value_EUR"),
+            pl.last("position_dividend_yoy_EUR").alias("position_dividend_yoy_EUR"),
         )
     )
 
@@ -103,6 +105,7 @@ def render_positions_table(df_history: pl.DataFrame, portfolio_name: str) -> Non
             "position_value",
             "currency",
             "position_value_EUR",
+            "position_dividend_yoy_EUR",
             "weight_pct",
         ],
         column_config={
@@ -115,6 +118,10 @@ def render_positions_table(df_history: pl.DataFrame, portfolio_name: str) -> Non
             ),
             "position_value_EUR": st.column_config.NumberColumn(
                 "Value (EUR)",
+                format="%.0f",
+            ),
+            "position_dividend_yoy_EUR": st.column_config.NumberColumn(
+                "Dividends (Last 12M) €",
                 format="%.0f",
             ),
             "weight_pct": st.column_config.NumberColumn(
@@ -265,7 +272,7 @@ def render_market_snapshot_table(
     if df_snapshot.is_empty():
         st.warning("No market fundamentals data to display")
         return
-    df_snapshot = df_snapshot.filter(pl.col("asset_type") == "stock").with_columns(
+    df_snapshot = df_snapshot.filter(pl.col("asset_type") == AssetType.STOCK).with_columns(
         (
             pl.col("country").replace(COUNTRY_FLAGS, default="❓")
             + " "

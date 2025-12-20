@@ -31,6 +31,11 @@ def get_portfolio_performance(
         amount_col="position_value",
         source_currency_col="currency",
     )
+    df_history_target_currency = fx_engine.convert_to_target(
+        df_history_target_currency,
+        amount_col="position_dividend_yoy",
+        source_currency_col="currency",
+    )
 
     return df_history_target_currency
 
@@ -78,6 +83,7 @@ def get_portfolio_kpis(df_history: pl.DataFrame) -> dict[str, float | str]:
             "start_value": 0.0,
             "total_return_pct": 0.0,
             "yoy_return_pct": 0.0,
+            "yoy_dividend_value": 0.0,
             "start_date": "N/A",
             "latest_date": "N/A",
         }
@@ -85,12 +91,16 @@ def get_portfolio_kpis(df_history: pl.DataFrame) -> dict[str, float | str]:
     df_daily = (
         df_history.pipe(filter_days_with_incomplete_tickers)
         .group_by("date")
-        .agg(pl.sum("position_value_EUR").alias("total_value"))
+        .agg(
+            pl.sum("position_value_EUR").alias("total_value"),
+            pl.sum("position_dividend_yoy_EUR").alias("total_dividend_yoy_EUR"),
+        )
         .sort("date")
     )
 
     # Current and start values
     current_value = df_daily.select(pl.last("total_value")).item()
+    current_yoy_dividend_value = df_daily.select(pl.last("total_dividend_yoy_EUR")).item()
     start_value = df_daily.select(pl.first("total_value")).item()
     start_date = df_daily.select(pl.first("date")).item()
     latest_date = df_daily.select(pl.last("date")).item()
@@ -110,6 +120,7 @@ def get_portfolio_kpis(df_history: pl.DataFrame) -> dict[str, float | str]:
 
     return {
         "current_value": float(current_value),
+        "current_yoy_dividend_value": float(current_yoy_dividend_value),
         "start_value": float(start_value),
         "total_return_pct": float(total_return_pct),
         "yoy_return_pct": float(yoy_return_pct),

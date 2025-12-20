@@ -29,6 +29,7 @@ from src.app.views.overview import (
     render_positions_table,
     render_stock_composition_chart,
 )
+from src.core.domain_models import AssetType
 
 # Page config
 st.set_page_config(
@@ -119,7 +120,7 @@ try:
         with col2:
             render_portfolio_composition_chart(df_history)
     with tab2:
-        df_history_stock = df_history.filter(pl.col("asset_type") == "stock")
+        df_history_stock = df_history.filter(pl.col("asset_type") == AssetType.STOCK)
         col1, col2 = st.columns([3, 2])
         with col1:
             render_portfolio_chart(df_history_stock)
@@ -128,7 +129,7 @@ try:
 
     st.divider()
 
-    with st.expander("Show Detailed Positions Table"):
+    with st.expander("Show Detailed Positions Table", expanded=True):
         render_positions_table(
             df_history, selected_portfolio.display_name or selected_portfolio.name
         )
