@@ -1,12 +1,16 @@
 from src.core.domain_models import Sector
 
+""" Constants and mappings for financial sectors, currencies, and countries.
+
+"""
+
 
 def get_sector_emoji_from_str(sector_str: str) -> str:
     """Get the emoji representation for a given sector string."""
     # use ghost for unknown sectors
     default_emoji = "👻"
     try:
-        sector = Sector[sector_str]
+        sector = Sector(sector_str)
         return SECTOR_EMOJI.get(sector, default_emoji)
     except KeyError:
         return default_emoji

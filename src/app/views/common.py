@@ -89,10 +89,10 @@ def render_kpi_cards(metrics: dict[str, float | str]) -> None:
     yoy_dividend = metrics.get("current_yoy_dividend_value", 0)
     start_value = metrics.get("start_value", 0)
 
-    if isinstance(yoy_dividend, float) and isinstance(start_value, float):
-        dividend_percent = (yoy_dividend / start_value * 100) if start_value != 0 else 0.0
-    else:
+    if isinstance(yoy_dividend, str) or isinstance(start_value, str) or start_value == 0:
         dividend_percent = 0.0
+    else:
+        dividend_percent = (yoy_dividend / start_value * 100) if start_value != 0 else 0.0
     with cols[5]:
         st.metric(
             label="Dividends (Last 12M)",
