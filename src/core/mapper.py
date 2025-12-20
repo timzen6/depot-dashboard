@@ -83,19 +83,22 @@ def map_asset_type(info: dict[str, str]) -> AssetType:
             "Defaulting to STOCK."
         )
         return AssetType.STOCK
+
+    direct_type_mapping = {
+        "etf": AssetType.ETF,
+        "currency": AssetType.FX,
+        "index": AssetType.FX,
+        "cryptocurrency": AssetType.CRYPTO,
+        "future": AssetType.COMMODITY,
+        "mutualfund": AssetType.ETF,
+    }
+
     quote_type = quote_type_raw.lower()
     if not quote_type:
         return AssetType.STOCK
-    if quote_type == "etf":
-        return AssetType.ETF
-    if quote_type in ["currency", "index"]:
-        return AssetType.FX
-    if quote_type == "cryptocurrency":
-        return AssetType.CRYPTO
-    if quote_type == "future":
-        return AssetType.COMMODITY
-    if quote_type == "mutualfund":
-        return AssetType.ETF
+    simple_type = direct_type_mapping.get(quote_type, None)
+    if simple_type is not None:
+        return simple_type
 
     if quote_type == "equity":
         fund_family = _safe_str(info, ["fundFamily"])

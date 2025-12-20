@@ -40,13 +40,12 @@ class ParquetStorage:
 
         if target_path.exists():
             # Read existing data
-            existing_df = pl.read_parquet(target_path)
-            # Combine and deduplicate
-            combined_df = (
-                pl.concat([df, existing_df])
-                .unique(subset=["ticker"], maintain_order=False)
-                .sort("ticker")
+            existing_df = pl.read_parquet(target_path).filter(
+                # de-duplicate based on 'ticker' explicitly
+                ~pl.col("ticker").is_in(df["ticker"])
             )
+            # Combine and deduplicate
+            combined_df = pl.concat([df, existing_df]).sort("ticker")
         else:
             combined_df = df.sort("ticker")
 

@@ -53,7 +53,7 @@ def render_kpi_cards(metrics: dict[str, float | str]) -> None:
             - yoy_return_pct: Year-over-year return percentage
             - latest_date: Most recent data date
     """
-    cols = st.columns([1, 1, 1, 1, 1, 1])
+    cols = st.columns(6)
 
     with cols[0]:
         st.metric(
