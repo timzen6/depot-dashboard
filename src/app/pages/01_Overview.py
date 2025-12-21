@@ -103,7 +103,6 @@ try:
         st.stop()
 
     # Calculate KPIs
-    st.dataframe(df_history)
     kpis = get_portfolio_kpis(df_history)
 
     # Render KPIs
