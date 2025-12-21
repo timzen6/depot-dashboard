@@ -13,11 +13,12 @@ from src.app.views.constants import COUNTRY_FLAGS, SECTOR_EMOJI
 from src.core.domain_models import AssetType
 
 
-def render_portfolio_chart(df_history: pl.DataFrame) -> None:
+def render_portfolio_chart(df_history: pl.DataFrame, key: str = "portfolio_chart") -> None:
     """Render portfolio value over time as interactive line chart.
 
     Args:
         df_history: Portfolio history with columns [date, total_value]
+        key: Unique key for the chart element
     """
     if df_history.is_empty():
         st.warning("No portfolio history data to display")
@@ -51,7 +52,7 @@ def render_portfolio_chart(df_history: pl.DataFrame) -> None:
         fillcolor="rgba(31, 119, 180, 0.1)",
     )
 
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, key=key)
 
 
 def render_positions_table(df_history: pl.DataFrame, portfolio_name: str) -> None:

@@ -32,11 +32,12 @@ def get_portfolio_performance(
         amount_col="position_value",
         source_currency_col="currency",
     )
-    df_history_target_currency = fx_engine.convert_to_target(
-        df_history_target_currency,
-        amount_col="position_dividend_yoy",
-        source_currency_col="currency",
-    )
+    if "position_dividend_yoy" in df_history_target_currency.columns:
+        df_history_target_currency = fx_engine.convert_to_target(
+            df_history_target_currency,
+            amount_col="position_dividend_yoy",
+            source_currency_col="currency",
+        )
 
     return df_history_target_currency
 
@@ -112,7 +113,10 @@ def get_portfolio_kpis(df_history: pl.DataFrame) -> PortfolioKPIs:
 
     # Current and start values
     current_value = df_daily.select(pl.last("total_value")).item()
-    current_yoy_dividend_value = df_daily.select(pl.last("total_dividend_yoy_EUR")).item()
+    if "total_dividend_yoy_EUR" in df_daily.columns:
+        current_yoy_dividend_value = df_daily.select(pl.last("total_dividend_yoy_EUR")).item()
+    else:
+        current_yoy_dividend_value = None
     start_value = df_daily.select(pl.first("total_value")).item()
     start_date = df_daily.select(pl.first("date")).item()
     latest_date = df_daily.select(pl.last("date")).item()

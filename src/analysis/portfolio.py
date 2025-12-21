@@ -159,7 +159,12 @@ class PortfolioEngine:
         # Join with full price history and calculate position values
         result = (
             df_prices.join(df_shares, on="ticker", how="left")
-            .with_columns((pl.col("implied_shares") * pl.col("close")).alias("position_value"))
+            .with_columns(
+                (pl.col("implied_shares") * pl.col("close")).alias("position_value"),
+                (pl.col("implied_shares") * pl.col("rolling_dividend_sum")).alias(
+                    "position_dividend_yoy"
+                ),
+            )
             .select(
                 [
                     "date",
@@ -168,6 +173,7 @@ class PortfolioEngine:
                     "currency",
                     "implied_shares",
                     "weight",
+                    "position_dividend_yoy",
                 ]
             )
         )
@@ -179,9 +185,9 @@ class PortfolioEngine:
         """Watchlist: just return raw price data for tracking."""
         logger.debug(f"Watchlist mode: returning {df_prices.height} price records")
 
-        return df_prices.select(["date", "ticker", "close", "currency"]).rename(
-            {"close": "position_value"}
-        )
+        return df_prices.select(
+            ["date", "ticker", "close", "currency", "rolling_dividend_sum"]
+        ).rename({"close": "position_value", "rolling_dividend_sum": "position_dividend_yoy"})
 
     def aggregate_total_value(self, df_portfolio: pl.DataFrame) -> pl.DataFrame:
         """Aggregate position values to daily total portfolio value.
