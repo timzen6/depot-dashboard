@@ -28,6 +28,7 @@ class Position(BaseModel):
     type: Literal["stock", "etf", "fund", "bond"] = Field(
         default="stock", description="Type of asset"
     )
+    group: str | None = Field(default=None, description="Optional group/category for the position")
 
     @field_validator("type")
     @classmethod

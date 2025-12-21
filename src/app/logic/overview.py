@@ -182,7 +182,13 @@ def get_market_snapshot(
         .drop(duplicate_columns)
     )
 
-    percentage_cols = ["fcf_yield", "roce", "gross_margin", "revenue_growth"]
+    percentage_cols = [
+        "fcf_yield",
+        "roce",
+        "gross_margin",
+        "ebit_margin",
+        "revenue_growth",
+    ]
     percent_transforms = [(pl.col(col) * 100).alias(col) for col in percentage_cols]
 
     snapshot = (
@@ -196,6 +202,7 @@ def get_market_snapshot(
                 "fcf_yield",
                 "roce",
                 "gross_margin",
+                "ebit_margin",
                 "revenue_growth",
                 "net_debt_to_ebit",
             ]

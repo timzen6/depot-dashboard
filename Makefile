@@ -32,7 +32,7 @@ app:
 project-export:
 	@gh project item-list 1 --owner timzen6 --format json > llm_inputs/project_items.json
 	@cat llm_inputs/project_items.json | pbcopy
-	@echo "✅ Project items exported to llm_inputs/project_items.json and copied to clipboard
+	@echo "✅ Project items exported to llm_inputs/project_items.json and copied to clipboard"
 
 pr-diff: pc
 	@mkdir -p llm_inputs
