@@ -152,7 +152,6 @@ def render_stats_table(df_prices_latest: pl.DataFrame) -> list[str]:
         on_select="rerun",
         column_order=[
             "name",
-            # "ticker",
             "close",
             "upside",
             "pe_ratio",

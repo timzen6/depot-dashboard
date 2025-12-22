@@ -1,5 +1,4 @@
 # Define a static color class for consistent use across the app
-# Define a static color class for consistent use across the app
 
 
 class Colors:
