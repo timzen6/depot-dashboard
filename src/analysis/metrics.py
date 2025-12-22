@@ -155,7 +155,7 @@ class MetricsEngine:
         # Ensure fundamentals are sorted by date for join_asof
         df_fund_sorted = df_fund_enriched.sort(["ticker", "date"])
 
-        df_merged = df_with_div_yield.join_asof(
+        df_merged = df_with_div_yield.sort(["ticker", "date"]).join_asof(
             df_fund_sorted,
             on="date",
             by="ticker",

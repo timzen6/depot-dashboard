@@ -1,46 +1,68 @@
-# Define a static color Class for consistent use across the app
+# Define a static color class for consistent use across the app
+# Define a static color class for consistent use across the app
 
 
 class Colors:
-    blue = "#1f77b4"
-    light_blue = "#aec7e8"
-    orange = "#ff7f0e"
-    light_orange = "#ffbb78"
-    green = "#2ca02c"
-    light_green = "#98df8a"
-    red = "#d62728"
-    light_red = "#ff9896"
-    purple = "#9467bd"
-    light_purple = "#c5b0d5"
-    yellow = "#ffdb58"
-    amber = "#ffbf00"
-    gray = "#7f7f7f"
-    light_gray = "#c7c7c7"
+    # Primary / Neutral (Modern "Inter" Blue)
+    blue = "#2563eb"  # Royal Blue (strong, serious)
+    light_blue = "#93c5fd"  # Soft Sky
+
+    # Secondary (Distinctive)
+    purple = "#7c3aed"  # Violet (modern for Tech/SaaS)
+    light_purple = "#c4b5fd"
+
+    # Semantic: Success / Growth (Emerald instead of "Grass Green")
+    green = "#059669"  # Emerald 600 (Money color, good readability)
+    light_green = "#6ee7b7"  # Emerald 300
+
+    # Semantic: Danger / Loss (Rose/Red instead of "Warning Sign Red")
+    red = "#dc2626"  # Red 600 (Clear, but not glaring)
+    light_red = "#fca5a5"  # Red 300
+
+    # Semantic: Warning / Attention (Amber instead of Yellow!)
+    # IMPORTANT: Pure yellow (#FF0) is invisible on a white background.
+    # We use Amber/Gold.
+    amber = "#d97706"  # Amber 600 (Good readability)
+    yellow = "#f59e0b"  # Amber 500 (Lighter, but visible)
+
+    # Categories
+    orange = "#ea580c"  # Burnt Orange
+    light_orange = "#fdba74"
+    teal = "#0d9488"  # Teal (Nice complement to blue)
+    gray = "#4b5563"  # Cool Gray
+    light_gray = "#9ca3af"
 
 
-# Color scales as module-level constants
-COLOR_SCALE_CONTRAST = [
-    Colors.blue,
-    Colors.orange,
-    Colors.green,
-    Colors.red,
-    Colors.purple,
-    Colors.yellow,
-    Colors.light_blue,
-    Colors.amber,
+# 1. Diverging Scale (Good vs. Bad)
+# Used for: Valuation, Scores
+COLOR_SCALE_GREEN_RED = [
+    Colors.green,  # Top (Dark green)
+    Colors.light_green,  # Good
+    Colors.yellow,  # Neutral (Amber) - Replaces unreadable yellow
+    Colors.light_red,  # Bad
+    Colors.red,  # Critical (Dark red)
 ]
 
+# 2. Contrast Scale (Categories)
+# Used for: Sectors, ticker comparison
+# Optimized order for maximum distinguishability
+COLOR_SCALE_CONTRAST = [
+    Colors.blue,  # 1. Standard
+    Colors.orange,  # 2. Strong contrast to blue
+    Colors.teal,  # 3. Modern, distinct from blue/green
+    Colors.purple,  # 4. Tech vibe
+    Colors.red,  # 5. Signal
+    Colors.yellow,  # 6. (Amber)
+    Colors.gray,  # 7. Neutral
+    Colors.green,  # 8. (Only late, to avoid confusion with "Good")
+]
+
+# 3. Soft Scale (Stacks / Areas)
 COLOR_SCALE_SOFT = [
-    Colors.blue,
     Colors.light_blue,
-    Colors.orange,
     Colors.light_orange,
-    Colors.green,
     Colors.light_green,
-    Colors.red,
     Colors.light_red,
-    Colors.purple,
     Colors.light_purple,
-    Colors.yellow,
     Colors.light_gray,
 ]

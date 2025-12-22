@@ -283,6 +283,7 @@ def make_sunburst_chart(df: pl.DataFrame, path: list[str], title: str | None = N
     )
     fig.update_traces(
         insidetextorientation="horizontal",
+        textinfo="label+percent parent",
         marker=dict(line=dict(color="#FFFFFF", width=2.0)),
     )
     fig.update_layout(

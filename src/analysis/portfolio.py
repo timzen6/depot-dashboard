@@ -153,7 +153,11 @@ class PortfolioEngine:
             }
             for pos in portfolio.positions
         ]
-        df_positions = pl.DataFrame(positions_data)
+        df_positions = pl.DataFrame(positions_data).with_columns(
+            # here we normalize weights to sum to 1.0, so that we can use
+            # ratios when defining allocations, thats much easier to read
+            (pl.col("weight") / pl.col("weight").sum()).alias("weight")
+        )
 
         # Calculate implied shares at start
         df_shares = (
