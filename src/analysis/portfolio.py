@@ -40,6 +40,7 @@ class PortfolioEngine:
 
         # Filter to portfolio tickers
         df_portfolio = df_prices.filter(pl.col("ticker").is_in(portfolio.tickers))
+        ticker_to_group = {pos.ticker: getattr(pos, "group", None) for pos in portfolio.positions}
 
         if df_portfolio.is_empty():
             logger.warning(f"No price data found for portfolio '{portfolio.name}'")
@@ -53,11 +54,18 @@ class PortfolioEngine:
 
         # Route to strategy-specific calculation
         if portfolio.type == PortfolioType.ABSOLUTE:
-            return self._calculate_absolute(portfolio, df_portfolio)
+            history = self._calculate_absolute(portfolio, df_portfolio)
         elif portfolio.type == PortfolioType.WEIGHTED:
-            return self._calculate_weighted(portfolio, df_portfolio, fx_engine)
+            history = self._calculate_weighted(portfolio, df_portfolio, fx_engine)
         else:  # WATCHLIST
-            return self._calculate_watchlist(df_portfolio)
+            history = self._calculate_watchlist(df_portfolio)
+
+        return history.with_columns(
+            pl.col("ticker")
+            .map_elements(lambda t: ticker_to_group.get(t, None), return_dtype=pl.Utf8)
+            .fill_null("N/A")
+            .alias("group")
+        )
 
     def _calculate_absolute(self, portfolio: Portfolio, df_prices: pl.DataFrame) -> pl.DataFrame:
         """Calculate absolute portfolio: fixed share counts.
@@ -145,7 +153,11 @@ class PortfolioEngine:
             }
             for pos in portfolio.positions
         ]
-        df_positions = pl.DataFrame(positions_data)
+        df_positions = pl.DataFrame(positions_data).with_columns(
+            # here we normalize weights to sum to 1.0, so that we can use
+            # ratios when defining allocations, thats much easier to read
+            (pl.col("weight") / pl.col("weight").sum()).alias("weight")
+        )
 
         # Calculate implied shares at start
         df_shares = (

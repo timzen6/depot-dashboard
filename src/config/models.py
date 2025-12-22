@@ -28,6 +28,7 @@ class Position(BaseModel):
     type: Literal["stock", "etf", "fund", "bond"] = Field(
         default="stock", description="Type of asset"
     )
+    group: str | None = Field(default=None, description="Optional group/category for the position")
 
     @field_validator("type")
     @classmethod
@@ -118,12 +119,6 @@ class Portfolio(BaseModel):
         """Validate portfolio-specific constraints after initialization."""
         # Weighted portfolios: validate weights sum to 1.0
         if self.type == PortfolioType.WEIGHTED:
-            total_weight = sum(pos.weight or 0.0 for pos in self.positions)
-            if abs(total_weight - 1.0) > 1e-6:  # Allow small floating point errors
-                raise ValueError(
-                    f"Weights must sum to 1.0 for weighted portfolios, got: {total_weight}"
-                )
-
             # Ensure all positions have weights
             if any(pos.weight is None for pos in self.positions):
                 raise ValueError("All positions must have weights in weighted portfolios")

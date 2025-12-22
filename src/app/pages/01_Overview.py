@@ -103,7 +103,6 @@ try:
         st.stop()
 
     # Calculate KPIs
-    st.dataframe(df_history)
     kpis = get_portfolio_kpis(df_history)
 
     # Render KPIs
@@ -114,17 +113,19 @@ try:
     tab1, tab2 = st.tabs(["Complete Portfolio", "Stock Breakdown"])
     # Portfolio chart and composition
     with tab1:
-        col1, col2 = st.columns([3, 2])
+        col1, col2 = st.columns([1, 1])
         with col1:
-            render_portfolio_chart(df_history, key="portfolio_chart_all")
+            render_portfolio_chart(df_history, key="portfolio_chart_all", group_column="asset_type")
 
         with col2:
             render_portfolio_composition_chart(df_history)
     with tab2:
         df_history_stock = df_history.filter(pl.col("asset_type") == AssetType.STOCK)
-        col1, col2 = st.columns([3, 2])
+        col1, col2 = st.columns([1, 1])
         with col1:
-            render_portfolio_chart(df_history_stock, key="portfolio_chart_stocks")
+            render_portfolio_chart(
+                df_history_stock, key="portfolio_chart_stocks", group_column="group"
+            )
         with col2:
             render_stock_composition_chart(df_history_stock)
 

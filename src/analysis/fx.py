@@ -52,6 +52,15 @@ class FXEngine:
 
         return rates
 
+    def convert_multiple_to_target(
+        self, df: pl.DataFrame, amount_cols: list[str], source_currency_col: str
+    ) -> pl.DataFrame:
+        """Just a wrapper to convert multiple amount columns to target currency at once."""
+        df_converted = df
+        for amount_col in amount_cols:
+            df_converted = self.convert_to_target(df_converted, amount_col, source_currency_col)
+        return df_converted
+
     def convert_to_target(
         self, df: pl.DataFrame, amount_col: str, source_currency_col: str
     ) -> pl.DataFrame:
@@ -85,7 +94,7 @@ class FXEngine:
 
         # Warn about unsupported currencies
         for currency in foreign_currencies:
-            if currency not in self.fx_rates:
+            if currency.upper() not in self.fx_rates:
                 logger.warning(
                     f"No FX rate available for {currency} → {self.target_currency}, "
                     "values will be kept in original currency"
@@ -94,7 +103,9 @@ class FXEngine:
         # Convert supported currencies
         converted_chunks = []
         for currency, df_rate in self.fx_rates.items():
-            df_currency = df_foreign.filter(pl.col(source_currency_col) == currency)
+            df_currency = df_foreign.filter(
+                pl.col(source_currency_col).str.to_uppercase() == currency
+            )
 
             if not df_currency.is_empty():
                 # Join with FX rates using asof strategy to get last available rate
@@ -131,6 +142,7 @@ class FXEngine:
         Returns:
             Converted amount in target currency
         """
+        source_currency = source_currency.upper()
         if source_currency == self.target_currency:
             return amount
 

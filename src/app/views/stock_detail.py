@@ -10,7 +10,7 @@ import plotly.graph_objects as go
 import polars as pl
 import streamlit as st
 from plotly.subplots import make_subplots
-from views.colors import Colors
+from views.colors import COLOR_SCALE_CONTRAST, COLOR_SCALE_GREEN_RED, Colors
 
 from src.analysis.fx import FXEngine
 from src.app.views.constants import (
@@ -173,9 +173,9 @@ def render_pe_ratio_chart(df_price: pl.DataFrame, ticker: str) -> None:
         },
         color_discrete_map={
             "P/E Ratio": Colors.blue,
-            "Median P/E": Colors.orange,
-            "Lower Quartile P/E": Colors.green,
-            "Upper Quartile P/E": Colors.red,
+            "Median P/E": COLOR_SCALE_GREEN_RED[2],
+            "Lower Quartile P/E": COLOR_SCALE_GREEN_RED[0],
+            "Upper Quartile P/E": COLOR_SCALE_GREEN_RED[4],
         },
         line_dash_map={
             "P/E Ratio": "solid",
@@ -212,22 +212,19 @@ def render_price_chart(
             # add 200 day moving average
             pl.col("close").rolling_mean(window_size=200).alias("MA200"),
             pl.col("close").alias("Closing Price"),
+            pl.col("fair_value").alias("Fair Value"),
         )
         fig = px.line(
             df_price,
             x="date",
-            y=["Closing Price", "MA200", "fair_value"],
+            y=["Closing Price", "MA200", "Fair Value"],
             title=f"{ticker} Closing Price History",
             labels={
                 "close": f"Closing Price ({symbol})",
                 "date": "Date",
                 "fair_value": "Fair Value",
             },
-            color_discrete_sequence=[
-                Colors.blue,
-                Colors.orange,
-                Colors.green,
-            ],
+            color_discrete_sequence=COLOR_SCALE_CONTRAST,
         )
         fig.update_layout(legend_title_text="")
         fig.update_yaxes(title_text=f"Price ({symbol})")
@@ -318,7 +315,7 @@ def render_quality_chart(stock_data: StockData, metrics: list[MetricDisplayInfo]
                 y="roce%",
                 labels={"roce%": "ROCE (%)", "date": "Date"},
                 title=f"{ticker} Return on Capital Employed (ROCE)",
-                color_discrete_sequence=[Colors.blue],
+                color_discrete_sequence=COLOR_SCALE_CONTRAST,
             )
 
             fig_roce.update_layout(
@@ -330,10 +327,14 @@ def render_quality_chart(stock_data: StockData, metrics: list[MetricDisplayInfo]
         else:
             st.info("ROCE data not available")
     with tab2:
-        df_tmp = df_fund.select(["date", "gross_margin%", "ebit_margin%"]).unpivot(
-            index="date",
-            variable_name="margin_type",
-            value_name="margin_value",
+        df_tmp = (
+            df_fund.select(["date", "gross_margin%", "ebit_margin%"])
+            .rename({"gross_margin%": "Gross Margin", "ebit_margin%": "EBIT Margin"})
+            .unpivot(
+                index="date",
+                variable_name="margin_type",
+                value_name="margin_value",
+            )
         )
         fig_margins = px.bar(
             df_tmp,
@@ -347,10 +348,7 @@ def render_quality_chart(stock_data: StockData, metrics: list[MetricDisplayInfo]
                 "margin_type": "Margin Type",
             },
             title=f"{ticker} Gross and EBIT Margins",
-            color_discrete_map={
-                "gross_margin%": Colors.blue,
-                "ebit_margin%": Colors.light_blue,
-            },
+            color_discrete_sequence=COLOR_SCALE_CONTRAST,
         )
         fig_margins.update_layout(
             template="plotly_white",
@@ -421,10 +419,11 @@ def render_valuation_data(stock_data: StockData) -> None:
             "Current Dividend Yield",
             f"{latest_price_metrics.select('dividend_yield').item() * 100:.1f}%",
         )
-        st.metric(
-            "Current Fair Value",
-            f"${latest_price_metrics.select('fair_value').item():.0f}",
-        )
+        if "fair_value" in latest_price_metrics.columns:
+            st.metric(
+                "Current Fair Value",
+                f"${latest_price_metrics.select('fair_value').item():.0f}",
+            )
     with col2:
         tab1, tab2, tab3 = st.tabs(["P/E Ratio", "Yield", "Dilution"])
         tmp_metrics = (
@@ -454,22 +453,32 @@ def render_valuation_data(stock_data: StockData) -> None:
                 x="year",
                 y="yield",
                 labels={"yield": "P/E Ratio", "year": "Year"},
-                color_discrete_sequence=[Colors.blue],
+                color_discrete_sequence=COLOR_SCALE_CONTRAST,
             )
             st.plotly_chart(fig, use_container_width=True)
         with tab2:
             fig = px.bar(
-                tmp_metrics.filter(pl.col("metric").is_in(["fcf_yield", "dividend_yield"])),
+                tmp_metrics.filter(
+                    pl.col("metric").is_in(["fcf_yield", "dividend_yield"])
+                ).with_columns(
+                    pl.col("metric").replace(
+                        {
+                            "fcf_yield": "FCF Yield",
+                            "dividend_yield": "Dividend Yield",
+                        }
+                    )
+                ),
                 x="year",
                 y="yield",
                 color="metric",
                 barmode="group",
-                labels={"yield": "Yield (%)", "year": "Year"},
-                color_discrete_map={
-                    "fcf_yield": Colors.blue,
-                    "dividend_yield": Colors.orange,
+                labels={
+                    "yield": "Yield (%)",
+                    "year": "Year",
                 },
+                color_discrete_sequence=COLOR_SCALE_CONTRAST,
             )
+            fig.update_layout(legend_title_text="")
             st.plotly_chart(fig, use_container_width=True)
         with tab3:
             fig = px.bar(
@@ -477,7 +486,7 @@ def render_valuation_data(stock_data: StockData) -> None:
                 x="year",
                 y="yield",
                 labels={"yield": "Diluted Average Shares", "year": "Year"},
-                color_discrete_sequence=[Colors.blue],
+                color_discrete_sequence=COLOR_SCALE_CONTRAST,
             )
             st.plotly_chart(fig, use_container_width=True)
 

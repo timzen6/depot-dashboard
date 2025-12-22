@@ -50,5 +50,8 @@ COUNTRY_FLAGS = {
     "Spain": "🇪🇸",
     "Sweden": "🇸🇪",
     "Denmark": "🇩🇰",
+    "Finland": "🇫🇮",
+    "Taiwan": "🇹🇼",
+    "South Korea": "🇰🇷",
     # Add more countries as needed
 }

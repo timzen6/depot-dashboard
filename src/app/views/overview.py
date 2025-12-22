@@ -13,7 +13,11 @@ from src.app.views.constants import COUNTRY_FLAGS, SECTOR_EMOJI
 from src.core.domain_models import AssetType
 
 
-def render_portfolio_chart(df_history: pl.DataFrame, key: str = "portfolio_chart") -> None:
+def render_portfolio_chart(
+    df_history: pl.DataFrame,
+    key: str = "portfolio_chart",
+    group_column: str | None = None,
+) -> None:
     """Render portfolio value over time as interactive line chart.
 
     Args:
@@ -24,12 +28,54 @@ def render_portfolio_chart(df_history: pl.DataFrame, key: str = "portfolio_chart
         st.warning("No portfolio history data to display")
         return
 
+    time_select = st.pills(
+        "Select Time Range",
+        options=["All", "1Y", "6M", "1M"],
+        default="All",
+        key=f"{key}_time_select",
+        width=500,
+    )
+    timedelta_map = {
+        "1Y": 365,
+        "6M": 182,
+        "1M": 30,
+    }
+
+    gr_cols = ["date"]
+    use_group = False
+    if group_column and group_column in df_history.columns:
+        gr_cols.append(group_column)
+        use_group = True
+
     df_plot = (
         df_history.pipe(filter_days_with_incomplete_tickers)
-        .group_by("date")
+        .group_by(gr_cols)
         .agg(pl.sum("position_value_EUR").alias("total_value"))
-        .sort("date")
     )
+
+    if "asset_type" in df_plot.columns:
+        df_plot = df_plot.with_columns(
+            pl.col("asset_type").str.to_uppercase(),
+        ).sort("date")
+    if time_select != "All":
+        df_history_date_max = df_plot.select(pl.max("date")).item()
+        days_delta = timedelta_map[time_select]
+        df_plot = df_plot.filter(
+            pl.col("date") >= (df_history_date_max - pl.duration(days=days_delta))
+        )
+
+    if use_group:
+        fig = px.area(
+            df_plot,
+            x="date",
+            y="total_value",
+            color=group_column,
+            title="Portfolio Value Over Time by Group",
+            labels={"total_value": "Portfolio Value (€)", "date": "Date"},
+            color_discrete_sequence=COLOR_SCALE_CONTRAST,
+        )
+        st.plotly_chart(fig, use_container_width=True, key=key)
+        return
 
     # Create line chart
     fig = px.line(
@@ -84,6 +130,7 @@ def render_positions_table(df_history: pl.DataFrame, portfolio_name: str) -> Non
             pl.last("currency").alias("currency"),
             pl.last("short_name").alias("short_name"),
             pl.last("asset_type").str.to_uppercase().alias("asset_type"),
+            pl.last("group").alias("group"),
             pl.last("sector").alias("sector"),
             pl.last("position_value_EUR").alias("position_value_EUR"),
             pl.last("position_dividend_yoy_EUR").alias("position_dividend_yoy_EUR"),
@@ -103,6 +150,7 @@ def render_positions_table(df_history: pl.DataFrame, portfolio_name: str) -> Non
             "short_name",
             "ticker",
             "asset_type",
+            "group",
             "position_value",
             "currency",
             "position_value_EUR",
@@ -113,6 +161,7 @@ def render_positions_table(df_history: pl.DataFrame, portfolio_name: str) -> Non
             "ticker": "Ticker",
             "short_name": "Name",
             "asset_type": "Asset Type",
+            "group": "Custom Group",
             "position_value": st.column_config.NumberColumn(
                 "Value (Original Currency)",
                 format="%.0f",
@@ -141,16 +190,23 @@ def render_stock_composition_chart(df_history: pl.DataFrame) -> None:
         return
     df_latest = (
         df_history.sort("date")
-        .group_by("ticker", "sector", "country", "short_name")
+        .group_by("ticker")
         .agg(
             pl.last("date"),
             pl.last("position_value_EUR"),
+            # just dummies as they are same per ticker
+            pl.last("asset_type"),
+            pl.last("group"),
+            pl.last("sector"),
+            pl.last("country"),
+            pl.last("short_name"),
         )
         .with_columns(
             pl.col("short_name")
             .fill_null(pl.col("ticker"))
             # no longer strings than 20 chars
-            .str.slice(0, 25)
+            .str.slice(0, 25),
+            pl.col("group").fill_null(pl.col("sector")).alias("color_category"),
         )
         .sort("position_value_EUR", descending=True)
     )
@@ -168,7 +224,7 @@ def render_stock_composition_chart(df_history: pl.DataFrame) -> None:
             df_latest,
             names="short_name",
             values="position_value_EUR",
-            color="sector",
+            color="color_category",
             color_discrete_sequence=COLOR_SCALE_CONTRAST,
         )
 
@@ -213,6 +269,58 @@ def render_stock_composition_chart(df_history: pl.DataFrame) -> None:
         st.plotly_chart(fig_country_simple, use_container_width=True)
 
 
+GLOBAL_MARGINS = dict(t=30, l=5, r=5, b=0)
+GLOBAL_FONT = dict(family="Arial", size=16)
+
+
+def make_sunburst_chart(df: pl.DataFrame, path: list[str], title: str | None = None) -> px.sunburst:
+    fig = px.sunburst(
+        df,
+        path=path,
+        values="position_value_EUR",
+        color_discrete_sequence=COLOR_SCALE_CONTRAST,
+        title=title,
+    )
+    fig.update_traces(
+        insidetextorientation="horizontal",
+        textinfo="label+percent parent",
+        marker=dict(line=dict(color="#FFFFFF", width=2.0)),
+    )
+    fig.update_layout(
+        height=400,
+        margin=GLOBAL_MARGINS,
+        showlegend=False,  # Stabilizes layout.
+        font=GLOBAL_FONT,
+        uniformtext=dict(
+            minsize=10,  # If text < 10px is required to fit, hide it instead.
+            mode="hide",  # options: 'hide' | 'show'
+        ),
+    )
+    return fig
+
+
+def make_pie_chart(df: pl.DataFrame, names: str, values: str, title: str | None = None) -> px.pie:
+    fig = px.pie(
+        df,
+        names=names,
+        values=values,
+        color_discrete_sequence=COLOR_SCALE_CONTRAST,
+        title=title,
+    )
+    fig.update_traces(
+        textposition="inside",
+        textinfo="label+percent",
+        marker=dict(line=dict(color="#FFFFFF", width=2.0)),
+    )
+    fig.update_layout(
+        height=400,
+        margin=GLOBAL_MARGINS,
+        showlegend=False,
+        font=GLOBAL_FONT,
+    )
+    return fig
+
+
 def render_portfolio_composition_chart(df_history: pl.DataFrame) -> None:
     """Render portfolio composition as pie chart.
 
@@ -225,38 +333,63 @@ def render_portfolio_composition_chart(df_history: pl.DataFrame) -> None:
     # get complete row of the latest date per ticker
     df_latest = (
         df_history.sort("date")
-        .group_by("ticker", "asset_type")
+        .group_by("ticker")
         .agg(
             pl.last("date"),
             pl.last("position_value_EUR"),
+            # these are kind of dummies as they are same per ticker
+            # but needed for the plots
+            pl.last("asset_type"),
+            pl.last("group"),
+        )
+        .with_columns(
+            pl.col("asset_type").str.to_uppercase(),
         )
         .sort("position_value_EUR", descending=True)
     )
-    tab1, tab2 = st.tabs(["Asset Classes", "Positions"])
-    with tab1:
-        df_asset = df_latest.group_by("asset_type").agg(
-            pl.sum("position_value_EUR").alias("total_value_EUR")
-        )
-        fig_asset = px.pie(
-            df_asset,
-            names="asset_type",
-            values="total_value_EUR",
-            color_discrete_sequence=COLOR_SCALE_CONTRAST,
-        )
-        st.plotly_chart(fig_asset, use_container_width=True)
 
+    has_group_usage = df_latest.select(pl.col("group").n_unique()).item() > 1
+    n_col = 2 if has_group_usage else 1
+
+    tab1, tab2, tab3 = st.tabs(["Asset Classes", "Groups", "Positions"])
+    with tab1:
+        cols = st.columns(n_col)
+        with cols[0]:
+            fig_asset_simple = make_pie_chart(
+                df_latest,
+                names="asset_type",
+                values="position_value_EUR",
+            )
+            st.plotly_chart(fig_asset_simple, use_container_width=True)
+        if has_group_usage:
+            with cols[1]:
+                fig_asset = make_sunburst_chart(
+                    df_latest,
+                    path=["asset_type", "group"],
+                )
+                st.plotly_chart(fig_asset, use_container_width=True)
     with tab2:
-        fig_pos = px.pie(
+        cols = st.columns(n_col)
+        with cols[0]:
+            fig_group_simple = make_pie_chart(
+                df_latest,
+                names="group",
+                values="position_value_EUR",
+            )
+            st.plotly_chart(fig_group_simple, use_container_width=True)
+        if has_group_usage:
+            with cols[1]:
+                fig_group = make_sunburst_chart(
+                    df_latest,
+                    path=["group", "asset_type"],
+                )
+                st.plotly_chart(fig_group, use_container_width=True)
+
+    with tab3:
+        fig_pos = make_pie_chart(
             df_latest,
             names="ticker",
             values="position_value_EUR",
-            color_discrete_sequence=COLOR_SCALE_CONTRAST,
-        )
-
-        fig_pos.update_layout(
-            title="Portfolio Composition",
-            template="plotly_white",
-            height=400,
         )
 
         st.plotly_chart(fig_pos, use_container_width=True)
@@ -292,6 +425,7 @@ def render_market_snapshot_table(
             "fcf_yield",
             "roce",
             "gross_margin",
+            "ebit_margin",
             "revenue_growth",
             "net_debt_to_ebit",
         ],
@@ -303,6 +437,7 @@ def render_market_snapshot_table(
             "pe_ratio": st.column_config.NumberColumn("P/E 💰", format="%.1f"),
             "fcf_yield": st.column_config.NumberColumn("FCF Yield 💰", format="%.2f%%"),
             "gross_margin": st.column_config.NumberColumn("Gross Margin 💎", format="%.1f%%"),
+            "ebit_margin": st.column_config.NumberColumn("EBIT Margin 💎", format="%.1f%%"),
             "roce": st.column_config.NumberColumn("ROCE 💎", format="%.1f%%"),
             "revenue_growth": st.column_config.NumberColumn("Revenue Growth 🚀", format="%.1f%%"),
             "net_debt_to_ebit": st.column_config.NumberColumn("Debt/EBIT 🏥", format="%.1fx"),

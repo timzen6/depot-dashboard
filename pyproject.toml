@@ -38,6 +38,9 @@ line-length = 100
 target-version = "py311"
 select = ["E", "W", "F", "I", "B", "UP", "N", "PD"]
 
+[tool.ruff.per-file-ignores]
+"src/app/00_Startpage.py" = ["N999"]
+
 [tool.ruff.lint]
 ignore = []
 

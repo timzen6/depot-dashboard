@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import polars as pl
+import streamlit as st
 from loguru import logger
 
 from src.analysis.metrics import MetricsEngine
@@ -100,7 +101,7 @@ def _calculate_metrics(
     return prices, fundamentals
 
 
-# @st.cache_data(ttl=3600, show_spinner="Loading data...")  # type: ignore[misc]
+@st.cache_data(ttl=3600, show_spinner="Loading data...")  # type: ignore[misc]
 def _load_cached_raw_data(
     metadata_dir: Path,
     prices_dir: Path,
