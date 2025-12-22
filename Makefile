@@ -27,7 +27,7 @@ test:
 	uv run --extra dev pytest
 
 app:
-	uv run streamlit run src/app/Startpage.py
+	uv run streamlit run src/app/00_Startpage.py
 
 project-export:
 	@gh project item-list 1 --owner timzen6 --format json > llm_inputs/project_items.json
