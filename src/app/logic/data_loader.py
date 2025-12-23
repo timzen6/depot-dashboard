@@ -31,7 +31,7 @@ class GlobalDataLoader:
     with calculated metrics using the MetricsEngine.
     """
 
-    def __init__(self, config_path: Path = Path("config.yaml")) -> None:
+    def __init__(self, config_path: Path = Path("config/config.yaml")) -> None:
         """Initialize with configuration.
 
         Args:
