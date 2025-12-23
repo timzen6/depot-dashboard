@@ -29,6 +29,15 @@ class StrategyEngine:
         for ticker, factors in raw_overrides.items():
             self.overrides[ticker] = StrategyFactors(**factors)
 
+    @property
+    def factor_mapping(self) -> dict[str, str]:
+        return {
+            "tech": "Technology",
+            "stab": "Stability",
+            "real": "Real Assets",
+            "price": "Pricing Power",
+        }
+
     def get_sector_reference(self, sector: str) -> StrategyFactors:
         if sector in self.defaults:
             return self.defaults[sector]

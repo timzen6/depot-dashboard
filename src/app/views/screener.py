@@ -25,14 +25,7 @@ def render_factor_overview_chart(
             .then(pl.lit("Sector Reference"))
             .otherwise(pl.lit("Stock Profile"))
             .alias("is_sector_reference"),
-            pl.col("factor").replace(
-                {
-                    "tech": "Technology",
-                    "stab": "Stability",
-                    "real": "Real Assets",
-                    "price": "Pricing Power",
-                }
-            ),
+            pl.col("factor").replace(strategy_engine.factor_mapping),
         )
         fig_factors = px.bar(
             factor_profiles,

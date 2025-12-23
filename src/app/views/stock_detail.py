@@ -45,24 +45,20 @@ def render_factor_profile_chart(
             strategy_engine,
         )
         # Check if all factor values are equal to sector reference (no unique profile)
-        if (
-            df_strategy_factors.filter(~pl.col("is_sector_reference")).sort("factor")["value"]
-            == df_strategy_factors.filter(pl.col("is_sector_reference")).sort("factor")["value"]
-        ).all():
+        tmp = df_strategy_factors.with_columns(pl.col("is_sector_reference").cast(pl.String)).pivot(  # noqa: PD010
+            index=["factor"],
+            values="value",
+            on="is_sector_reference",
+        )  # noqa: PD010
+        is_identical = tmp.select((pl.col("true") == pl.col("false")).all()).item()
+        if is_identical:
             st.info("No unique factor profile for this stock; using sector reference")
         df_strategy_factors = df_strategy_factors.with_columns(
             pl.when(pl.col("is_sector_reference"))
             .then(pl.lit("Sector Reference"))
             .otherwise(pl.lit("Stock Profile"))
             .alias("Profile Type"),
-            pl.col("factor").replace(
-                {
-                    "tech": "Technology",
-                    "stab": "Stability",
-                    "real": "Real Assets",
-                    "price": "Pricing Power",
-                }
-            ),
+            pl.col("factor").replace(strategy_engine.factor_mapping),
         )
         fig_profile = px.bar(
             df_strategy_factors,
