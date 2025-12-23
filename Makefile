@@ -17,6 +17,9 @@ pc:
 meta:
 	uv run qc meta
 
+fundamentals:
+	uv run qc fundamentals
+
 etl:
 	uv run qc etl
 

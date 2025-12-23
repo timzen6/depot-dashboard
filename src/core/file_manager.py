@@ -13,17 +13,27 @@ from loguru import logger
 class ParquetStorage:
     """Manages atomic read/write operations for Parquet files."""
 
-    def __init__(self, base_path: Path) -> None:
+    def __init__(self, base_path: Path, subdirectories: list[str] | None = None) -> None:
         """Initialize storage with a base directory.
 
         Args:
             base_path: Root directory for all parquet files
+            subdirectories: Optional list of subdirectories within the base path
         """
         self.base_path = Path(base_path)
-        self.base_path.mkdir(parents=True, exist_ok=True)
+        if subdirectories:
+            for subdirectory in subdirectories:
+                (self.base_path / subdirectory).mkdir(parents=True, exist_ok=True)
+        else:
+            self.base_path.mkdir(parents=True, exist_ok=True)
         logger.info(f"ParquetStorage initialized at {self.base_path}")
 
-    def atomic_update(self, df: pl.DataFrame, filename: str) -> None:
+    def atomic_update(
+        self,
+        df: pl.DataFrame,
+        filename: str,
+        unique_keys: list[str] | None = None,
+    ) -> None:
         """Update existing parquet file atomically.
 
         Reads existing data, merges with new data, and writes back atomically.
@@ -35,19 +45,22 @@ class ParquetStorage:
         """
         if not filename.endswith(".parquet"):
             filename += ".parquet"
+        unique_keys = unique_keys or ["ticker"]
 
         target_path = self.base_path / filename
 
         if target_path.exists():
             # Read existing data
-            existing_df = pl.read_parquet(target_path).filter(
-                # de-duplicate based on 'ticker' explicitly
-                ~pl.col("ticker").is_in(df["ticker"])
+            existing_df = pl.read_parquet(target_path)
+            history_to_keep = existing_df.join(
+                df.select(unique_keys),
+                on=unique_keys,
+                how="anti",
             )
             # Combine and deduplicate
-            combined_df = pl.concat([df, existing_df]).sort("ticker")
+            combined_df = pl.concat([df, history_to_keep]).sort(unique_keys)
         else:
-            combined_df = df.sort("ticker")
+            combined_df = df.sort(unique_keys)
 
         # Write combined data atomically
         self.atomic_write(combined_df, filename)

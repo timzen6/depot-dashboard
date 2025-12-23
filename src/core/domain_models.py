@@ -108,6 +108,7 @@ class FinancialReport(BaseModel):
     ebit: float | None = None  # Crucial for ROCE
     net_income: float | None = None
     tax_provision: float | None = None
+    interest_expense: float | None = None
 
     # Per Share Data
     diluted_eps: float | None = None
@@ -117,6 +118,8 @@ class FinancialReport(BaseModel):
     operating_cash_flow: float | None = None
     capital_expenditure: float | None = None  # Crucial for FCF
     free_cash_flow: float | None = None  # Often provided directly, but verify with OCF - Capex
+
+    cash_dividends_paid: float | None = None
 
     # Shares
     # We need this to calculate market-cap based metrics
@@ -128,6 +131,8 @@ class FinancialReport(BaseModel):
     total_current_liabilities: float | None = None
     total_equity: float | None = None
     long_term_debt: float | None = None
+    short_term_debt: float | None = None
+    total_debt: float | None = None
     cash_and_equivalents: float | None = None
 
     @property
@@ -148,8 +153,15 @@ class FinancialReport(BaseModel):
         Formula: Long Term Debt - Cash & Equivalents
         (Simplified view; often Short Term Debt is also included).
         """
-        if self.long_term_debt is not None and self.cash_and_equivalents is not None:
-            return self.long_term_debt - self.cash_and_equivalents
+        debt = self.total_debt
+
+        if debt is None:
+            ltd = self.long_term_debt or 0.0
+            std = self.short_term_debt or 0.0
+            if self.long_term_debt is not None or self.short_term_debt is not None:
+                debt = ltd + std
+        if debt is not None and self.cash_and_equivalents is not None:
+            return debt - self.cash_and_equivalents
         return None
 
 

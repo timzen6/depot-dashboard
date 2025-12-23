@@ -11,6 +11,8 @@ import yfinance as yf
 from loguru import logger
 from tenacity import retry, stop_after_attempt, wait_exponential
 
+from src.core.domain_models import ReportType
+
 
 class DataExtractor:
     """Handles all external data fetching from yfinance with retry logic."""
@@ -98,7 +100,11 @@ class DataExtractor:
         wait=wait_exponential(multiplier=1, min=2, max=10),
         reraise=True,
     )  # type: ignore[misc]
-    def get_financials(self, ticker: str) -> pd.DataFrame:
+    def get_financials(
+        self,
+        ticker: str,
+        report_type: ReportType = ReportType.ANNUAL,
+    ) -> pd.DataFrame:
         """
         Fetch fundamental financial data for a ticker.
 
@@ -108,6 +114,7 @@ class DataExtractor:
 
         Args:
             ticker: Stock ticker symbol (e.g., "MSFT", "MUV2.DE")
+            report_type: Type of financial report (ANNUAL or QUARTERLY)
 
         Returns:
             pandas DataFrame with merged financial statements
@@ -121,14 +128,21 @@ class DataExtractor:
         try:
             yf_ticker = yf.Ticker(ticker)
 
-            # Fetch all three financial statements
-            inc = yf_ticker.financials
-            bal = yf_ticker.balance_sheet
-            cash = yf_ticker.cashflow
+            if report_type == ReportType.ANNUAL:
+                # Fetch all three financial statements
+                inc = yf_ticker.financials
+                bal = yf_ticker.balance_sheet
+                cash = yf_ticker.cashflow
+            elif report_type == ReportType.QUARTERLY:
+                inc = yf_ticker.quarterly_financials
+                bal = yf_ticker.quarterly_balance_sheet
+                cash = yf_ticker.quarterly_cashflow
+            else:
+                raise ValueError(f"Unsupported report type: {report_type}")
 
             # Validate that we got at least some data
             if inc.empty and bal.empty and cash.empty:
-                msg = f"No fundamental data found for {ticker}"
+                msg = f"No fundamental data found for {ticker} with report type {report_type}"
                 logger.warning(msg)
                 raise ValueError(msg)
 

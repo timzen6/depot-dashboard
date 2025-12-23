@@ -160,37 +160,44 @@ class ETLPipeline:
         logger.info(f"Starting fundamental update for {len(tickers)} tickers")
 
         for ticker in tqdm(tickers):
-            try:
-                # Fetch complete financial statements from yfinance
-                raw_pdf = self.extractor.get_financials(ticker)
-                currency = self.get_currency(ticker, metadata)
+            for report_type in [ReportType.ANNUAL, ReportType.QUARTERLY]:
+                try:
+                    # Fetch complete financial statements from yfinance
+                    raw_pdf = self.extractor.get_financials(ticker, report_type=report_type)
+                    currency = self.get_currency(ticker, metadata)
 
-                # Transform to domain model (list of FinancialReport objects)
-                reports = map_fundamentals_to_domain(raw_pdf, ticker, ReportType.ANNUAL, currency)
+                    # Transform to domain model (list of FinancialReport objects)
+                    reports = map_fundamentals_to_domain(raw_pdf, ticker, report_type, currency)
 
-                if not reports:
-                    logger.warning(f"[{ticker}] Mapping produced no reports")
+                    if not reports:
+                        logger.warning(f"[{ticker}] Mapping produced no reports")
+                        continue
+
+                    # Convert to Polars DataFrame for storage
+                    records = [report.model_dump() for report in reports]
+                    fundamentals_df = pl.DataFrame(records)
+
+                    # Atomic overwrite of existing data
+                    filename = f"{report_type.value.lower()}/fundamentals_{ticker}"
+                    self.storage.atomic_update(
+                        fundamentals_df,
+                        filename,
+                        unique_keys=["ticker", "report_date", "period_type"],
+                    )
+
+                    logger.success(
+                        f"[{ticker}] Fundamental update complete ({len(reports)} reports)"
+                    )
+
+                except ValueError as e:
+                    # No data found - log warning but continue with other tickers
+                    logger.warning(f"[{ticker}] Skipped: {e}")
                     continue
 
-                # Convert to Polars DataFrame for storage
-                records = [report.model_dump() for report in reports]
-                fundamentals_df = pl.DataFrame(records)
-
-                # Atomic overwrite of existing data
-                filename = f"fundamentals_{ticker}"
-                self.storage.atomic_write(fundamentals_df, filename)
-
-                logger.success(f"[{ticker}] Fundamental update complete ({len(reports)} reports)")
-
-            except ValueError as e:
-                # No data found - log warning but continue with other tickers
-                logger.warning(f"[{ticker}] Skipped: {e}")
-                continue
-
-            except Exception as e:
-                # Unexpected error - log but don't crash entire pipeline
-                logger.error(f"[{ticker}] Fundamental update failed: {e}")
-                continue
+                except Exception as e:
+                    # Unexpected error - log but don't crash entire pipeline
+                    logger.error(f"[{ticker}] Fundamental update failed: {e}")
+                    continue
 
     def _detect_price_gap(self, filename: str) -> date:
         """
