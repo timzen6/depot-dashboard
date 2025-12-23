@@ -133,7 +133,7 @@ def _load_cached_raw_data(
         logger.info(f"Loaded {df_prices.height:,} price records from {len(price_files)} files")
 
     # Load all fundamental files
-    fund_files = sorted(fundamentals_dir.glob("*.parquet"))
+    fund_files = sorted(fundamentals_dir.glob("annual/*.parquet"))
     if not fund_files:
         logger.warning(f"No fundamental files found in {fundamentals_dir}")
         df_fund = pl.DataFrame()

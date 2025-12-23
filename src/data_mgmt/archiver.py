@@ -13,6 +13,21 @@ import polars as pl
 from loguru import logger
 
 
+def cast_nulls_to_float(df_raw: pl.DataFrame, string_cols: list[str] | None = None) -> pl.DataFrame:
+    if string_cols is None:
+        string_cols = []
+    string_set = set(string_cols)
+    null_cols = [
+        name
+        for name, dtype in zip(df_raw.columns, df_raw.dtypes, strict=False)
+        if dtype == pl.Null and name not in string_set
+    ]
+    if null_cols:
+        logger.debug(f"Casting null columns to Float64: {null_cols}")
+        df_raw = df_raw.with_columns([pl.col(col).cast(pl.Float64) for col in null_cols])
+    return df_raw
+
+
 class DataArchiver:
     """Manages creation and restoration of compressed data snapshots."""
 
@@ -42,7 +57,13 @@ class DataArchiver:
         Raises:
             ValueError: If data_type is invalid or no data found
         """
-        if data_type not in ("prices", "fundamentals", "metadata"):
+        if data_type not in (
+            "prices",
+            "fundamentals",
+            "metadata",
+            "fundamentals/annual",
+            "fundamentals/quarterly",
+        ):
             raise ValueError(
                 f"Invalid data_type: {data_type}. Must be 'prices', 'fundamentals', or 'metadata'"
             )
@@ -50,28 +71,47 @@ class DataArchiver:
         source_dir = self.base_dir / data_type
         if not source_dir.exists():
             raise ValueError(f"Source directory does not exist: {source_dir}")
+        file_pattern = "**/*.parquet"
+        files = list(source_dir.glob(file_pattern))
+        if not files:
+            raise ValueError(f"No parquet files found in {source_dir} using pattern {file_pattern}")
 
-        pattern = str(source_dir / "*.parquet")
-        logger.info(f"Creating {data_type} snapshot from {pattern}")
+        logger.info(f"Creating {data_type} snapshot from {len(files)} files in {source_dir}")
 
-        # Read all parquet files in one go
-        data = pl.read_parquet(pattern)
+        # Optimize memory: Cast low-cardinality columns to Categorical
+        # Categorical columns are the only ones that are strings
+        categorical_cols = [
+            "ticker",
+            "currency",
+            "period_type",
+            "sector",
+            "industry",
+            "country",
+        ]
+        if data_type == "fundamentals":
+            categorical_cols.append("period_type")
+        try:
+            file_paths = [str(file) for file in files]
+            dfs = [
+                cast_nulls_to_float(pl.read_parquet(fp), string_cols=categorical_cols)
+                for fp in file_paths
+            ]
+            data = pl.concat(dfs, how="diagonal")
+        except Exception as e:
+            logger.error(f"Failed to read parquet files: {e}")
+            raise
 
         if data.is_empty():
             raise ValueError(f"No data found in {source_dir}")
-
-        # Optimize memory: Cast low-cardinality columns to Categorical
-        categorical_cols = ["ticker", "currency"]
-        if data_type == "fundamentals":
-            categorical_cols.append("period_type")
 
         for col in categorical_cols:
             if col in data.columns:
                 data = data.with_columns(pl.col(col).cast(pl.Categorical))
 
         # Generate snapshot filename with current date
+        safe_name = str(data_type).replace("/", "_").replace("\\", "_").lower()
         snapshot_date = date.today().isoformat()
-        snapshot_filename = f"{data_type}_snapshot_{snapshot_date}.parquet"
+        snapshot_filename = f"{safe_name}_snapshot_{snapshot_date}.parquet"
         snapshot_path = self.archive_dir / snapshot_filename
 
         # Write with compression
