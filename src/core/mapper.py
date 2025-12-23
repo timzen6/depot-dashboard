@@ -6,6 +6,7 @@ and our internal domain representation (Polars DataFrames + Pydantic models).
 """
 
 from datetime import datetime
+from typing import Any
 
 import pandas as pd
 import polars as pl
@@ -245,6 +246,12 @@ def map_fundamentals_to_domain(
             else:
                 parsed_date = pd.to_datetime(report_date).date()
 
+            if parsed_date > datetime.now().date():
+                logger.warning(f"Skipping future report date {parsed_date} for {ticker}")
+                continue
+
+            row_data = row.to_dict()
+
             # Map yfinance keys to domain model fields
             # Note: yfinance column names can vary slightly
             report = FinancialReport(
@@ -253,10 +260,10 @@ def map_fundamentals_to_domain(
                 period_type=report_type,
                 currency=currency,
                 # Income Statement
-                revenue=_safe_float(row, ["total revenue", "revenue", "operating revenue"]),
-                gross_profit=_safe_float(row, ["gross profit", "gross income"]),
-                ebit=_safe_float(
-                    row,
+                revenue=_get_float(row_data, ["total revenue", "revenue", "operating revenue"]),
+                gross_profit=_get_float(row_data, ["gross profit", "gross income"]),
+                ebit=_get_float(
+                    row_data,
                     [
                         "ebit",
                         "earnings before interest and tax",
@@ -264,16 +271,16 @@ def map_fundamentals_to_domain(
                         "operating profit",
                     ],
                 ),
-                net_income=_safe_float(
-                    row,
+                net_income=_get_float(
+                    row_data,
                     [
                         "net income",
                         "net income common stockholders",
                         "net income from continuing operations",
                     ],
                 ),
-                tax_provision=_safe_float(
-                    row,
+                tax_provision=_get_float(
+                    row_data,
                     [
                         "tax provision",
                         "tax expense",
@@ -281,21 +288,33 @@ def map_fundamentals_to_domain(
                         "provision for income taxes",
                     ],
                 ),
-                diluted_eps=_safe_float(
-                    row,
+                interest_expense=_get_float(
+                    row_data,
+                    [
+                        "interest expense",
+                        "interest expenses",
+                        "interest expense non operating",
+                        "total interest expense",
+                    ],
+                ),
+                diluted_eps=_get_float(
+                    row_data,
                     [
                         "diluted eps",
                         "diluted earnings per share",
                         "earnings per share diluted",
                     ],
                 ),
-                basic_eps=_safe_float(row, ["basic eps", "basic earnings per share"]),
+                basic_eps=_get_float(row_data, ["basic eps", "basic earnings per share"]),
                 # Cash Flow
-                operating_cash_flow=_safe_float(
-                    row, ["operating cash flow", "total cash from operating activities"]
+                operating_cash_flow=_get_float(
+                    row_data,
+                    ["operating cash flow", "total cash from operating activities"],
                 ),
-                capital_expenditure=_safe_float(
-                    row,
+                # Note: Yahoo returns Capex as NEGATIVE numbers.
+                # We keep it raw here.
+                capital_expenditure=_get_float(
+                    row_data,
                     [
                         "capital expenditure",
                         "capital expenditures",
@@ -303,21 +322,29 @@ def map_fundamentals_to_domain(
                         "purchase of ppe",
                     ],
                 ),
-                free_cash_flow=_safe_float(row, ["free cash flow"]),
-                # Shares
-                basic_average_shares=_safe_float(
-                    row, ["basic average shares", "ordinary shares number"]
+                free_cash_flow=_get_float(row_data, ["free cash flow"]),
+                cash_dividends_paid=_get_float(
+                    row_data,
+                    [
+                        "cash dividends paid",
+                        "dividends paid",
+                        "common stock dividends paid",
+                    ],
                 ),
-                diluted_average_shares=_safe_float(
-                    row, ["diluted average shares", "ordinary shares number"]
+                # Shares
+                basic_average_shares=_get_float(
+                    row_data, ["basic average shares", "ordinary shares number"]
+                ),
+                diluted_average_shares=_get_float(
+                    row_data, ["diluted average shares", "ordinary shares number"]
                 ),
                 # Balance Sheet
-                total_assets=_safe_float(row, ["total assets"]),
-                total_current_liabilities=_safe_float(
-                    row, ["total current liabilities", "current liabilities"]
+                total_assets=_get_float(row_data, ["total assets"]),
+                total_current_liabilities=_get_float(
+                    row_data, ["total current liabilities", "current liabilities"]
                 ),
-                total_equity=_safe_float(
-                    row,
+                total_equity=_get_float(
+                    row_data,
                     [
                         "total equity",
                         "stockholders equity",
@@ -325,16 +352,41 @@ def map_fundamentals_to_domain(
                         "total equity and gross minority interest",
                     ],
                 ),
-                long_term_debt=_safe_float(
-                    row,
+                long_term_debt=_get_float(
+                    row_data,
                     [
                         "long term debt",
                         "long-term debt",
                         "long term debt and capital lease obligations",
                     ],
                 ),
-                cash_and_equivalents=_safe_float(row, ["cash and cash equivalents", "cash"]),
+                short_term_debt=_get_float(
+                    row_data,
+                    [
+                        "current debt",
+                        "current debt and capital lease obligations",
+                        "commercial paper",
+                        "short term debt",
+                    ],
+                ),
+                total_debt=_get_float(
+                    row_data,
+                    [
+                        "total debt",
+                        "total debt and capital lease obligations",
+                        "debt",
+                    ],
+                ),
+                cash_and_equivalents=_get_float(row_data, ["cash and cash equivalents", "cash"]),
             )
+
+            # Quality check: skip reports with future dates
+            has_pnl = (report.revenue is not None) or (report.net_income is not None)
+            has_balance = (report.total_assets is not None) or (report.total_equity is not None)
+
+            if not (has_pnl or has_balance):
+                logger.warning(f"Skipping empty report for {ticker} on {parsed_date}")
+                continue
 
             reports.append(report)
             logger.debug(f"Mapped {report_type} report for {ticker} on {parsed_date}")
@@ -345,6 +397,19 @@ def map_fundamentals_to_domain(
 
     logger.info(f"Mapped {len(reports)} {report_type} reports for {ticker}")
     return reports
+
+
+def _get_float(data: dict[str, Any], keys: list[str]) -> float | None:
+    for key in keys:
+        value = data.get(key, None)
+        if pd.notna(value):
+            try:
+                if isinstance(value, str):
+                    return float(value.replace(",", ""))
+                return float(value)
+            except (ValueError, TypeError):
+                continue
+    return None
 
 
 def _safe_str(data: dict[str, str], keys: list[str]) -> str | None:

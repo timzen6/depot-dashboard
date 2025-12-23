@@ -41,6 +41,50 @@ def cmd_load_metadata(args: argparse.Namespace) -> None:
     metadata_pipeline.run_metadata_update(new_tickers)
 
 
+def cmd_etl_fundamentals(args: argparse.Namespace) -> None:
+    """Run ETL pipeline for fundamentals only."""
+    logger.info("=== Running Fundamentals ETL Pipeline ===")
+    cmd_load_metadata(args)
+
+    # Load configuration
+    config = load_config()
+    fundamentals_storage = ParquetStorage(
+        config.settings.fundamentals_dir, subdirectories=["annual", "quarterly"]
+    )
+    metadata_storage = ParquetStorage(config.settings.metadata_dir)
+
+    metadata = metadata_storage.read("asset_metadata")
+
+    # Initialize extractor
+    extractor = DataExtractor()
+    total_tickers = config.all_tickers
+
+    tickers_metadata = (
+        metadata.filter(pl.col("ticker").is_in(total_tickers))
+        .select(["ticker", "asset_type"])
+        .drop_nulls()
+    )
+
+    # check if all tickers have metadata
+    missing_tickers = set(total_tickers) - set(
+        tickers_metadata.select("ticker").to_series().to_list()
+    )
+    if missing_tickers:
+        logger.warning(f"Metadata missing for {len(missing_tickers)} tickers: {missing_tickers}")
+
+    logger.info(f"Updating prices for {len(tickers_metadata)} tickers (universe + portfolios)")
+    stock_tickers = (
+        tickers_metadata.filter(pl.col("asset_type") == AssetType.STOCK)
+        .select("ticker")
+        .to_series()
+        .to_list()
+    )
+    logger.info(f"Updating fundamentals for {len(stock_tickers)} stocks")
+    fundamental_pipeline = ETLPipeline(fundamentals_storage, extractor)
+    fundamental_pipeline.run_fundamental_update(stock_tickers, metadata)
+    logger.success("✅ ETL Pipeline for fundamentals completed successfully")
+
+
 def cmd_etl(args: argparse.Namespace) -> None:
     """Run ETL pipeline for prices and fundamentals."""
     logger.info("=== Running ETL Pipeline ===")
@@ -52,7 +96,9 @@ def cmd_etl(args: argparse.Namespace) -> None:
 
     # Initialize storage
     prices_storage = ParquetStorage(config.settings.prices_dir)
-    fundamentals_storage = ParquetStorage(config.settings.fundamentals_dir)
+    fundamentals_storage = ParquetStorage(
+        config.settings.fundamentals_dir, subdirectories=["annual", "quarterly"]
+    )
     metadata_storage = ParquetStorage(config.settings.metadata_dir)
 
     metadata = metadata_storage.read("asset_metadata")
@@ -105,7 +151,11 @@ def cmd_snapshot(args: argparse.Namespace) -> None:
     archiver = DataArchiver(config.settings.base_dir, config.settings.archive_dir)
 
     # Create snapshots for all data types
-    data_types = args.data_type if args.data_type else ["prices", "fundamentals", "metadata"]
+    data_types = (
+        args.data_type
+        if args.data_type
+        else ["metadata", "prices", "fundamentals/annual", "fundamentals/quarterly"]
+    )
 
     for data_type in data_types:
         try:
@@ -236,6 +286,12 @@ def main() -> None:
     # Metadata load command
     parser_metadata = subparsers.add_parser("meta", help="Load asset metadata from yfinance")
     parser_metadata.set_defaults(func=cmd_load_metadata)
+
+    # Fundamentals ETL command
+    parser_fundamentals = subparsers.add_parser(
+        "fundamentals", help="Run ETL pipeline for fundamentals only"
+    )
+    parser_fundamentals.set_defaults(func=cmd_etl_fundamentals)
 
     # ETL command
     parser_etl = subparsers.add_parser("etl", help="Run data extraction and storage pipeline")
