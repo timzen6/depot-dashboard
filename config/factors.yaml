@@ -1,0 +1,70 @@
+# config/factors.yaml
+# Strategy Factor Configuration
+# values can but do not have to sum to 10 -> weights will be normalized
+defaults:
+  Technology:
+    stab: 3
+    real: 1
+    tech: 6
+  Materials:
+    stab: 1
+    real: 8
+    tech: 1
+  Industrials:
+    stab: 2
+    real: 6
+    tech: 2
+  "Consumer Discretionary": # Cars, Retail but also Luxury Goods very different from each other
+    stab: 1
+    real: 5
+    tech: 1
+    price: 3
+  "Consumer Staples":
+    stab: 5
+    real: 2
+    price: 3
+  Healthcare:
+    stab: 4
+    real: 1
+    tech: 5
+  Financials:
+    stab: 3
+    real: 6
+    tech: 1
+  Communication:
+    stab: 2
+    real: 4
+    tech: 3
+    price: 1
+  Utilities:
+    stab: 6
+    real: 4
+  "Real Estate":
+    stab: 2
+    real: 8
+
+overrides:
+  MSFT: {tech: 5, stab: 4, price: 1}  # More stable due to strong market position
+  MUV2.DE: {real: 4, tech: 3, stab: 3}
+  UNA.AS: {real: 1, price: 4, stab: 5}
+  ROG.SW: {tech: 4, stab: 6}
+  SU.PA: {real: 4, tech: 4, stab: 2}
+  AI.PA: {real: 5, stab: 4, tech: 1}
+  MC.PA: {real: 1, price: 9}
+  8001.T: {real: 5, tech: 2, stab: 3}
+  SY1.DE: {real: 3, stab: 3, tech: 4}
+  ASML.AS: {tech: 10}
+  V: {tech: 8, stab: 2}
+  SPGI: {stab: 5, tech: 5}
+  NOVO-B.CO: {tech: 5, stab: 3, price: 2}
+  ATCO-B.ST: {real: 3, stab: 4, tech: 3}
+  RMS.PA: {stab: 1, price: 9}
+  OR.PA: {stab: 3, real: 1, price: 4, tech: 2}
+  LISP.SW: {stab: 4, real: 1, price: 5}
+  DSY.PA: {stab: 3, tech: 7}
+  TMO: {tech: 5, stab: 4, real: 1}
+  # Merck KGaA
+  MRK.DE: {tech: 5, stab: 3, real: 2}
+  CNI: {real: 7, stab: 3}
+  APPL: {tech: 4, stab: 2, price: 3, real: 1}
+  GOOG: {tech: 6, stab: 2, price: 1, real: 1}

@@ -23,13 +23,14 @@ from src.app.views.common import (
     render_sidebar_header,
 )
 from src.app.views.overview import (
-    render_market_snapshot_table,
+    render_market_snapshot_tables,
     render_portfolio_chart,
     render_portfolio_composition_chart,
     render_positions_table,
     render_stock_composition_chart,
 )
 from src.core.domain_models import AssetType
+from src.core.strategy_engine import StrategyEngine
 
 # Page config
 st.set_page_config(
@@ -67,6 +68,7 @@ assert portfolios is not None  # Type narrowing for mypy
 
 
 fx_engine = FXEngine(df_prices=df_prices, target_currency="EUR")
+strategy_engine = StrategyEngine()
 portfolio_engine = PortfolioEngine()
 
 if not portfolios:
@@ -127,19 +129,16 @@ try:
                 df_history_stock, key="portfolio_chart_stocks", group_column="group"
             )
         with col2:
-            render_stock_composition_chart(df_history_stock)
+            render_stock_composition_chart(df_history_stock, strategy_engine)
 
     st.divider()
 
-    with st.expander("Show Detailed Positions Table", expanded=True):
-        render_positions_table(
-            df_history, selected_portfolio.display_name or selected_portfolio.name
-        )
+    render_positions_table(df_history, selected_portfolio.display_name or selected_portfolio.name)
     # Market snapshot
     snapshot = get_market_snapshot(data, fx_engine, selected_portfolio.tickers)
 
     st.subheader("📋 Market Fundamentals")
-    render_market_snapshot_table(snapshot)
+    render_market_snapshot_tables(snapshot, strategy_engine)
 
 except Exception as e:
     st.error(f"Error calculating portfolio performance: {e}")

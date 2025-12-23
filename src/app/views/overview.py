@@ -11,6 +11,7 @@ from views.colors import COLOR_SCALE_CONTRAST, Colors
 from src.app.logic.overview import filter_days_with_incomplete_tickers
 from src.app.views.constants import COUNTRY_FLAGS, SECTOR_EMOJI
 from src.core.domain_models import AssetType
+from src.core.strategy_engine import StrategyEngine
 
 
 def render_portfolio_chart(
@@ -72,8 +73,17 @@ def render_portfolio_chart(
             color=group_column,
             title="Portfolio Value Over Time by Group",
             labels={"total_value": "Portfolio Value (€)", "date": "Date"},
-            color_discrete_sequence=COLOR_SCALE_CONTRAST,
+            color_discrete_map={
+                "Defensive": COLOR_SCALE_CONTRAST[0],
+                "Tech": COLOR_SCALE_CONTRAST[1],
+                "Industrial": COLOR_SCALE_CONTRAST[2],
+                "Finance": COLOR_SCALE_CONTRAST[3],
+                "Luxury": COLOR_SCALE_CONTRAST[4],
+                "ETF": COLOR_SCALE_CONTRAST[0],
+                "STOCK": COLOR_SCALE_CONTRAST[1],
+            },
         )
+        fig.update_layout(legend_title_text="")
         st.plotly_chart(fig, use_container_width=True, key=key)
         return
 
@@ -114,7 +124,7 @@ def render_positions_table(df_history: pl.DataFrame, portfolio_name: str) -> Non
         st.warning("No position data to display")
         return
 
-    st.subheader(f"Current Positions - {portfolio_name}")
+    st.subheader(f"💼 Current Positions - {portfolio_name}")
 
     # Get latest date positions
     latest_date = df_history.select(pl.max("date")).item()
@@ -185,7 +195,9 @@ def render_positions_table(df_history: pl.DataFrame, portfolio_name: str) -> Non
     )
 
 
-def render_stock_composition_chart(df_history: pl.DataFrame) -> None:
+def render_stock_composition_chart(
+    df_history: pl.DataFrame, strategy_engine: StrategyEngine
+) -> None:
     if df_history.is_empty():
         return
     df_latest = (
@@ -210,63 +222,107 @@ def render_stock_composition_chart(df_history: pl.DataFrame) -> None:
         )
         .sort("position_value_EUR", descending=True)
     )
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(
-        [
-            "Ticker Breakdown",
-            "Sector Breakdown",
-            "Country Breakdown",
-            "Sector Simple",
-            "Country Simple",
-        ]
-    )
-    with tab1:
+
+    tab_names = [
+        "Strategy Factors",
+        "Ticker Breakdown",
+        "Sector Breakdown",
+        "Country Breakdown",
+        "Sector Simple",
+        "Country Simple",
+    ]
+
+    tabs = st.tabs(tab_names)
+    with tabs[1]:
         fig_ticker = px.pie(
             df_latest,
             names="short_name",
             values="position_value_EUR",
             color="color_category",
-            color_discrete_sequence=COLOR_SCALE_CONTRAST,
+            color_discrete_map={
+                "Defensive": COLOR_SCALE_CONTRAST[0],
+                "Tech": COLOR_SCALE_CONTRAST[1],
+                "Industrial": COLOR_SCALE_CONTRAST[2],
+                "Finance": COLOR_SCALE_CONTRAST[3],
+                "Luxury": COLOR_SCALE_CONTRAST[4],
+            },
         )
 
         fig_ticker.update_layout(
             title="Portfolio Composition by Ticker",
             template="plotly_white",
             height=400,
+            margin=GLOBAL_MARGINS,
+            font=GLOBAL_FONT,
+        )
+        fig_ticker.update_traces(
+            textposition="inside",
+            textinfo="percent",
+            marker=dict(line=dict(color="#FFFFFF", width=2.0)),
         )
 
         st.plotly_chart(fig_ticker, use_container_width=True)
-    with tab2:
-        fig_sector = px.sunburst(
+    with tabs[2]:
+        fig_sector = make_sunburst_chart(
             df_latest,
             path=["sector", "short_name"],
-            values="position_value_EUR",
-            color_discrete_sequence=COLOR_SCALE_CONTRAST,
+            title="Portfolio Composition by Sector",
         )
         st.plotly_chart(fig_sector, use_container_width=True)
-    with tab3:
-        fig_country = px.sunburst(
+    with tabs[3]:
+        fig_country = make_sunburst_chart(
             df_latest,
             path=["country", "short_name"],
-            values="position_value_EUR",
-            color_discrete_sequence=COLOR_SCALE_CONTRAST,
+            title="Portfolio Composition by Country",
         )
         st.plotly_chart(fig_country, use_container_width=True)
-    with tab4:
-        fig_sector_simple = px.pie(
+    with tabs[4]:
+        fig_sector_simple = make_pie_chart(
             df_latest,
             names="sector",
             values="position_value_EUR",
-            color_discrete_sequence=COLOR_SCALE_CONTRAST,
         )
         st.plotly_chart(fig_sector_simple, use_container_width=True)
-    with tab5:
-        fig_country_simple = px.pie(
+    with tabs[5]:
+        fig_country_simple = make_pie_chart(
             df_latest,
             names="country",
             values="position_value_EUR",
-            color_discrete_sequence=COLOR_SCALE_CONTRAST,
         )
         st.plotly_chart(fig_country_simple, use_container_width=True)
+    with tabs[0]:
+        df_factors = (
+            strategy_engine.calculate_portfolio_exposure(
+                df_latest, value_column="position_value_EUR", sector_column="sector"
+            )
+            .filter(pl.col("value") > 0.0)
+            .with_columns(pl.col("factor").str.split(" / ").list.first().alias("factor"))
+        )
+        fig_strategy = px.pie(
+            df_factors,
+            names="factor",
+            values="value",
+            color="key",
+            color_discrete_map={
+                "stab": COLOR_SCALE_CONTRAST[0],
+                "tech": COLOR_SCALE_CONTRAST[1],
+                "real": COLOR_SCALE_CONTRAST[2],
+                "price": COLOR_SCALE_CONTRAST[3],
+                "unclassified": Colors.light_gray,
+            },
+        )
+        fig_strategy.update_traces(
+            textposition="inside",
+            textinfo="label+percent",
+            marker=dict(line=dict(color="#FFFFFF", width=2.0)),
+        )
+        fig_strategy.update_layout(
+            height=400,
+            margin=GLOBAL_MARGINS,
+            showlegend=False,
+            font=GLOBAL_FONT,
+        )
+        st.plotly_chart(fig_strategy, use_container_width=True)
 
 
 GLOBAL_MARGINS = dict(t=30, l=5, r=5, b=0)
@@ -395,8 +451,9 @@ def render_portfolio_composition_chart(df_history: pl.DataFrame) -> None:
         st.plotly_chart(fig_pos, use_container_width=True)
 
 
-def render_market_snapshot_table(
+def render_market_snapshot_tables(
     df_snapshot: pl.DataFrame,
+    strategy_engine: StrategyEngine,
 ) -> None:
     """Render market fundamentals table.
 
@@ -441,5 +498,31 @@ def render_market_snapshot_table(
             "roce": st.column_config.NumberColumn("ROCE 💎", format="%.1f%%"),
             "revenue_growth": st.column_config.NumberColumn("Revenue Growth 🚀", format="%.1f%%"),
             "net_debt_to_ebit": st.column_config.NumberColumn("Debt/EBIT 🏥", format="%.1fx"),
+        },
+    )
+    df_profile = (
+        df_snapshot.select("ticker", "name", "sector", "info")
+        .pipe(strategy_engine.join_factor_profiles)
+        .fill_null(0.0)
+        .with_columns(
+            # Multiply factors by 10 for better readability
+            (pl.col("tech") * 10).alias("tech"),
+            (pl.col("stab") * 10).alias("stab"),
+            (pl.col("real") * 10).alias("real"),
+            (pl.col("price") * 10).alias("price"),
+        )
+    )
+
+    st.subheader("📊 Strategy Factor Profiles")
+    st.dataframe(
+        df_profile,
+        column_order=["name", "info", "tech", "stab", "real", "price"],
+        column_config={
+            "name": "Name",
+            "info": "",
+            "tech": st.column_config.NumberColumn("🔬 Technology", format="%.1f"),
+            "stab": st.column_config.NumberColumn("🛡️ Stability", format="%.1f"),
+            "real": st.column_config.NumberColumn("⚙️ Real Assets", format="%.1f"),
+            "price": st.column_config.NumberColumn("👜 Pricing Power", format="%.1f"),
         },
     )

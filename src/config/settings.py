@@ -74,7 +74,7 @@ class Config(BaseModel):
         return sorted(list(tickers))
 
 
-def load_config(config_path: Path = Path("config.yaml")) -> Config:
+def load_config(config_path: Path = Path("config/config.yaml")) -> Config:
     """Load configuration from YAML file.
 
     Args:
@@ -96,7 +96,7 @@ def load_config(config_path: Path = Path("config.yaml")) -> Config:
         raw_config: dict[str, Any] = yaml.safe_load(f)
 
     # Load portfolios config if it exists
-    portfolios_path = Path("portfolios.yaml")
+    portfolios_path = Path("config/portfolios.yaml")
     portfolios_config = None
 
     if portfolios_path.exists():
