@@ -13,12 +13,15 @@ from plotly.subplots import make_subplots
 from views.colors import COLOR_SCALE_CONTRAST, COLOR_SCALE_GREEN_RED, Colors
 
 from src.analysis.fx import FXEngine
+from src.app.logic.common import get_strategy_factor_profiles
 from src.app.views.constants import (
     COUNTRY_FLAGS,
     CURRENCY_SYMBOLS,
     get_sector_emoji_from_str,
 )
+from src.core.domain_models import AssetType
 from src.core.stock_data import StockData
+from src.core.strategy_engine import StrategyEngine
 
 
 @dataclass
@@ -29,7 +32,64 @@ class MetricDisplayInfo:
     display_name: str
 
 
-def render_title_section(ticker: str, metadata: dict[str, str]) -> None:
+def render_factor_profile_chart(
+    stock_metadata: dict[str, str],
+    strategy_engine: StrategyEngine,
+) -> None:
+    asset_type = stock_metadata.get("asset_type", "")
+    selected_ticker = stock_metadata.get("ticker", "")
+    sector = stock_metadata.get("sector", "")
+    if asset_type == AssetType.STOCK:
+        df_strategy_factors = get_strategy_factor_profiles(
+            pl.DataFrame([{"ticker": selected_ticker, "sector": sector}]),
+            strategy_engine,
+        )
+        # Check if all factor values are equal to sector reference (no unique profile)
+        tmp = df_strategy_factors.with_columns(pl.col("is_sector_reference").cast(pl.String)).pivot(  # noqa: PD010
+            index=["factor"],
+            values="value",
+            on="is_sector_reference",
+        )  # noqa: PD010
+        is_identical = tmp.select((pl.col("true") == pl.col("false")).all()).item()
+        if is_identical:
+            st.info("No unique factor profile for this stock; using sector reference")
+        df_strategy_factors = df_strategy_factors.with_columns(
+            pl.when(pl.col("is_sector_reference"))
+            .then(pl.lit("Sector Reference"))
+            .otherwise(pl.lit("Stock Profile"))
+            .alias("Profile Type"),
+            pl.col("factor").replace(strategy_engine.factor_mapping),
+        )
+        fig_profile = px.bar(
+            df_strategy_factors,
+            x="factor",
+            y="value",
+            color="Profile Type",
+            barmode="group",
+            height=300,
+            color_discrete_sequence=COLOR_SCALE_CONTRAST,
+        )
+        fig_profile.update_yaxes(
+            range=[0, 0.8],
+            # hide tick values
+            tickvals=[],
+        )
+
+        fig_profile.update_layout(
+            title="Stock Strategy Factor Profile",
+            template="plotly_white",
+            legend_title_text="",
+            height=250,
+            xaxis_title="",
+            yaxis_title="",
+        )
+
+        st.plotly_chart(fig_profile, use_container_width=True)
+
+
+def render_title_section(
+    ticker: str, metadata: dict[str, str], strategy_engine: StrategyEngine
+) -> None:
     """Render the title section with ticker and company name.
 
     Args:
@@ -39,23 +99,28 @@ def render_title_section(ticker: str, metadata: dict[str, str]) -> None:
     company_name = metadata.get("short_name", "")
     if not company_name:
         company_name = metadata.get("name", "")
-    st.title(f"🔍 {ticker} - {company_name}")
 
-    asset_type = metadata.get("asset_type", "N/A")
-    if asset_type != "stock":
-        st.subheader(f"Asset Type: {asset_type.upper()}")
-        return
+    col1, col2 = st.columns([1, 1])
+    with col1:
+        st.title(f"🔍 {ticker} - {company_name}")
 
-    country_name = metadata.get("country", "")
-    country_flag = COUNTRY_FLAGS.get(country_name, "")
+        asset_type = metadata.get("asset_type", "N/A")
+        if asset_type != "stock":
+            st.subheader(f"Asset Type: {asset_type.upper()}")
+            return
 
-    sector = metadata.get("sector") or metadata.get("sector_raw", "N/A")
-    sector_emoji = get_sector_emoji_from_str(sector)
+        country_name = metadata.get("country", "")
+        country_flag = COUNTRY_FLAGS.get(country_name, "")
 
-    st.subheader(
-        f"{sector} {sector_emoji} | {metadata.get('industry', 'N/A')} |"
-        f" {country_flag or country_name}"
-    )
+        sector = metadata.get("sector") or metadata.get("sector_raw", "N/A")
+        sector_emoji = get_sector_emoji_from_str(sector)
+
+        st.subheader(
+            f"{sector} {sector_emoji} | {metadata.get('industry', 'N/A')} |"
+            f" {country_flag or country_name}"
+        )
+    with col2:
+        render_factor_profile_chart(metadata, strategy_engine)
 
 
 def render_latest_price_info(

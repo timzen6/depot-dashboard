@@ -30,6 +30,7 @@ from src.app.views.stock_detail import (
     render_valuation_data,
 )
 from src.core.stock_data import StockData
+from src.core.strategy_engine import StrategyEngine
 
 # Page config
 st.set_page_config(
@@ -54,9 +55,11 @@ if dashboard_data.prices.is_empty():
     render_empty_state("No price data available")
     st.stop()
 
-selection_mode = st.sidebar.radio(
+selection_mode = st.sidebar.pills(
     "Selection Mode",
     options=["Portfolio", "Sector"],
+    width=300,
+    default="Portfolio",
 )
 
 if selection_mode == "Portfolio":  # Portfolio mode
@@ -110,7 +113,13 @@ try:
     # Load ticker data
     stock_data = StockData.from_dataset(selected_ticker, dashboard_data)
     fx_engine = FXEngine(dashboard_data.prices, target_currency="EUR")
-    render_title_section(selected_ticker, stock_data.metadata)
+    strategy_engine = StrategyEngine()
+
+    render_title_section(
+        selected_ticker,
+        stock_data.metadata,
+        strategy_engine,
+    )
 
     filtered_stock_data = stock_data.filter_date_range(
         start_date=date_range[0],

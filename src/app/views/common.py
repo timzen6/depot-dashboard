@@ -13,6 +13,7 @@ def portfolio_selection(
     portfolios: list[Portfolio],
     on_sidebar: bool = True,
     allow_none: bool = False,
+    default_index: int = 1,
 ) -> Portfolio | None:
     """Render a portfolio selection dropdown in the sidebar.
 
@@ -29,13 +30,13 @@ def portfolio_selection(
         selected_ui_name = st.sidebar.selectbox(
             "Select Portfolio",
             options=list(portfolio_options.keys()),
-            index=0,
+            index=default_index,
         )
     else:
         selected_ui_name = st.selectbox(
             "Select Portfolio",
             options=list(portfolio_options.keys()),
-            index=0,
+            index=default_index,
         )
     return portfolio_options.get(selected_ui_name)
 
