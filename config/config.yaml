@@ -1,0 +1,49 @@
+universe:
+  stocks:
+    # US Stocks
+    - AAPL
+    - MSFT
+    - SPGI
+    - GOOG
+    - TMO
+    - V
+    # European Stocks
+    - MUV2.DE
+    - SY1.DE
+    - UNA.AS
+    - ASML.AS
+    - ROG.SW
+    - NOVO-B.CO
+    - ATCO-A.ST
+    - SU.PA
+    - MC.PA
+    - AI.PA
+    # Asian Stocks
+    - 8001.T
+
+  price_only:
+    # Currencies & Crypto
+    - EURUSD=X
+    - EURCHF=X
+    - EURGBP=X
+    - EURJPY=X
+    - EURDKK=X
+    - EURSEK=X
+    - EURCAD=X
+    # ETFs (via Xetra in EUR)
+    - EUNL.DE  # iShares Core MSCI World
+    - WSRI.PA
+    - M7U.DE
+    - EUNM.DE  # iShares MSCI EM (Acc)
+    - AEME.PA  # Amundi MSCI EM
+    - EXSB.DE  # iShares STOXX Europe Small 200
+    # For testing purposes: Krypto and Gold
+    - BTC-EUR
+    - BTC-USD
+    - GC=F
+    - SI=F
+
+settings:
+  base_dir: "data/prod"
+  archive_dir: "data/archive"
+  initial_price_start_date: "2021-01-01"
