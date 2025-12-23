@@ -61,30 +61,27 @@ class StrategyEngine:
         value_column: str = "market_value",
         sector_column: str = "sector",
     ) -> pl.DataFrame:
-        # Accumulators
-        total_tech = 0.0
-        total_stab = 0.0
-        total_real = 0.0
-        total_price = 0.0
-        total_unclassified = 0.0
+        df_joined = self.join_factor_profiles(df_positions, sector_column=sector_column)
+        value_sums = (
+            df_joined.with_columns(
+                (pl.col("tech").fill_null(0) * pl.col(value_column)).alias("tech_value"),
+                (pl.col("stab").fill_null(0) * pl.col(value_column)).alias("stab_value"),
+                (pl.col("real").fill_null(0) * pl.col(value_column)).alias("real_value"),
+                (pl.col("price").fill_null(0) * pl.col(value_column)).alias("price_value"),
+            )
+            .select([value_column, "tech_value", "stab_value", "real_value", "price_value"])
+            .sum()
+        )
 
-        total_portfolio_value = 0
-        for row in df_positions.to_dicts():
-            ticker = row.get("ticker", "")
-            sector = row.get(sector_column, "Unclassified")
-            value = row.get(value_column, 0)
+        total_portfolio_value = value_sums.select(pl.col(value_column)).item()
+        total_tech = value_sums.select(pl.col("tech_value")).item()
+        total_stab = value_sums.select(pl.col("stab_value")).item()
+        total_real = value_sums.select(pl.col("real_value")).item()
+        total_price = value_sums.select(pl.col("price_value")).item()
+        total_unclassified = total_portfolio_value - (
+            total_tech + total_stab + total_real + total_price
+        )
 
-            total_portfolio_value += value
-            profile = self.get_factor_profile(ticker, sector)
-
-            weight_sum = profile.tech + profile.stab + profile.real + profile.price
-            if weight_sum == 0:
-                total_unclassified += value
-            else:
-                total_tech += profile.tech * value
-                total_stab += profile.stab * value
-                total_real += profile.real * value
-                total_price += profile.price * value
         results = [
             {"key": "tech", "factor": "Technology / Innovation", "value": total_tech},
             {"key": "stab", "factor": "Stability / Defensive", "value": total_stab},

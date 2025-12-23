@@ -1,3 +1,4 @@
+from math import isclose
 from typing import Any
 
 from pydantic import BaseModel, Field, model_validator
@@ -22,7 +23,7 @@ class StrategyFactors(BaseModel):
     @model_validator(mode="after")
     def normalize_self(self) -> "StrategyFactors":
         total = self.tech + self.stab + self.real + self.price
-        if total == 0:
+        if isclose(total, 0):
             return self
         # in-place normalization
         self.tech /= total
