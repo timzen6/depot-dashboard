@@ -29,6 +29,11 @@ class StrategyEngine:
         for ticker, factors in raw_overrides.items():
             self.overrides[ticker] = StrategyFactors(**factors)
 
+    def get_sector_reference(self, sector: str) -> StrategyFactors:
+        if sector in self.defaults:
+            return self.defaults[sector]
+        return StrategyFactors()
+
     def get_factor_profile(self, ticker: str, sector: str) -> StrategyFactors:
         if ticker in self.overrides:
             return self.overrides[ticker]
@@ -40,16 +45,32 @@ class StrategyEngine:
         self,
         df_positions: pl.DataFrame,
         sector_column: str = "sector",
+        include_zero: bool = False,
+        include_sector_reference: bool = False,
     ) -> pl.DataFrame:
         relevant_profiles = []
+        relevant_sector_references = []
 
         for row in df_positions.to_dicts():
             ticker = row["ticker"]
             sector = row.get(sector_column, "")
             profile = self.get_factor_profile(ticker, sector)
-            profile_dict = profile.to_dict()
+            profile_dict = profile.to_dict(include_zero=include_zero)
             profile_dict["ticker"] = ticker
             relevant_profiles.append(profile_dict)
+        if include_sector_reference:
+            for row in df_positions.to_dicts():
+                sector = row.get(sector_column, "")
+                sector_ref = self.get_sector_reference(sector)
+                sector_ref_dict = sector_ref.to_dict(include_zero=include_zero)
+                sector_ref_dict["ticker"] = row["ticker"]
+                relevant_sector_references.append(sector_ref_dict)
+            df_sector_refs = pl.DataFrame(relevant_sector_references)
+            df_profiles = pl.DataFrame(relevant_profiles)
+            df_result = df_positions.join(df_profiles, on="ticker", how="left").join(
+                df_sector_refs, on="ticker", how="left", suffix="_ref"
+            )
+            return df_result
 
         df_profiles = pl.DataFrame(relevant_profiles)
         df_result = df_positions.join(df_profiles, on="ticker", how="left")

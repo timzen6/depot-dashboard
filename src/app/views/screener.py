@@ -3,9 +3,74 @@ import plotly.express as px
 import polars as pl
 import streamlit as st
 
+from src.app.logic.common import get_strategy_factor_profiles
 from src.app.logic.data_loader import DashboardData
 from src.app.views.colors import COLOR_SCALE_CONTRAST, COLOR_SCALE_GREEN_RED, Colors
 from src.app.views.constants import CURRENCY_SYMBOLS
+from src.core.strategy_engine import StrategyEngine
+
+
+def render_factor_overview_chart(
+    selected_tickers: list[str],
+    metadata: pl.DataFrame,
+    strategy_engine: StrategyEngine,
+    n_subplots_max: int = 5,
+) -> None:
+    if selected_tickers and len(selected_tickers) <= n_subplots_max:
+        factor_profiles = get_strategy_factor_profiles(
+            metadata.filter(pl.col("ticker").is_in(selected_tickers)).select(["ticker", "sector"]),
+            strategy_engine,
+        ).with_columns(
+            pl.when(pl.col("is_sector_reference"))
+            .then(pl.lit("Sector Reference"))
+            .otherwise(pl.lit("Stock Profile"))
+            .alias("is_sector_reference"),
+            pl.col("factor").replace(
+                {
+                    "tech": "Technology",
+                    "stab": "Stability",
+                    "real": "Real Assets",
+                    "price": "Pricing Power",
+                }
+            ),
+        )
+        fig_factors = px.bar(
+            factor_profiles,
+            x="factor",
+            y="value",
+            color="is_sector_reference",
+            barmode="group",
+            facet_row="ticker",
+            color_discrete_sequence=COLOR_SCALE_CONTRAST,
+            height=150 + (100 * len(selected_tickers)),
+        )
+        fig_factors.update_yaxes(
+            range=[0, 0.8],
+            # hide tick values
+            tickvals=[],
+        )
+
+        fig_factors.update_layout(
+            title="Stock Strategy Factor Profile",
+            template="plotly_white",
+            legend_title_text="",
+            xaxis_title="",
+            yaxis_title="",
+        )
+        # set y-axis title for all traces
+        for i in range(len(fig_factors.layout.annotations)):
+            if "ticker=" in fig_factors.layout.annotations[i].text:
+                fig_factors.layout.annotations[i].text = fig_factors.layout.annotations[
+                    i
+                ].text.replace("ticker=", "")
+        # Set all y-axis titles to empty string
+        for axis in fig_factors.layout:
+            if axis.startswith("yaxis"):
+                fig_factors.layout[axis]["title"] = ""
+
+        st.plotly_chart(fig_factors, use_container_width=True)
+    else:
+        st.info("Select up to 5 stocks to see their factor profiles here.")
 
 
 def render_sidebar_selection(

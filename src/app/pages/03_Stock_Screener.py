@@ -10,12 +10,14 @@ from src.app.views.constants import (
     SECTOR_EMOJI,
 )
 from src.app.views.screener import (
+    render_factor_overview_chart,
     render_in_depth_performance_charts,
     render_info_table,
     render_sidebar_selection,
     render_stats_table,
 )
 from src.core.domain_models import AssetType
+from src.core.strategy_engine import StrategyEngine
 
 # Page config
 st.set_page_config(
@@ -40,6 +42,7 @@ all_stock_metadata = (
 all_sectors = get_sorted_occurrences(all_stock_metadata, "sector")
 all_countries = get_sorted_occurrences(all_stock_metadata, "country")
 fx_engine = FXEngine(dashboard_data.prices, target_currency="EUR")
+strategy_engine = StrategyEngine()
 
 
 portfolio_filter, sector_filter = render_sidebar_selection(portfolio_dict, all_sectors)
@@ -59,10 +62,20 @@ if sector_filter:
 
 @st.fragment()  # type: ignore[misc]
 def render_dashboard_content(
-    filtered_metadata: pl.DataFrame, dashboard_data: DashboardData
+    filtered_metadata: pl.DataFrame,
+    dashboard_data: DashboardData,
+    strategy_engine: StrategyEngine,
 ) -> None:
     st.title("🔍 Stock Screener")
-    selected_tickers = render_info_table(filtered_metadata)
+    col1, col2 = st.columns([3, 2])
+    with col1:
+        selected_tickers = render_info_table(filtered_metadata)
+    with col2:
+        render_factor_overview_chart(
+            selected_tickers,
+            filtered_metadata,
+            strategy_engine,
+        )
 
     df_prices_latest = prepare_screener_snapshot(
         dashboard_data.prices,
@@ -81,4 +94,4 @@ def render_dashboard_content(
     )
 
 
-render_dashboard_content(filtered_metadata, dashboard_data)
+render_dashboard_content(filtered_metadata, dashboard_data, strategy_engine)

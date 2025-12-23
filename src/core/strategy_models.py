@@ -32,8 +32,10 @@ class StrategyFactors(BaseModel):
         self.price /= total
         return self
 
-    def to_dict(self) -> dict[str, float]:
+    def to_dict(self, include_zero: bool = False) -> dict[str, float]:
         """Convert factors to dictionary."""
+        if include_zero:
+            return self.model_dump()
         return {k: v for k, v in self.model_dump().items() if v > 0.001}
 
     def __add__(self, other: "StrategyFactors") -> "StrategyFactors":

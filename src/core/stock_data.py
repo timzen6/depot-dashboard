@@ -47,6 +47,7 @@ class StockData:
             ticker=self.ticker,
             prices=filtered_prices,
             fundamentals=filtered_fundamentals,
+            metadata=self.metadata,
         )
 
     @property

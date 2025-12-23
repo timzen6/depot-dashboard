@@ -75,7 +75,9 @@ if not portfolios:
     render_empty_state("No portfolios configured. Please add portfolios to portfolios.yaml")
     st.stop()
 
-selected_portfolio = portfolio_selection(portfolios=list(portfolios.values()), on_sidebar=True)
+selected_portfolio = portfolio_selection(
+    portfolios=list(portfolios.values()), on_sidebar=True, default_index=0
+)
 if selected_portfolio is None:
     st.error("No portfolio selected")
     st.stop()
