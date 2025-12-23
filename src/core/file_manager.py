@@ -32,7 +32,6 @@ class ParquetStorage:
         self,
         df: pl.DataFrame,
         filename: str,
-        # how do i set default value for list argument?
         unique_keys: list[str] | None = None,
     ) -> None:
         """Update existing parquet file atomically.

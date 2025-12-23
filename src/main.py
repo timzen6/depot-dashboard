@@ -13,7 +13,7 @@ from pathlib import Path
 import polars as pl
 from loguru import logger
 
-from src.config.settings import load_config
+from src.config.settings import Config, load_config
 from src.core.domain_models import AssetType
 from src.core.file_manager import ParquetStorage
 from src.data_mgmt.archiver import DataArchiver
@@ -41,13 +41,7 @@ def cmd_load_metadata(args: argparse.Namespace) -> None:
     metadata_pipeline.run_metadata_update(new_tickers)
 
 
-def cmd_etl_fundamentals(args: argparse.Namespace) -> None:
-    """Run ETL pipeline for fundamentals only."""
-    logger.info("=== Running Fundamentals ETL Pipeline ===")
-    cmd_load_metadata(args)
-
-    # Load configuration
-    config = load_config()
+def load_fundamentals(config: Config) -> None:
     fundamentals_storage = ParquetStorage(
         config.settings.fundamentals_dir, subdirectories=["annual", "quarterly"]
     )
@@ -82,6 +76,17 @@ def cmd_etl_fundamentals(args: argparse.Namespace) -> None:
     logger.info(f"Updating fundamentals for {len(stock_tickers)} stocks")
     fundamental_pipeline = ETLPipeline(fundamentals_storage, extractor)
     fundamental_pipeline.run_fundamental_update(stock_tickers, metadata)
+
+
+def cmd_etl_fundamentals(args: argparse.Namespace) -> None:
+    """Run ETL pipeline for fundamentals only."""
+    logger.info("=== Running Fundamentals ETL Pipeline ===")
+    cmd_load_metadata(args)
+
+    # Load configuration
+    config = load_config()
+    load_fundamentals(config)
+
     logger.success("✅ ETL Pipeline for fundamentals completed successfully")
 
 
@@ -96,9 +101,6 @@ def cmd_etl(args: argparse.Namespace) -> None:
 
     # Initialize storage
     prices_storage = ParquetStorage(config.settings.prices_dir)
-    fundamentals_storage = ParquetStorage(
-        config.settings.fundamentals_dir, subdirectories=["annual", "quarterly"]
-    )
     metadata_storage = ParquetStorage(config.settings.metadata_dir)
 
     metadata = metadata_storage.read("asset_metadata")
@@ -126,16 +128,7 @@ def cmd_etl(args: argparse.Namespace) -> None:
         tickers_metadata.select("ticker").to_series().to_list(), metadata
     )
 
-    # Run fundamental updates only for stocks (not FX/crypto)
-    stock_tickers = (
-        tickers_metadata.filter(pl.col("asset_type") == AssetType.STOCK)
-        .select("ticker")
-        .to_series()
-        .to_list()
-    )
-    logger.info(f"Updating fundamentals for {len(stock_tickers)} stocks")
-    fundamental_pipeline = ETLPipeline(fundamentals_storage, extractor)
-    fundamental_pipeline.run_fundamental_update(stock_tickers, metadata)
+    load_fundamentals(config)
     logger.success("✅ ETL Pipeline completed successfully")
     # In the future we might run also extra actions for e.g. ETF here
 
