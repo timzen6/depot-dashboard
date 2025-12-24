@@ -38,14 +38,6 @@ class Position(BaseModel):
             raise ValueError("Type must be one of: stock, etf, fund, bond")
         return v
 
-    @field_validator("weight")
-    @classmethod
-    def validate_weight(cls, v: float | None) -> float | None:
-        """Ensure weight is between 0 and 1 if provided."""
-        if v is not None and (v < 0 or v > 1):
-            raise ValueError("Weight must be between 0 and 1")
-        return v
-
     @field_validator("shares")
     @classmethod
     def validate_shares(cls, v: float | None) -> float | None:
