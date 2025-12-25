@@ -1,0 +1,72 @@
+EUNM.DE:
+  name: "iShares MSCI EM UCITS ETF"
+  ter: 0.18
+  strategy: "Emerging Markets"
+  weight_format: percent
+  sectors:
+    Financials: 26.4
+    Technology: 24.4
+    Consumer Discretionary: 13.2
+    Communication: 10.4
+    Industrials: 5.8
+    Materials: 5.8
+    Consumer Staples: 3.5
+    Energy: 3.4
+    Healthcare: 3.1
+    Utilities: 1.9
+    Other: 1.8
+  countries:
+    China: 27.0
+    Taiwan: 19.3
+    India: 15.2
+    South Korea: 11.0
+    Ireland: 4.0
+    South Africa: 3.5
+    Saudi Arabia: 3.3
+    Brazil: 2.3
+    Mexico: 2.0
+    Germany: 2.0
+    Other: 10.4
+  top_holdings:
+    - { name: "TSMC", ticker: "TSM", weight: 8.2 }
+    - { name: "Tencent", ticker: "TCEHY", weight: 3.9 }
+    - { name: "Samsung Electronics", ticker: "SSNLF", weight: 3.5 }
+    - { name: "Alibaba", ticker: "BABA", weight: 2.2 }
+    - { name: "Reliance Industries", ticker: "RELIANCE.NS", weight: 1.5 }
+
+AEEM.DE:
+  name: "Amundi MSCI Emerging Markets Swap"
+  ter: 0.18
+  strategy: "Emerging Markets (Synthetic)"
+  weight_format: percent
+  sectors:
+    Technology: 25.4
+    Financials: 22.3
+    Consumer Discretionary: 13.5
+    Communication: 10.5
+    Industrials: 6.6
+    Materials: 6.4
+    Consumer Staples: 4.0
+    Energy: 4.0
+    Healthcare: 3.4
+    Utilities: 2.3
+    Real Estate: 1.4
+  countries:
+    China: 31.0
+    Taiwan: 19.3
+    India: 15.2
+    South Korea: 11.0
+    Brazil: 4.3
+    South Africa: 3.5
+    Saudi Arabia: 3.3
+    Mexico: 2.0
+    UAE: 1.4
+    Malaysia: 1.2
+    Indonesia: 1.1
+    Thailand: 1.0
+  top_holdings:
+    - { name: "TSMC", ticker: "TSM", weight: 8.1 }
+    - { name: "Tencent", ticker: "TCEHY", weight: 4.1 }
+    - { name: "Samsung Electronics", ticker: "SSNLF", weight: 3.6 }
+    - { name: "Alibaba", ticker: "BABA", weight: 2.3 }
+    - { name: "Meituan", ticker: "MPNGF", weight: 1.2 }

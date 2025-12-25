@@ -1,0 +1,72 @@
+EUNL.DE:
+  name: "iShares Core MSCI World UCITS ETF"
+  ter: 0.20
+  strategy: "Global Developed Large Cap"
+  weight_format: percent
+  sectors:
+    Technology: 27.3
+    Financials: 16.8
+    Industrials: 11.2
+    Consumer Discretionary: 10.2
+    Healthcare: 9.1
+    Communication: 8.6
+    Consumer Staples: 5.4
+    Energy: 3.4
+    Materials: 3.2
+    Utilities: 2.5
+    Other: 2.3
+  countries:
+    USA: 72.0
+    Japan: 5.4
+    UK: 3.6
+    Canada: 3.3
+    France: 2.6
+    Germany: 2.4
+    Switzerland: 2.2
+    Australia: 1.6
+    Netherlands: 1.2
+    Spain: 0.9
+    Other: 4.8
+  top_holdings:
+    - { name: "Apple", ticker: "AAPL", weight: 4.8 }
+    - { name: "Microsoft", ticker: "MSFT", weight: 4.2 }
+    - { name: "Nvidia", ticker: "NVDA", weight: 3.5 }
+    - { name: "Amazon", ticker: "AMZN", weight: 2.4 }
+    - { name: "Meta Platforms", ticker: "META", weight: 1.5 }
+
+WSRI.DE:
+  name: "Amundi MSCI World SRI Climate Net Zero Ambition"
+  ter: 0.18
+  strategy: "Global ESG / SRI"
+  weight_format: percent
+  sectors:
+    Technology: 31.8
+    Financials: 15.4
+    Industrials: 12.8
+    Consumer Discretionary: 11.0
+    Healthcare: 10.5
+    Communication: 5.7
+    Real Estate: 3.9
+    Consumer Staples: 3.5
+    Materials: 3.2
+    Utilities: 2.2
+  countries:
+    USA: 64.3
+    Japan: 7.7
+    Canada: 6.0
+    Netherlands: 5.9
+    Switzerland: 3.4
+    France: 3.1
+    Denmark: 1.6
+    Australia: 1.5
+    UK: 1.4
+    Hong Kong: 0.9
+    Italy: 0.7
+    Germany: 0.9
+    Other: 2.6
+  top_holdings:
+    - { name: "Microsoft", ticker: "MSFT", weight: 5.1 }
+    - { name: "Nvidia", ticker: "NVDA", weight: 4.2 }
+    - { name: "Tesla", ticker: "TSLA", weight: 2.1 }
+    - { name: "Home Depot", ticker: "HD", weight: 1.2 }
+    - { name: "ASML", ticker: "ASML", weight: 1.1 }

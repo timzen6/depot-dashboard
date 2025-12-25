@@ -259,8 +259,8 @@ class ETFComposition(BaseModel):
     sector_weights: list[AllocationItem] = Field(
         default_factory=list, description="List of sector allocations"
     )
-    region_weights: list[AllocationItem] = Field(
-        default_factory=list, description="List of region allocations"
+    country_weights: list[AllocationItem] = Field(
+        default_factory=list, description="List of country allocations"
     )
     top_holdings: list[ETFHolding] = Field(
         default_factory=list, description="List of top holdings in the ETF"
@@ -272,9 +272,9 @@ class ETFComposition(BaseModel):
         return sum(item.weight for item in self.sector_weights)
 
     @property
-    def total_region_coverage(self) -> float:
-        """Calculate total region coverage percentage."""
-        return sum(item.weight for item in self.region_weights)
+    def total_country_coverage(self) -> float:
+        """Calculate total country coverage percentage."""
+        return sum(item.weight for item in self.country_weights)
 
     @property
     def total_top_holdings_coverage(self) -> float:
@@ -304,9 +304,9 @@ class ETFComposition(BaseModel):
         )
 
     @property
-    def regions_df(self) -> pl.DataFrame:
-        """Return region allocations as a Polars DataFrame."""
-        if not self.region_weights:
+    def countries_df(self) -> pl.DataFrame:
+        """Return country allocations as a Polars DataFrame."""
+        if not self.country_weights:
             return pl.DataFrame(
                 schema={
                     "ticker": pl.Utf8,
@@ -321,7 +321,7 @@ class ETFComposition(BaseModel):
                     "category": item.category,
                     "weight": item.weight,
                 }
-                for item in self.region_weights
+                for item in self.country_weights
             ]
         )
 

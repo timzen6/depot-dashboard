@@ -52,13 +52,25 @@ class ETFLoader:
     def _parse_and_cache(self, ticker: str, data: dict[str, Any]) -> None:
         """Helper to parse raw dict into Pydantic model."""
         try:
+            is_percent = data.get("weight_format") == "percent"
+            divisor = 100.0 if is_percent else 1.0
             sectors = [
-                AllocationItem(category=k, weight=v) for k, v in data.get("sectors", {}).items()
+                AllocationItem(category=k, weight=v / divisor)
+                for k, v in data.get("sectors", {}).items()
             ]
             regions = [
-                AllocationItem(category=k, weight=v) for k, v in data.get("regions", {}).items()
+                AllocationItem(category=k, weight=v / divisor)
+                for k, v in data.get("regions", {}).items()
             ]
-            holdings = [ETFHolding(**h) for h in data.get("top_holdings", [])]
+            holdings = []
+            for h in data.get("top_holdings", []):
+                weight = h.get("weight", 0.0) / divisor
+                holding = ETFHolding(
+                    ticker=h.get("ticker", ""),
+                    name=h.get("name", ""),
+                    weight=weight,
+                )
+                holdings.append(holding)
 
             comp = ETFComposition(
                 ticker=ticker,
@@ -66,7 +78,7 @@ class ETFLoader:
                 ter=data.get("ter", 0.0),
                 strategy=data.get("strategy"),
                 sector_weights=sectors,
-                region_weights=regions,
+                country_weights=regions,
                 top_holdings=holdings,
             )
             self._cache[ticker] = comp
@@ -93,7 +105,7 @@ class ETFLoader:
         """Returns a consolidated DataFrame of ALL ETF regions."""
         if not self._loaded:
             self.load()
-        dfs = [comp.regions_df for comp in self._cache.values()]
+        dfs = [comp.countries_df for comp in self._cache.values()]
         if not dfs:
             return pl.DataFrame()
         return pl.concat(dfs)
