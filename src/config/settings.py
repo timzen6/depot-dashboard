@@ -32,6 +32,8 @@ class AppSettings(BaseModel):
     archive_dir: Path = Field(default=Path("data/archive"))
     initial_price_start_date: str = Field(default="2021-01-01")
 
+    etf_config_dir: Path = Field(default=Path("config/etfs"))
+
     @property
     def prices_dir(self) -> Path:
         """Directory for price data."""

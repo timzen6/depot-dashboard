@@ -2,7 +2,7 @@ from datetime import date
 from enum import StrEnum
 
 import polars as pl
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 # --- Constants & Schemas ---
 
@@ -219,4 +219,132 @@ class AssetMetadata(BaseModel):
             sector=Sector(sector_str) if sector_str else None,
             industry=data.get("industry"),
             country=data.get("country"),
+        )
+
+
+class AllocationItem(BaseModel):
+    """Represents a single allocation item in a etf."""
+
+    model_config = ConfigDict(frozen=True)
+    category: str
+    weight: float = Field(..., ge=0.0, le=1.0, description="Weight as a percentage (0-100)")
+
+
+class ETFHolding(BaseModel):
+    """Represents a single holding within an ETF."""
+
+    model_config = ConfigDict(frozen=True)
+
+    name: str
+    ticker: str | None = None
+    weight: float = Field(..., ge=0.0, le=1.0, description="Weight as a percentage (0-100)")
+
+
+class ETFComposition(BaseModel):
+    """Represents the holdings of an ETF."""
+
+    model_config = ConfigDict(frozen=True)
+
+    ticker: str
+    name: str
+    ter: float = Field(default=0.0, description="Total Expense Ratio as a percentage")
+    strategy: str | None = Field(
+        default=None,
+        description=(
+            "Description of the ETF's investment strategy"
+            " e.g. Global Large Cap, Thematic, Bond-focused"
+        ),
+    )
+
+    sector_weights: list[AllocationItem] = Field(
+        default_factory=list, description="List of sector allocations"
+    )
+    region_weights: list[AllocationItem] = Field(
+        default_factory=list, description="List of region allocations"
+    )
+    top_holdings: list[ETFHolding] = Field(
+        default_factory=list, description="List of top holdings in the ETF"
+    )
+
+    @property
+    def total_sector_coverage(self) -> float:
+        """Calculate total sector coverage percentage."""
+        return sum(item.weight for item in self.sector_weights)
+
+    @property
+    def total_region_coverage(self) -> float:
+        """Calculate total region coverage percentage."""
+        return sum(item.weight for item in self.region_weights)
+
+    @property
+    def total_top_holdings_coverage(self) -> float:
+        """Calculate total coverage percentage of top holdings."""
+        return sum(holding.weight for holding in self.top_holdings)
+
+    @property
+    def sectors_df(self) -> pl.DataFrame:
+        """Return sector allocations as a Polars DataFrame."""
+        if not self.sector_weights:
+            return pl.DataFrame(
+                schema={
+                    "ticker": pl.Utf8,
+                    "category": pl.Utf8,
+                    "weight": pl.Float64,
+                }
+            )
+        return pl.DataFrame(
+            [
+                {
+                    "ticker": self.ticker,
+                    "category": item.category,
+                    "weight": item.weight,
+                }
+                for item in self.sector_weights
+            ]
+        )
+
+    @property
+    def regions_df(self) -> pl.DataFrame:
+        """Return region allocations as a Polars DataFrame."""
+        if not self.region_weights:
+            return pl.DataFrame(
+                schema={
+                    "ticker": pl.Utf8,
+                    "category": pl.Utf8,
+                    "weight": pl.Float64,
+                }
+            )
+        return pl.DataFrame(
+            [
+                {
+                    "ticker": self.ticker,
+                    "category": item.category,
+                    "weight": item.weight,
+                }
+                for item in self.region_weights
+            ]
+        )
+
+    @property
+    def top_holdings_df(self) -> pl.DataFrame:
+        """Return top holdings as a Polars DataFrame."""
+        if not self.top_holdings:
+            return pl.DataFrame(
+                schema={
+                    "etf_ticker": pl.Utf8,
+                    "holding_ticker": pl.Utf8,
+                    "holding_name": pl.Utf8,
+                    "weight": pl.Float64,
+                }
+            )
+        return pl.DataFrame(
+            [
+                {
+                    "etf_ticker": self.ticker,
+                    "holding_ticker": holding.ticker,
+                    "holding_name": holding.name,
+                    "weight": holding.weight,
+                }
+                for holding in self.top_holdings
+            ]
         )
