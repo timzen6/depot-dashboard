@@ -86,7 +86,7 @@ class TTMEngine:
         # (Relax to 3 or 2 if data is sparse, but risky for seasonality).
         for col in self.flow_metrics:
             if col in df_raw.columns:
-                aggs.append(pl.col(col).sum().alias(f"{col}_ttm"))
+                aggs.append(pl.col(col).tail(4).sum().alias(f"{col}_ttm"))
 
         # B. Point Metrics: Last Value
         # Technically, the raw value IS the value at that date.
@@ -104,15 +104,16 @@ class TTMEngine:
         # 3. Execute Calculation
         try:
             df_ttm = (
-                df_raw.rolling(
+                df_raw.sort(["ticker", "report_date"])
+                .rolling(
                     index_column="report_date",
-                    period="1y",
+                    period="395d",
                     group_by="ticker",
                     closed="right",
                 )
                 .agg(aggs)
                 .sort(["ticker", "report_date"])
-                .filter(pl.col("_record_count") == 4)  # Ensure full 4 quarters
+                .filter(pl.col("_record_count") >= 4)  # Ensure full 4 quarters
                 .drop("_record_count")
             )
 

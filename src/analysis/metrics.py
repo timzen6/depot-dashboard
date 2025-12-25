@@ -130,7 +130,9 @@ class MetricsEngine:
         """Ensure that all required columns exist in the DataFrame."""
         existing_cols = set(df_to_check.columns)
         missing_cols = [c for c in required_cols if c not in existing_cols]
-        df_to_check = df_to_check.with_columns([pl.lit(None).alias(c) for c in missing_cols])
+        df_to_check = df_to_check.with_columns(
+            [pl.lit(None).cast(pl.Float64).alias(c) for c in missing_cols]
+        )
         return df_to_check
 
     def calculate_valuation_metrics(
@@ -240,7 +242,6 @@ class MetricsEngine:
         eps_expr = pl.coalesce(pl.col("eps_ttm"), pl.col("eps_annual"))
         report_date_expr = pl.coalesce(pl.col("report_date_ttm"), pl.col("report_date"))
         shares_expr = pl.coalesce(
-            # pl.col("shares"), # this would be from prices -> not implemented in mapper yet
             pl.col("shares_ttm"),
             pl.col("shares_annual"),
             pl.col("shares") if "shares" in df_p.columns else pl.lit(None),
@@ -267,7 +268,6 @@ class MetricsEngine:
                 .then(pl.lit("Annual"))
                 .otherwise(pl.lit("N/A"))
                 .alias("valuation_source"),
-                # Das effektive Datum der Finanzdaten
                 report_date_expr.alias("metric_date"),
                 shares_expr.alias("diluted_average_shares"),
             ]

@@ -1,7 +1,5 @@
-# config/factors.yaml
 # Strategy Factor Configuration
 # values can but do not have to sum to 10 -> weights will be normalized
-# config/factors_final.yaml
 # Harmonized Strategy Factors (Scale 0-10)
 
 defaults:

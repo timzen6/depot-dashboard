@@ -30,6 +30,14 @@ class Position(BaseModel):
     )
     group: str | None = Field(default=None, description="Optional group/category for the position")
 
+    @field_validator("weight")
+    @classmethod
+    def validate_weight(cls, v: float | None) -> float | None:
+        """Only ensure weight is not negative if provided."""
+        if v is not None and v < 0:
+            raise ValueError("Weight must not be negative")
+        return v
+
     @field_validator("type")
     @classmethod
     def validate_type(cls, v: str) -> str:

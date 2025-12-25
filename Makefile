@@ -23,6 +23,9 @@ fundamentals:
 etl:
 	uv run qc etl
 
+etl-full:
+	uv run qc etl --full
+
 snapshot:
 	uv run qc snapshot
 

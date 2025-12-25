@@ -164,12 +164,12 @@ def _load_cached_raw_data(
             f"Loaded {df_annual.height:,} fundamental records from {len(annual_files)} files"
         )
 
-    quaterly_path = fundamentals_dir / "quarterly"
+    quarterly_path = fundamentals_dir / "quarterly"
     df_quarterly = None
 
-    if quaterly_path.exists():
+    if quarterly_path.exists():
         try:
-            quarterly_files = sorted(quaterly_path.glob("*.parquet"))
+            quarterly_files = sorted(quarterly_path.glob("*.parquet"))
             if quarterly_files:
                 df_quarterly = pl.concat(
                     [pl.read_parquet(f) for f in quarterly_files],
