@@ -477,6 +477,7 @@ def render_market_snapshot_tables(
             "short_name",
             "ticker",
             "info",
+            "valuation_source",
             "market_cap_b_eur",
             "pe_ratio",
             "fcf_yield",
@@ -485,10 +486,12 @@ def render_market_snapshot_tables(
             "ebit_margin",
             "revenue_growth",
             "net_debt_to_ebit",
+            "data_lag_days",
         ],
         column_config={
             "market_cap_b_eur": st.column_config.NumberColumn("Market Cap 💶", format="%.1f B€"),
             "info": "",
+            "valuation_source": st.column_config.TextColumn("Source", width="small"),
             "ticker": "Ticker",
             "short_name": "Name",
             "pe_ratio": st.column_config.NumberColumn("P/E 💰", format="%.1f"),
@@ -498,6 +501,7 @@ def render_market_snapshot_tables(
             "roce": st.column_config.NumberColumn("ROCE 💎", format="%.1f%%"),
             "revenue_growth": st.column_config.NumberColumn("Revenue Growth 🚀", format="%.1f%%"),
             "net_debt_to_ebit": st.column_config.NumberColumn("Debt/EBIT 🏥", format="%.1fx"),
+            "data_lag_days": st.column_config.NumberColumn("Data Lag (Days) ⏱", format="%.0f"),
         },
     )
     df_profile = (

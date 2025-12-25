@@ -58,18 +58,25 @@ class GlobalDataLoader:
         )
 
         prices, fundamentals = _calculate_metrics(
-            raw_data.prices, raw_data.fundamentals, self.metrics_engine
+            prices=raw_data.prices,
+            fundamentals=raw_data.fundamentals,
+            fundamentals_quarterly=raw_data.fundamentals_quarterly,
+            metrics_engine=self.metrics_engine,
         )
 
         return DashboardData(
             prices=prices,
             fundamentals=fundamentals,
             metadata=raw_data.metadata,
+            fundamentals_quarterly=raw_data.fundamentals_quarterly,
         )
 
 
 def _calculate_metrics(
-    prices: pl.DataFrame, fundamentals: pl.DataFrame, metrics_engine: MetricsEngine
+    prices: pl.DataFrame,
+    fundamentals: pl.DataFrame,
+    fundamentals_quarterly: pl.DataFrame | None,
+    metrics_engine: MetricsEngine,
 ) -> tuple[pl.DataFrame, pl.DataFrame]:
     """Helper to calculate metrics on loaded data.
 
@@ -95,7 +102,11 @@ def _calculate_metrics(
 
     # Enrich prices with valuation metrics if we have both datasets
     if not prices.is_empty() and not fundamentals.is_empty():
-        prices = metrics_engine.calculate_valuation_metrics(prices, fundamentals)
+        prices = metrics_engine.calculate_valuation_metrics(
+            prices,
+            fundamentals,
+            fundamentals_quarterly,
+        )
         logger.info("Calculated valuation metrics for price data")
         prices = metrics_engine.calculate_fair_value_history(prices, fundamentals, years=5)
         logger.info("Calculated fair value history for price data")
@@ -162,8 +173,8 @@ def _load_cached_raw_data(
             if quarterly_files:
                 df_quarterly = pl.concat(
                     [pl.read_parquet(f) for f in quarterly_files],
-                    # how="vertical_relaxed",
-                    how="diagonal",
+                    how="vertical_relaxed",
+                    # how="diagonal",
                 )
                 logger.info(
                     f"Loaded {df_quarterly.height:,} quarterly fundamental"

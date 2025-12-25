@@ -11,6 +11,7 @@ from src.app.views.common import (
 
 def prepare_screener_snapshot(
     df_prices: pl.DataFrame,
+    df_fundamentals: pl.DataFrame,
     df_metadata: pl.DataFrame,
     fx_engine: FXEngine,
     selected_tickers: list[str],
@@ -18,6 +19,17 @@ def prepare_screener_snapshot(
     """Prepare a snapshot DataFrame for the stock screener."""
     if not selected_tickers:
         return pl.DataFrame()
+
+    df_fundamentals_latest = (
+        df_fundamentals.sort(["ticker", "report_date"])
+        .group_by("ticker")
+        .agg(
+            pl.last("roce").alias("roce"),
+            pl.last("ebit_margin").alias("ebit_margin"),
+            pl.last("net_debt_to_ebit").alias("net_debt_to_ebit"),
+            pl.last("revenue_growth").alias("revenue_growth"),
+        )
+    )
 
     df_prices_latest = (
         df_prices.filter(pl.col("ticker").is_in(selected_tickers))
@@ -37,14 +49,11 @@ def prepare_screener_snapshot(
             pl.last("close_EUR").alias("close"),
             pl.last("fair_value_EUR").alias("fair_value"),
             pl.last("dividend_yield").alias("dividend_yield"),
-            pl.last("currency").alias("currency"),
-            pl.last("roce").alias("roce"),
-            pl.last("ebit_margin").alias("ebit_margin"),
-            pl.last("net_debt_to_ebit").alias("net_debt_to_ebit"),
-            pl.last("revenue_growth").alias("revenue_growth"),
             pl.last("fcf_yield").alias("fcf_yield"),
+            pl.last("currency").alias("currency"),
             pl.last("pe_ratio").alias("pe_ratio"),
             pl.last("pe_rank").alias("pe_rank"),
+            pl.last("data_lag_days").alias("data_lag_days"),
             # pe percentiles
             pl.median("pe_ratio").alias("pe_ratio_median"),
             pl.col("pe_ratio").quantile(0.25).alias("pe_ratio_p25"),
@@ -53,6 +62,11 @@ def prepare_screener_snapshot(
             pl.col("pe_ratio").quantile(0.75).alias("pe_ratio_p75"),
             # take last 30 days of closes and put to a list
             pl.tail("close_EUR", 30).alias("close_30d"),
+        )
+        .join(
+            df_fundamentals_latest,
+            on="ticker",
+            how="left",
         )
         .with_columns(
             # upside

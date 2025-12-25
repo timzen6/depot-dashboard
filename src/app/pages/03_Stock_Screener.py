@@ -79,6 +79,7 @@ def render_dashboard_content(
 
     df_prices_latest = prepare_screener_snapshot(
         dashboard_data.prices,
+        dashboard_data.fundamentals,
         filtered_metadata,
         fx_engine,
         selected_tickers,

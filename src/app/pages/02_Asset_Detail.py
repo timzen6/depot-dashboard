@@ -115,15 +115,24 @@ try:
     fx_engine = FXEngine(dashboard_data.prices, target_currency="EUR")
     strategy_engine = StrategyEngine()
 
+    filtered_stock_data = stock_data.filter_date_range(
+        start_date=date_range[0],
+        end_date=date_range[1],
+    )
+    data_source_info = (
+        filtered_stock_data.prices.sort("date")
+        .tail(1)
+        .select(["date", "valuation_source", "data_lag_days"])
+    )
+    valuation_source = data_source_info.select("valuation_source").item()
+    data_lag_days = data_source_info.select("data_lag_days").item()
+
     render_title_section(
         selected_ticker,
         stock_data.metadata,
         strategy_engine,
-    )
-
-    filtered_stock_data = stock_data.filter_date_range(
-        start_date=date_range[0],
-        end_date=date_range[1],
+        valuation_source,
+        data_lag_days,
     )
 
     if filtered_stock_data.is_empty:

@@ -196,6 +196,8 @@ def get_market_snapshot(
         .select(
             [
                 "ticker",
+                "data_lag_days",
+                "valuation_source",
                 "latest_price",
                 "market_cap_b_eur",
                 "pe_ratio",
