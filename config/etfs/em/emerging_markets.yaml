@@ -34,7 +34,7 @@ EUNM.DE:
     - { name: "Alibaba", ticker: "BABA", weight: 2.2 }
     - { name: "Reliance Industries", ticker: "RELIANCE.NS", weight: 1.5 }
 
-AEEM.DE:
+AEEM.PA:
   name: "Amundi MSCI Emerging Markets Swap"
   ter: 0.18
   strategy: "Emerging Markets (Synthetic)"

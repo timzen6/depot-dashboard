@@ -38,6 +38,15 @@ class StrategyEngine:
             "price": "Pricing Power",
         }
 
+    @property
+    def factor_emoji_mapping(self) -> dict[str, str]:
+        return {
+            "tech": "🔬",
+            "stab": "🛡️",
+            "real": "⚙️",
+            "price": "👜",
+        }
+
     def get_sector_reference(self, sector: str) -> StrategyFactors:
         if sector in self.defaults:
             return self.defaults[sector]

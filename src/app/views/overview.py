@@ -6,9 +6,16 @@ Renders portfolio performance charts and position tables.
 import plotly.express as px
 import polars as pl
 import streamlit as st
-from views.colors import COLOR_SCALE_CONTRAST, Colors
+from views.colors import COLOR_SCALE_CONTRAST, STRATEGY_FACTOR_COLOR_MAP, Colors
 
 from src.app.logic.overview import filter_days_with_incomplete_tickers
+from src.app.views.common import (
+    GLOBAL_FONT,
+    GLOBAL_MARGINS,
+    make_pie_chart,
+    make_sunburst_chart,
+    style_pie_chart,
+)
 from src.app.views.constants import COUNTRY_FLAGS, SECTOR_EMOJI
 from src.core.domain_models import AssetType
 from src.core.strategy_engine import StrategyEngine
@@ -111,46 +118,25 @@ def render_portfolio_chart(
     st.plotly_chart(fig, use_container_width=True, key=key)
 
 
-def render_positions_table(df_history: pl.DataFrame, portfolio_name: str) -> None:
+def render_positions_table(df_latest: pl.DataFrame, portfolio_name: str) -> None:
     """Render current portfolio positions as an interactive table.
 
     Shows latest position values and weights for each ticker.
 
     Args:
-        df_history: Portfolio history with ticker-level positions
+        df_latest: Latest portfolio positions with ticker-level data
         portfolio_name: Portfolio identifier for display
     """
-    if df_history.is_empty():
+    if df_latest.is_empty():
         st.warning("No position data to display")
         return
 
     st.subheader(f"💼 Current Positions - {portfolio_name}")
 
-    # Get latest date positions
-    latest_date = df_history.select(pl.max("date")).item()
-
-    df_current = df_history.filter(pl.col("date") == latest_date).select(
-        ["ticker", "position_value", "currency", "short_name", "asset_type", "sector"]
-    )
-    df_current = (
-        df_history.sort("date")
-        .group_by("ticker")
-        .agg(
-            pl.last("position_value").alias("position_value"),
-            pl.last("currency").alias("currency"),
-            pl.last("short_name").alias("short_name"),
-            pl.last("asset_type").str.to_uppercase().alias("asset_type"),
-            pl.last("group").alias("group"),
-            pl.last("sector").alias("sector"),
-            pl.last("position_value_EUR").alias("position_value_EUR"),
-            pl.last("position_dividend_yoy_EUR").alias("position_dividend_yoy_EUR"),
-        )
-    )
-
     # Calculate weights
-    total_value = df_current.select(pl.sum("position_value_EUR")).item()
+    total_value = df_latest.select(pl.sum("position_value_EUR")).item()
 
-    df_display = df_current.with_columns(
+    df_display = df_latest.with_columns(
         (pl.col("position_value_EUR") / total_value * 100).alias("weight_pct")
     ).sort("position_value_EUR", descending=True)
 
@@ -196,32 +182,17 @@ def render_positions_table(df_history: pl.DataFrame, portfolio_name: str) -> Non
 
 
 def render_stock_composition_chart(
-    df_history: pl.DataFrame, strategy_engine: StrategyEngine
+    df_latest: pl.DataFrame, strategy_engine: StrategyEngine
 ) -> None:
-    if df_history.is_empty():
+    if df_latest.is_empty():
         return
-    df_latest = (
-        df_history.sort("date")
-        .group_by("ticker")
-        .agg(
-            pl.last("date"),
-            pl.last("position_value_EUR"),
-            # just dummies as they are same per ticker
-            pl.last("asset_type"),
-            pl.last("group"),
-            pl.last("sector"),
-            pl.last("country"),
-            pl.last("short_name"),
-        )
-        .with_columns(
-            pl.col("short_name")
-            .fill_null(pl.col("ticker"))
-            # no longer strings than 20 chars
-            .str.slice(0, 25),
-            pl.col("group").fill_null(pl.col("sector")).alias("color_category"),
-        )
-        .sort("position_value_EUR", descending=True)
-    )
+    df_latest = df_latest.with_columns(
+        pl.col("short_name")
+        .fill_null(pl.col("ticker"))
+        # no longer strings than 20 chars
+        .str.slice(0, 25),
+        pl.col("group").fill_null(pl.col("sector")).alias("color_category"),
+    ).sort("position_value_EUR", descending=True)
 
     tab_names = [
         "Strategy Factors",
@@ -302,112 +273,71 @@ def render_stock_composition_chart(
             df_factors,
             names="factor",
             values="value",
-            color="key",
-            color_discrete_map={
-                "stab": COLOR_SCALE_CONTRAST[0],
-                "tech": COLOR_SCALE_CONTRAST[1],
-                "real": COLOR_SCALE_CONTRAST[2],
-                "price": COLOR_SCALE_CONTRAST[3],
-                "unclassified": Colors.light_gray,
-            },
+            color="factor",
+            color_discrete_map=STRATEGY_FACTOR_COLOR_MAP,
         )
-        fig_strategy.update_traces(
-            textposition="inside",
-            textinfo="label+percent",
-            marker=dict(line=dict(color="#FFFFFF", width=2.0)),
-        )
-        fig_strategy.update_layout(
-            height=400,
-            margin=GLOBAL_MARGINS,
-            showlegend=False,
-            font=GLOBAL_FONT,
-        )
+        style_pie_chart(fig_strategy)
         st.plotly_chart(fig_strategy, use_container_width=True)
 
 
-GLOBAL_MARGINS = dict(t=30, l=5, r=5, b=0)
-GLOBAL_FONT = dict(family="Arial", size=16)
-
-
-def make_sunburst_chart(df: pl.DataFrame, path: list[str], title: str | None = None) -> px.sunburst:
-    fig = px.sunburst(
-        df,
-        path=path,
-        values="position_value_EUR",
-        color_discrete_sequence=COLOR_SCALE_CONTRAST,
-        title=title,
-    )
-    fig.update_traces(
-        insidetextorientation="horizontal",
-        textinfo="label+percent parent",
-        marker=dict(line=dict(color="#FFFFFF", width=2.0)),
-    )
-    fig.update_layout(
-        height=400,
-        margin=GLOBAL_MARGINS,
-        showlegend=False,  # Stabilizes layout.
-        font=GLOBAL_FONT,
-        uniformtext=dict(
-            minsize=10,  # If text < 10px is required to fit, hide it instead.
-            mode="hide",  # options: 'hide' | 'show'
-        ),
-    )
-    return fig
-
-
-def make_pie_chart(df: pl.DataFrame, names: str, values: str, title: str | None = None) -> px.pie:
-    fig = px.pie(
-        df,
-        names=names,
-        values=values,
-        color_discrete_sequence=COLOR_SCALE_CONTRAST,
-        title=title,
-    )
-    fig.update_traces(
-        textposition="inside",
-        textinfo="label+percent",
-        marker=dict(line=dict(color="#FFFFFF", width=2.0)),
-    )
-    fig.update_layout(
-        height=400,
-        margin=GLOBAL_MARGINS,
-        showlegend=False,
-        font=GLOBAL_FONT,
-    )
-    return fig
-
-
-def render_portfolio_composition_chart(df_history: pl.DataFrame) -> None:
+def render_portfolio_composition_chart(
+    df_latest: pl.DataFrame,
+    df_etf_sectors: pl.DataFrame,
+    df_etf_countries: pl.DataFrame,
+    strategy_engine: StrategyEngine,
+) -> None:
     """Render portfolio composition as pie chart.
 
     Args:
-        df_history: Portfolio history with ticker-level positions
+        df_latest: Portfolio history with ticker-level positions
     """
-    if df_history.is_empty():
+    if df_latest.is_empty():
         return
 
     # get complete row of the latest date per ticker
-    df_latest = (
-        df_history.sort("date")
-        .group_by("ticker")
-        .agg(
-            pl.last("date"),
-            pl.last("position_value_EUR"),
-            # these are kind of dummies as they are same per ticker
-            # but needed for the plots
-            pl.last("asset_type"),
-            pl.last("group"),
+    df_latest = df_latest.with_columns(
+        pl.col("asset_type").str.to_uppercase(),
+        # Fill nan in sector with ETF if asset_type is ETF else use Unknown
+        pl.col("sector").fill_null(
+            pl.when(pl.col("asset_type") == AssetType.ETF)
+            .then(pl.lit("ETF"))
+            .otherwise(pl.lit("Unknown"))
+        ),
+    ).sort("position_value_EUR", descending=True)
+    factors = (
+        pl.concat(
+            [
+                strategy_engine.calculate_portfolio_exposure(
+                    df_latest.filter(pl.col("asset_type") == atype),
+                    value_column="position_value_EUR",
+                    sector_column="sector",
+                ).with_columns(
+                    pl.lit(atype).alias("asset_type"),
+                )
+                for atype in df_latest.select(pl.col("asset_type").unique()).to_series()
+            ]
         )
+        .filter(pl.col("value") > 0.1)
         .with_columns(
-            pl.col("asset_type").str.to_uppercase(),
+            (pl.col("value") / pl.col("value").sum()).alias("proportion"),
+            pl.col("key").replace(strategy_engine.factor_mapping).alias("factor_short"),
+            pl.col("key").replace(strategy_engine.factor_emoji_mapping).alias("factor_emoji"),
         )
-        .sort("position_value_EUR", descending=True)
     )
 
     has_group_usage = df_latest.select(pl.col("group").n_unique()).item() > 1
     n_col = 2 if has_group_usage else 1
 
-    tab1, tab2, tab3 = st.tabs(["Asset Classes", "Groups", "Positions"])
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
+        [
+            "Asset Classes",
+            "Strategy Factors",
+            "Sectors",
+            "Countries",
+            "Groups",
+            "Positions",
+        ]
+    )
     with tab1:
         cols = st.columns(n_col)
         with cols[0]:
@@ -425,6 +355,82 @@ def render_portfolio_composition_chart(df_history: pl.DataFrame) -> None:
                 )
                 st.plotly_chart(fig_asset, use_container_width=True)
     with tab2:
+        col1, col2 = st.columns(2)
+        with col1:
+            fig_factor_simple = px.pie(
+                factors,
+                names="factor_short",
+                values="proportion",
+                color="factor_short",
+                color_discrete_map=STRATEGY_FACTOR_COLOR_MAP,
+            )
+            style_pie_chart(fig_factor_simple)
+            st.plotly_chart(fig_factor_simple, use_container_width=True)
+        with col2:
+            fig_factor = make_sunburst_chart(
+                factors,
+                path=["asset_type", "factor_short"],
+                title="Strategy Factor Exposure by Asset Class",
+                value="proportion",
+            )
+            st.plotly_chart(fig_factor, use_container_width=True)
+    with tab3:
+        tmp_stocks = df_latest.filter(pl.col("asset_type") == AssetType.STOCK.upper()).select(
+            ["ticker", "group", "position_value_EUR", "sector", "asset_type"]
+        )
+        tmp_etfs = (
+            df_etf_sectors.select(["ticker", "group", "weighted_value_EUR", "category"])
+            .rename(
+                {
+                    "weighted_value_EUR": "position_value_EUR",
+                    "category": "sector",
+                }
+            )
+            .with_columns(pl.lit("ETF").alias("asset_type"))
+        )
+        col1, col2 = st.columns(2)
+        with col1:
+            fig_sectors = make_pie_chart(
+                pl.concat([tmp_stocks, tmp_etfs]),
+                names="sector",
+                values="position_value_EUR",
+            )
+            st.plotly_chart(fig_sectors, use_container_width=True)
+        with col2:
+            fig_sectors_sunburst = make_sunburst_chart(
+                pl.concat([tmp_stocks, tmp_etfs]),
+                path=["sector", "asset_type"],
+            )
+            st.plotly_chart(fig_sectors_sunburst, use_container_width=True)
+    with tab4:
+        tmp_stocks = df_latest.filter(pl.col("asset_type") == AssetType.STOCK.upper()).select(
+            ["ticker", "group", "position_value_EUR", "country", "asset_type"]
+        )
+        tmp_etfs = (
+            df_etf_countries.select(["ticker", "group", "weighted_value_EUR", "category"])
+            .rename(
+                {
+                    "weighted_value_EUR": "position_value_EUR",
+                    "category": "country",
+                }
+            )
+            .with_columns(pl.lit("ETF").alias("asset_type"))
+        )
+        col1, col2 = st.columns(2)
+        with col1:
+            fig_countries = make_pie_chart(
+                pl.concat([tmp_stocks, tmp_etfs]),
+                names="country",
+                values="position_value_EUR",
+            )
+            st.plotly_chart(fig_countries, use_container_width=True)
+        with col2:
+            fig_countries_sunburst = make_sunburst_chart(
+                pl.concat([tmp_stocks, tmp_etfs]),
+                path=["country", "asset_type"],
+            )
+            st.plotly_chart(fig_countries_sunburst, use_container_width=True)
+    with tab5:
         cols = st.columns(n_col)
         with cols[0]:
             fig_group_simple = make_pie_chart(
@@ -441,7 +447,7 @@ def render_portfolio_composition_chart(df_history: pl.DataFrame) -> None:
                 )
                 st.plotly_chart(fig_group, use_container_width=True)
 
-    with tab3:
+    with tab6:
         fig_pos = make_pie_chart(
             df_latest,
             names="ticker",
@@ -453,7 +459,6 @@ def render_portfolio_composition_chart(df_history: pl.DataFrame) -> None:
 
 def render_market_snapshot_tables(
     df_snapshot: pl.DataFrame,
-    strategy_engine: StrategyEngine,
 ) -> None:
     """Render market fundamentals table.
 
@@ -503,6 +508,39 @@ def render_market_snapshot_tables(
             "net_debt_to_ebit": st.column_config.NumberColumn("Debt/EBIT 🏥", format="%.1fx"),
             "data_lag_days": st.column_config.NumberColumn("Data Lag (Days) ⏱", format="%.0f"),
         },
+    )
+
+
+def render_strategy_factor_table(
+    df_snapshot: pl.DataFrame,
+    strategy_engine: StrategyEngine,
+) -> None:
+    if df_snapshot.is_empty():
+        st.warning("No market fundamentals data to display")
+        return
+    df_snapshot = (
+        df_snapshot.filter(
+            # pl.col("asset_type") == AssetType.STOCK
+        )
+        .with_columns(
+            (
+                pl.col("country").replace(COUNTRY_FLAGS, default="❓")
+                + " "
+                + pl.col("sector").replace(SECTOR_EMOJI, default="👻")
+            )
+            # when asset class is ETF show an emoji for etf and the globe
+            .alias("info")
+        )
+        .with_columns(
+            pl.when(pl.col("asset_type") == AssetType.ETF)
+            .then(
+                pl.when(pl.col("name").str.to_lowercase().str.contains("europe"))
+                .then(pl.lit("📑🇪🇺"))
+                .otherwise(pl.lit("📑🌍"))
+            )
+            .otherwise(pl.col("info"))
+            .alias("info")
+        )
     )
     df_profile = (
         df_snapshot.select("ticker", "name", "sector", "info")

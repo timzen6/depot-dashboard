@@ -1,4 +1,3 @@
-### src/core/etf_loader.py
 from pathlib import Path
 from typing import Any
 
@@ -6,7 +5,8 @@ import polars as pl
 import yaml
 from loguru import logger
 
-from src.core.domain_models import AllocationItem, ETFComposition, ETFHolding
+from src.core.domain_models import AllocationItem, ETFComposition, ETFHolding, Sector
+from src.core.normalization import sector_normalization
 
 
 class ETFLoader:
@@ -54,13 +54,15 @@ class ETFLoader:
         try:
             is_percent = data.get("weight_format") == "percent"
             divisor = 100.0 if is_percent else 1.0
-            sectors = [
+            sectors = []
+            for k, v in data.get("sectors", {}).items():
+                norm_sector = sector_normalization(k)
+                if norm_sector is None:
+                    norm_sector = Sector.OTHER
+                sectors.append(AllocationItem(category=norm_sector, weight=v / divisor))
+            countries = [
                 AllocationItem(category=k, weight=v / divisor)
-                for k, v in data.get("sectors", {}).items()
-            ]
-            regions = [
-                AllocationItem(category=k, weight=v / divisor)
-                for k, v in data.get("regions", {}).items()
+                for k, v in data.get("countries", {}).items()
             ]
             holdings = []
             for h in data.get("top_holdings", []):
@@ -78,7 +80,7 @@ class ETFLoader:
                 ter=data.get("ter", 0.0),
                 strategy=data.get("strategy"),
                 sector_weights=sectors,
-                country_weights=regions,
+                country_weights=countries,
                 top_holdings=holdings,
             )
             self._cache[ticker] = comp
@@ -101,8 +103,8 @@ class ETFLoader:
             return pl.DataFrame()
         return pl.concat(dfs)
 
-    def get_all_regions(self) -> pl.DataFrame:
-        """Returns a consolidated DataFrame of ALL ETF regions."""
+    def get_all_countries(self) -> pl.DataFrame:
+        """Returns a consolidated DataFrame of ALL ETF countries."""
         if not self._loaded:
             self.load()
         dfs = [comp.countries_df for comp in self._cache.values()]

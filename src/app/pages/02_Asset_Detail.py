@@ -20,6 +20,7 @@ from src.app.views.common import (
     render_sidebar_header,
 )
 from src.app.views.stock_detail import (
+    render_etf_composition_charts,
     render_growth_data,
     render_health_data,
     render_latest_price_info,
@@ -29,6 +30,9 @@ from src.app.views.stock_detail import (
     render_title_section,
     render_valuation_data,
 )
+from src.config.settings import load_config
+from src.core.domain_models import AssetType
+from src.core.etf_loader import ETFLoader
 from src.core.stock_data import StockData
 from src.core.strategy_engine import StrategyEngine
 
@@ -41,6 +45,7 @@ st.set_page_config(
 
 # Sidebar
 render_sidebar_header("Stock Detail", "Deep dive into individual stocks")
+config = load_config()
 
 # Load data
 try:
@@ -89,7 +94,7 @@ if not tickers:
 
 selected_ticker = st.sidebar.selectbox(
     "Select Ticker",
-    options=tickers,
+    options=sorted(tickers),
     index=0,
 )
 
@@ -114,6 +119,7 @@ try:
     stock_data = StockData.from_dataset(selected_ticker, dashboard_data)
     fx_engine = FXEngine(dashboard_data.prices, target_currency="EUR")
     strategy_engine = StrategyEngine()
+    etf_loader = ETFLoader(config.settings.etf_config_dir)
 
     filtered_stock_data = stock_data.filter_date_range(
         start_date=date_range[0],
@@ -160,6 +166,11 @@ try:
             filtered_stock_data.prices,
             selected_ticker,
         )
+
+    asset_type = stock_data.metadata.get("asset_type")
+    etf_data = etf_loader.get(selected_ticker)
+    if asset_type == AssetType.ETF and etf_data is not None:
+        render_etf_composition_charts(etf_data, strategy_engine)
 
     if filtered_stock_data.fundamentals.is_empty():
         st.info("No fundamental data available for this ticker")

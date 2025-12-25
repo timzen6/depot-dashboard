@@ -12,6 +12,7 @@ from src.analysis.fx import FXEngine
 from src.analysis.portfolio import PortfolioEngine
 from src.app.logic.data_loader import GlobalDataLoader
 from src.app.logic.overview import (
+    calculate_etf_weighted_exposure,
     get_market_snapshot,
     get_portfolio_kpis,
     get_portfolio_performance,
@@ -28,8 +29,10 @@ from src.app.views.overview import (
     render_portfolio_composition_chart,
     render_positions_table,
     render_stock_composition_chart,
+    render_strategy_factor_table,
 )
 from src.core.domain_models import AssetType
+from src.core.etf_loader import ETFLoader
 from src.core.strategy_engine import StrategyEngine
 
 # Page config
@@ -70,6 +73,7 @@ assert portfolios is not None  # Type narrowing for mypy
 fx_engine = FXEngine(df_prices=df_prices, target_currency="EUR")
 strategy_engine = StrategyEngine()
 portfolio_engine = PortfolioEngine()
+etf_loader = ETFLoader(loader.config.settings.etf_config_dir)
 
 if not portfolios:
     render_empty_state("No portfolios configured. Please add portfolios to portfolios.yaml")
@@ -112,6 +116,27 @@ try:
     # Render KPIs
     render_kpi_cards(kpis)
 
+    df_latest = df_history.sort(["ticker", "date"]).group_by("ticker").last()
+
+    etf_cols = [
+        "ticker",
+        "position_value_EUR",
+        "group",
+        "category",
+        "weight",
+        "weighted_value_EUR",
+    ]
+
+    etf_sectors = calculate_etf_weighted_exposure(
+        df_latest,
+        etf_loader.get_all_sectors(),
+    ).select(etf_cols)
+
+    etf_countries = calculate_etf_weighted_exposure(
+        df_latest,
+        etf_loader.get_all_countries(),
+    ).select(etf_cols)
+
     st.divider()
 
     tab1, tab2 = st.tabs(["Complete Portfolio", "Stock Breakdown"])
@@ -122,25 +147,32 @@ try:
             render_portfolio_chart(df_history, key="portfolio_chart_all", group_column="asset_type")
 
         with col2:
-            render_portfolio_composition_chart(df_history)
+            render_portfolio_composition_chart(
+                df_latest,
+                etf_sectors,
+                etf_countries,
+                strategy_engine,
+            )
     with tab2:
         df_history_stock = df_history.filter(pl.col("asset_type") == AssetType.STOCK)
+        df_latest_stock = df_latest.filter(pl.col("asset_type") == AssetType.STOCK)
         col1, col2 = st.columns([1, 1])
         with col1:
             render_portfolio_chart(
                 df_history_stock, key="portfolio_chart_stocks", group_column="group"
             )
         with col2:
-            render_stock_composition_chart(df_history_stock, strategy_engine)
+            render_stock_composition_chart(df_latest_stock, strategy_engine)
 
     st.divider()
 
-    render_positions_table(df_history, selected_portfolio.display_name or selected_portfolio.name)
+    render_positions_table(df_latest, selected_portfolio.display_name or selected_portfolio.name)
     # Market snapshot
     snapshot = get_market_snapshot(data, fx_engine, selected_portfolio.tickers)
 
     st.subheader("📋 Market Fundamentals")
-    render_market_snapshot_tables(snapshot, strategy_engine)
+    render_market_snapshot_tables(snapshot)
+    render_strategy_factor_table(snapshot, strategy_engine)
 
 except Exception as e:
     st.error(f"Error calculating portfolio performance: {e}")

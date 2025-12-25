@@ -56,6 +56,7 @@ class Sector(StrEnum):
     UTILITIES = "Utilities"
     REAL_ESTATE = "Real Estate"
     MATERIALS = "Materials"
+    OTHER = "Other"
 
 
 # --- Domain Models ---
