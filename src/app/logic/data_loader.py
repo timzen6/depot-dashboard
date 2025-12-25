@@ -23,6 +23,8 @@ class DashboardData:
     fundamentals: pl.DataFrame
     metadata: pl.DataFrame
 
+    fundamentals_quarterly: pl.DataFrame | None = None
+
 
 class GlobalDataLoader:
     """Centralized data loader with metric calculation.
@@ -56,18 +58,25 @@ class GlobalDataLoader:
         )
 
         prices, fundamentals = _calculate_metrics(
-            raw_data.prices, raw_data.fundamentals, self.metrics_engine
+            prices=raw_data.prices,
+            fundamentals=raw_data.fundamentals,
+            fundamentals_quarterly=raw_data.fundamentals_quarterly,
+            metrics_engine=self.metrics_engine,
         )
 
         return DashboardData(
             prices=prices,
             fundamentals=fundamentals,
             metadata=raw_data.metadata,
+            fundamentals_quarterly=raw_data.fundamentals_quarterly,
         )
 
 
 def _calculate_metrics(
-    prices: pl.DataFrame, fundamentals: pl.DataFrame, metrics_engine: MetricsEngine
+    prices: pl.DataFrame,
+    fundamentals: pl.DataFrame,
+    fundamentals_quarterly: pl.DataFrame | None,
+    metrics_engine: MetricsEngine,
 ) -> tuple[pl.DataFrame, pl.DataFrame]:
     """Helper to calculate metrics on loaded data.
 
@@ -93,7 +102,11 @@ def _calculate_metrics(
 
     # Enrich prices with valuation metrics if we have both datasets
     if not prices.is_empty() and not fundamentals.is_empty():
-        prices = metrics_engine.calculate_valuation_metrics(prices, fundamentals)
+        prices = metrics_engine.calculate_valuation_metrics(
+            prices,
+            fundamentals,
+            fundamentals_quarterly,
+        )
         logger.info("Calculated valuation metrics for price data")
         prices = metrics_engine.calculate_fair_value_history(prices, fundamentals, years=5)
         logger.info("Calculated fair value history for price data")
@@ -132,17 +145,47 @@ def _load_cached_raw_data(
         df_prices = pl.concat([pl.read_parquet(f) for f in price_files], how="vertical_relaxed")
         logger.info(f"Loaded {df_prices.height:,} price records from {len(price_files)} files")
 
+    annual_path = fundamentals_dir / "annual"
+    if not annual_path.exists():
+        annual_path = fundamentals_dir
+
     # Load all fundamental files
-    fund_files = sorted(fundamentals_dir.glob("annual/*.parquet"))
-    if not fund_files:
-        logger.warning(f"No fundamental files found in {fundamentals_dir}")
-        df_fund = pl.DataFrame()
+    annual_files = sorted(annual_path.glob("*.parquet"))
+    if not annual_files:
+        logger.warning(f"No fundamental files found in {annual_path}")
+        df_annual = pl.DataFrame()
     else:
-        df_fund = pl.concat([pl.read_parquet(f) for f in fund_files], how="vertical_relaxed")
-        logger.info(f"Loaded {df_fund.height:,} fundamental records from {len(fund_files)} files")
+        df_annual = pl.concat(
+            [pl.read_parquet(f) for f in annual_files],
+            # how="vertical_relaxed",
+            how="diagonal",
+        )
+        logger.info(
+            f"Loaded {df_annual.height:,} fundamental records from {len(annual_files)} files"
+        )
+
+    quarterly_path = fundamentals_dir / "quarterly"
+    df_quarterly = None
+
+    if quarterly_path.exists():
+        try:
+            quarterly_files = sorted(quarterly_path.glob("*.parquet"))
+            if quarterly_files:
+                df_quarterly = pl.concat(
+                    [pl.read_parquet(f) for f in quarterly_files],
+                    how="vertical_relaxed",
+                    # how="diagonal",
+                )
+                logger.info(
+                    f"Loaded {df_quarterly.height:,} quarterly fundamental"
+                    f" records from {len(quarterly_files)} files"
+                )
+        except Exception as e:
+            logger.error(f"Error loading quarterly fundamentals: {e}")
 
     return DashboardData(
         prices=df_prices,
-        fundamentals=df_fund,
+        fundamentals=df_annual,
         metadata=df_metadata,
+        fundamentals_quarterly=df_quarterly,
     )

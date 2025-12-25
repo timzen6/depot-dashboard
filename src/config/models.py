@@ -30,20 +30,20 @@ class Position(BaseModel):
     )
     group: str | None = Field(default=None, description="Optional group/category for the position")
 
+    @field_validator("weight")
+    @classmethod
+    def validate_weight(cls, v: float | None) -> float | None:
+        """Only ensure weight is not negative if provided."""
+        if v is not None and v < 0:
+            raise ValueError("Weight must not be negative")
+        return v
+
     @field_validator("type")
     @classmethod
     def validate_type(cls, v: str) -> str:
         """Validate the type of asset."""
         if v not in {"stock", "etf", "fund", "bond"}:
             raise ValueError("Type must be one of: stock, etf, fund, bond")
-        return v
-
-    @field_validator("weight")
-    @classmethod
-    def validate_weight(cls, v: float | None) -> float | None:
-        """Ensure weight is between 0 and 1 if provided."""
-        if v is not None and (v < 0 or v > 1):
-            raise ValueError("Weight must be between 0 and 1")
         return v
 
     @field_validator("shares")

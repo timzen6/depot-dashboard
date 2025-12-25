@@ -6,6 +6,8 @@ Provides fundamental and valuation metrics for portfolio analysis.
 import polars as pl
 from loguru import logger
 
+from src.analysis.ttm import TTMEngine
+
 
 class MetricsEngine:
     """Calculates financial metrics from raw price and fundamental data.
@@ -13,6 +15,9 @@ class MetricsEngine:
     Implements fundamental ratio calculations and time-series valuation metrics
     using pure Polars expressions for performance.
     """
+
+    def __init__(self) -> None:
+        self.ttm_engine = TTMEngine()
 
     def calculate_fundamental_metrics(self, df_fund: pl.DataFrame) -> pl.DataFrame:
         """Add calculated fundamental metrics to raw fundamentals data.
@@ -34,175 +39,268 @@ class MetricsEngine:
                 - net_debt
                 - interest_coverage (if interest_expense exists)
         """
+        if df_fund.is_empty():
+            logger.warning("Fundamentals DataFrame is empty, skipping fundamental metrics")
+            return df_fund
         logger.info(f"Calculating fundamental metrics for {df_fund.height} records")
 
-        cols_available = set(df_fund.columns)
+        if "report_date" in df_fund.columns and "date" not in df_fund.columns:
+            df_fund = df_fund.with_columns(pl.col("report_date").alias("date"))
 
-        # We need to prepare them to be used in further calculations
-        fundamental_metrics = df_fund.with_columns(
-            # Capital Employed = Total Assets - Current Liabilities
-            (pl.col("total_assets") - pl.col("total_current_liabilities")).alias(
-                "capital_employed"
-            ),
-            # adding date as alias for consistency in later joins
-            pl.col("report_date").alias("date"),
-        )
+        cols = set(df_fund.columns)
+        # Base metrics
+        base_exprs = []
 
-        expr_list = []
-        derived_expr_list = []
-
-        # ROCE = EBIT / Capital Employed (handle division by zero)
-        expr_list.append((pl.col("ebit") / pl.col("capital_employed")).fill_nan(None).alias("roce"))
-
-        # Free Cash Flow: use existing column or calculate
-        if "free_cash_flow" in cols_available:
-            logger.debug("Using existing free_cash_flow column")
-        else:
-            expr_list.append(
-                (pl.col("operating_cash_flow") - pl.col("capital_expenditure")).alias(
+        if "total_assets" in cols and "total_current_liabilities" in cols:
+            base_exprs.append(
+                (pl.col("total_assets") - pl.col("total_current_liabilities")).alias(
+                    "capital_employed"
+                )
+            )
+        # Free Cash Flow Fallback
+        if "operating_cash_flow" in cols and "capital_expenditure" in cols:
+            base_exprs.append(
+                # ensures against inconsistent sign conventions for capex
+                (pl.col("operating_cash_flow") - pl.col("capital_expenditure").abs()).alias(
                     "free_cash_flow"
                 )
             )
 
-        # Net Debt = Long Term Debt - Cash
-        expr_list.append(
-            (pl.col("long_term_debt") - pl.col("cash_and_equivalents")).alias("net_debt")
-        )
-        # Net Debt / EBITDA (using EBIT as proxy)
-        if "ebit" in cols_available:
-            derived_expr_list.append(
-                (pl.col("net_debt") / pl.col("ebit")).fill_nan(None).alias("net_debt_to_ebit")
-            )
-        # cash conversion ratio
-        expr_list.append(
-            (pl.col("free_cash_flow") / pl.col("net_income"))
-            .fill_nan(None)
-            .alias("cash_conversion_ratio")
-        )
+        debt_expr = None
+        if "total_debt" in cols:
+            debt_expr = pl.col("total_debt")
+        elif "long_term_debt" in cols:
+            ltd = pl.col("long_term_debt").fill_null(0)
+            std = pl.col("short_term_debt").fill_null(0) if "short_term_debt" in cols else 0
+            debt_expr = ltd + std
 
-        # Interest Coverage = EBIT / Interest Expense (conditional)
-        if "interest_expense" in cols_available:
-            logger.debug("Calculating interest_coverage")
-            expr_list.append(
-                (pl.col("ebit") / pl.col("interest_expense"))
+        if debt_expr is not None and "cash_and_equivalents" in cols:
+            base_exprs.append((debt_expr - pl.col("cash_and_equivalents")).alias("net_debt"))
+
+        if base_exprs:
+            df_fund = df_fund.with_columns(base_exprs)
+
+        cols = set(df_fund.columns)
+
+        # Derived metrics
+        ratio_exprs = []
+        if "net_income" in cols and "revenue" in cols:
+            ratio_exprs.append(
+                (pl.col("net_income") / pl.col("revenue")).alias("net_profit_margin")
+            )
+        if "gross_profit" in cols and "revenue" in cols:
+            ratio_exprs.append((pl.col("gross_profit") / pl.col("revenue")).alias("gross_margin"))
+        if "ebit" in cols and "revenue" in cols:
+            ratio_exprs.append((pl.col("ebit") / pl.col("revenue")).alias("ebit_margin"))
+        if "ebit" in cols and "capital_employed" in cols:
+            ratio_exprs.append(
+                (pl.col("ebit") / pl.col("capital_employed")).fill_nan(None).alias("roce")
+            )
+        if "ebit" in cols and "interest_expense" in cols:
+            ratio_exprs.append(
+                (pl.col("ebit") / pl.col("interest_expense").abs())
                 .fill_nan(None)
                 .alias("interest_coverage")
             )
-        else:
-            logger.debug("interest_expense not available, skipping interest_coverage")
+        if "ebit" in cols and "net_debt" in cols:
+            ratio_exprs.append(
+                (pl.col("net_debt") / pl.col("ebit")).fill_nan(None).alias("net_debt_to_ebit")
+            )
+        if "fcf_calculated" in cols:
+            if "free_cash_flow" not in cols:
+                ratio_exprs.append(pl.col("fcf_calculated").alias("free_cash_flow"))
+            else:
+                # both exist, prefer existing, but fallback to calculated if value is null
+                ratio_exprs.append(
+                    pl.coalesce(pl.col("free_cash_flow"), pl.col("fcf_calculated")).alias(
+                        "free_cash_flow"
+                    )
+                )
+        elif "free_cash_flow" in cols:
+            # the calculated one does not exist, but the original does
+            ratio_exprs.append(pl.col("free_cash_flow").alias("free_cash_flow"))
 
-        # gross margin
-        expr_list.append(
-            (pl.col("gross_profit") / pl.col("revenue")).fill_nan(None).alias("gross_margin")
+        if ratio_exprs:
+            df_fund = df_fund.with_columns(ratio_exprs)
+        return df_fund
+
+    def _ensure_columns_exist(
+        self, df_to_check: pl.DataFrame, required_cols: list[str]
+    ) -> pl.DataFrame:
+        """Ensure that all required columns exist in the DataFrame."""
+        existing_cols = set(df_to_check.columns)
+        missing_cols = [c for c in required_cols if c not in existing_cols]
+        df_to_check = df_to_check.with_columns(
+            [pl.lit(None).cast(pl.Float64).alias(c) for c in missing_cols]
         )
-
-        # ebit margin
-        expr_list.append((pl.col("ebit") / pl.col("revenue")).fill_nan(None).alias("ebit_margin"))
-
-        result = fundamental_metrics.with_columns(expr_list).with_columns(derived_expr_list)
-
-        logger.info(f"Added {len(expr_list)} fundamental metrics")
-        return result
+        return df_to_check
 
     def calculate_valuation_metrics(
         self,
         df_prices: pl.DataFrame,
-        df_fund_enriched: pl.DataFrame,
+        df_annual: pl.DataFrame,
+        df_quarterly: pl.DataFrame | None = None,
     ) -> pl.DataFrame:
-        """Calculate daily valuation metrics by merging prices and fundamentals.
+        """
+        Calculate daily valuation metrics by merging prices and fundamentals.
 
-        Performs three steps:
-        1. Calculate rolling 12M dividend yield
-        2. Time-travel join to map fundamentals to each price date
-        3. Compute market-cap based valuation ratios
+        Strategy: HYBRID MERGE
+        1. Calculate TTM data from quarterly reports (if available).
+        2. Merge both Annual and TTM data onto the price history (asof join).
+        3. Calculate ratios prioritizing TTM data, falling back to Annual data.
 
         Args:
-            df_prices: Daily price data with columns: ticker, date, close, dividend, currency.
-            df_fund_enriched: Enriched fundamentals from calculate_fundamental_metrics().
+            df_prices: Daily price history.
+            df_annual: Annual financial reports.
+            df_quarterly: Quarterly financial reports (optional).
 
         Returns:
-            Daily DataFrame with price, dividend_yield, market_cap, fcf_yield,
-            net_debt_ebitda, and all joined fundamental metrics.
+            DataFrame with added valuation columns.
         """
         logger.info(f"Calculating valuation metrics for {df_prices.height} price records")
+        if df_prices.is_empty():
+            logger.warning("Price DataFrame is empty, skipping valuation metrics")
+            return df_prices
+        # A. Annual Data
+        if not df_annual.is_empty():
+            q_annual = df_annual.select(
+                [
+                    pl.col("ticker"),
+                    pl.col("report_date"),
+                    pl.col("diluted_eps").alias("eps_annual"),
+                    pl.col("revenue").alias("revenue_annual"),
+                    pl.col("free_cash_flow").alias("fcf_annual"),
+                    # Prefer diluted for conservative valuation, fallback to basic if missing
+                    pl.coalesce(
+                        pl.col("diluted_average_shares"), pl.col("basic_average_shares")
+                    ).alias("shares_annual"),
+                    # We also need dividends for yield calculation
+                    pl.col("cash_dividends_paid").abs().alias("dividend_annual"),
+                ]
+            ).sort("report_date")
+        else:
+            q_annual = pl.DataFrame()
+        # B. TTM Data
+        if df_quarterly is not None and not df_quarterly.is_empty():
+            ttm_tmp = self.ttm_engine.calculate_ttm_history(df_quarterly)
+            q_ttm = ttm_tmp.select(
+                [
+                    pl.col("ticker"),
+                    pl.col("report_date"),
+                    # Rename to avoid collision
+                    pl.col("net_income_ttm").alias("net_income_ttm"),
+                    pl.col("diluted_eps_ttm").alias("eps_ttm"),
+                    pl.col("revenue_ttm"),
+                    pl.col("free_cash_flow_ttm").alias("fcf_ttm"),
+                    # Prefer diluted TTM
+                    pl.coalesce(
+                        pl.col("diluted_average_shares_ttm"),
+                        pl.col("basic_average_shares_ttm"),
+                    ).alias("shares_ttm"),
+                ]
+            ).sort("report_date")
+        else:
+            q_ttm = pl.DataFrame()
 
-        # Step A: Calculate Rolling 12M Dividend Yield
-        logger.debug("Step A: Calculating rolling dividend yield")
+        df_p = df_prices.sort(["ticker", "date"])
+        if not q_annual.is_empty():
+            df_p = df_p.join_asof(
+                q_annual,
+                left_on="date",
+                right_on="report_date",
+                by="ticker",
+                strategy="backward",
+            )
+        if not q_ttm.is_empty():
+            df_p = df_p.join_asof(
+                q_ttm,
+                left_on="date",
+                right_on="report_date",
+                by="ticker",
+                strategy="backward",
+                suffix="_ttm",
+            )
+        # Important Ensure Schema Consistency
+        expected_ttm_cols = [
+            "eps_ttm",
+            "revenue_ttm",
+            "fcf_ttm",
+            "shares_ttm",
+            "report_date_ttm",
+        ]
+        df_p = self._ensure_columns_exist(df_p, expected_ttm_cols)
+        expected_annual_cols = [
+            "eps_annual",
+            "revenue_annual",
+            "fcf_annual",
+            "shares_annual",
+            "dividend_annual",
+            "report_date",
+        ]
+        df_p = self._ensure_columns_exist(df_p, expected_annual_cols)
 
-        # Ensure sorted by ticker and date for rolling window
-        df_prices_sorted = df_prices.sort(["ticker", "date"])
+        eps_expr = pl.coalesce(pl.col("eps_ttm"), pl.col("eps_annual"))
+        report_date_expr = pl.coalesce(pl.col("report_date_ttm"), pl.col("report_date"))
+        shares_expr = pl.coalesce(
+            pl.col("shares_ttm"),
+            pl.col("shares_annual"),
+            pl.col("shares") if "shares" in df_p.columns else pl.lit(None),
+        )
 
-        df_with_div_yield = df_prices_sorted.with_columns(
+        rev_expr = pl.coalesce(pl.col("revenue_ttm"), pl.col("revenue_annual"))
+        rps_expr = rev_expr / shares_expr
+
+        fcf_val_expr = pl.coalesce(pl.col("fcf_ttm"), pl.col("fcf_annual"))
+        fcfps_expr = fcf_val_expr / shares_expr
+
+        df_enriched = df_p.with_columns(
             [
-                # Rolling sum of dividends over 365 days
-                pl.col("dividend")
-                .rolling_sum_by(by="date", window_size="365d", closed="right")
-                .over("ticker")
-                .alias("rolling_dividend_sum"),
+                # --- Valuation Ratios ---
+                (pl.col("close") / eps_expr).alias("pe_ratio"),
+                (pl.col("close") / rps_expr).alias("ps_ratio"),
+                (fcfps_expr / pl.col("close")).alias("fcf_yield"),
+                # Dividend Yield (Using Annual Dividend for safety)
+                (pl.col("dividend_annual") / shares_expr / pl.col("close")).alias("div_yield_calc"),
+                # --- Data Quality / Metadata ---
+                pl.when(pl.col("eps_ttm").is_not_null())
+                .then(pl.lit("TTM"))
+                .when(pl.col("eps_annual").is_not_null())
+                .then(pl.lit("Annual"))
+                .otherwise(pl.lit("N/A"))
+                .alias("valuation_source"),
+                report_date_expr.alias("metric_date"),
+                shares_expr.alias("diluted_average_shares"),
             ]
         ).with_columns(
-            [
-                # Dividend yield = rolling sum / current price
-                (pl.col("rolling_dividend_sum") / pl.col("close"))
-                .fill_nan(None)
-                .alias("dividend_yield")
-            ]
+            [(pl.col("date") - pl.col("metric_date")).dt.total_days().alias("data_lag_days")]
         )
+        # also add dividends
 
-        # Step B: Time-Travel Join (join_asof)
-        logger.debug("Step B: Performing time-travel join with fundamentals")
-
-        # Ensure fundamentals are sorted by date for join_asof
-        df_fund_sorted = df_fund_enriched.sort(["ticker", "date"])
-
-        df_merged = df_with_div_yield.sort(["ticker", "date"]).join_asof(
-            df_fund_sorted,
-            on="date",
-            by="ticker",
-            strategy="backward",
-        )
-
-        # Step C: Calculate Valuation KPIs
-        logger.debug("Step C: Calculating valuation KPIs")
-
-        intermediate_cols = []
-        valuation_cols = []
-
-        # Market Cap = Price * Shares Outstanding
-        if "basic_average_shares" in df_merged.columns:
-            intermediate_cols.append(
-                (pl.col("close") * pl.col("basic_average_shares")).alias("market_cap")
-            )
-
-            # FCF Yield = Free Cash Flow / Market Cap
-            if "free_cash_flow" in df_merged.columns:
-                valuation_cols.append(
-                    (pl.col("free_cash_flow") / pl.col("market_cap"))
-                    .fill_nan(None)
-                    .alias("fcf_yield")
+        if "dividend" in df_enriched.columns:
+            df_enriched = df_enriched.sort(["ticker", "date"])
+            df_div_rolling = (
+                df_enriched.select(["ticker", "date", "dividend"])
+                .with_columns(pl.col("dividend").fill_null(0))
+                .rolling(
+                    index_column="date",
+                    period="1y",
+                    group_by="ticker",
+                    closed="right",
                 )
-
-        # PE Ratio = Price / EPS
-        eps_col = (
-            "diluted_eps"
-            if "diluted_eps" in df_merged.columns
-            else "basic_eps"
-            if "basic_eps" in df_merged.columns
-            else None
-        )
-        if eps_col is not None:
-            valuation_cols.append(
-                (pl.col("close") / pl.col(eps_col)).fill_nan(None).alias("pe_ratio")
+                .agg(pl.col("dividend").sum().alias("rolling_dividend_sum"))
+            )
+            df_enriched = df_enriched.join(
+                df_div_rolling, on=["ticker", "date"], how="left"
+            ).with_columns(
+                (pl.col("rolling_dividend_sum") / pl.col("close")).alias("dividend_yield")
+            )
+        else:
+            df_enriched = df_enriched.with_columns(
+                pl.lit(0).alias("rolling_dividend_sum"),
+                pl.lit(0).alias("dividend_yield"),
             )
 
-        result = df_merged.with_columns(intermediate_cols).with_columns(valuation_cols)
-
-        logger.info(
-            f"Valuation metrics calculated: {result.height} records, "
-            f"{len(valuation_cols)} additional metrics"
-        )
-
-        return result
+        return df_enriched
 
     def calculate_fair_value_history(
         self,
@@ -210,71 +308,52 @@ class MetricsEngine:
         df_fundamentals: pl.DataFrame,
         years: int = 5,
     ) -> pl.DataFrame:
-        """Calculate fair value history based on historical fundamentals.
-        At the moment this uses a simple PE ratio based approach.
-        Due to the limited data available, this is a simplified model.
-
-        General Approach:
-        1. For each ticker, determine the median PE ratio over the past `years` years
-           where EPS > 0 and PE < 150 to avoid outliers.
-        2. For each date in price history, find the most recent fundamental report
-           and use its EPS to calculate fair value = EPS * median PE.
-
-        Args:
-            df_prices: Daily price data with columns: ticker, date, close.
-            df_fundamentals: Enriched fundamentals from calculate_fundamental_metrics().
-            years: Number of years to look back for fair value calculation.
-
-        Returns:
-            Original DataFrame with added fair_value column
-            (None for dates outside calculation window).
         """
-        if "diluted_eps" in df_fundamentals.columns:
-            eps_col = "diluted_eps"
-        elif "basic_eps" in df_fundamentals.columns:
-            eps_col = "basic_eps"
-        else:
-            eps_col = None
+        Calculate historical Fair Value based on the 5-year median P/E ratio.
 
-        if eps_col is None:
-            logger.warning("No EPS column found for fair value calculation")
+        Logic:
+        1. Determine the time window (last 'years' years from max date).
+        2. Calculate the median P/E ratio for each ticker within that window
+         . ignoring negative PEs).
+        3. Fair Value = Current TTM EPS * Median 5y P/E.
+        """
+        if "pe_ratio" not in df_prices.columns:
+            logger.warning("Price DataFrame lacks 'pe_ratio', skipping fair value calc")
             return df_prices
-        logger.info(f"Calculating fair value history using EPS column: {eps_col}")
 
-        q_fund = (
-            df_fundamentals.sort("date")
-            .fill_null(strategy="forward")
-            .select(["ticker", "date", eps_col])
-        )
-
-        df_combined = df_prices.sort(["ticker", "date"]).join_asof(
-            q_fund,
-            on="date",
-            by="ticker",
-            strategy="backward",
-        )
-        start_date_limit = df_prices["date"].max() - pl.duration(days=years * 365)
-
-        df_combined_filter = df_combined.filter(pl.col("date") >= start_date_limit)
-        if df_combined_filter.is_empty():
-            return df_prices
+        try:
+            max_date = df_prices["date"].max()
+            if max_date is None:
+                logger.warning("Price DataFrame has no valid dates, skipping fair value calc")
+                return df_prices
+            start_date = max_date - pl.duration(days=years * 365)
+        except Exception as e:
+            logger.error(f"Error determining max date in prices: {e}")
+            start_date = pl.datetime(2021, 1, 1)
 
         pe_stats = (
-            df_combined_filter.filter(pl.col(eps_col).gt(0))
-            .with_columns((pl.col("close") / pl.col(eps_col)).alias("pe_temp"))
-            .filter(pl.col("pe_temp").lt(150))
+            df_prices.filter(
+                (pl.col("date") >= start_date)
+                & (pl.col("pe_ratio").gt(0))
+                # filter out extreme outliers
+                # (increased to 250 as ridiculous 150 can be valid e.g. Tesla or high growth)
+                & (pl.col("pe_ratio").lt(250))
+            )
+            .group_by("ticker")
+            .agg(pl.col("pe_ratio").median().alias("median_pe"))
         )
-        if pe_stats.is_empty():
-            return df_prices
-
-        pe_median = pe_stats.group_by("ticker").agg(pl.col("pe_temp").median().alias("median_pe"))
-
-        result = (
-            df_combined.join(pe_median, on="ticker", how="left")
-            .with_columns((pl.col(eps_col) * pl.col("median_pe")).alias("fair_value"))
-            .drop(["median_pe"])
+        df_fair = (
+            df_prices.join(pe_stats, on="ticker", how="left")
+            .with_columns(
+                (pl.col("close") / pl.col("pe_ratio")).alias("implied_eps"),
+            )
+            .with_columns((pl.col("implied_eps") * pl.col("median_pe")).alias("fair_value"))
         )
-        return result
+
+        if not df_fair.is_empty():
+            sample = df_fair.select(["ticker", "date", "close", "fair_value", "median_pe"]).tail(5)
+            logger.debug(f"Sample fair value calculations:\n{sample.to_dicts()}")
+        return df_fair
 
     def calculate_growth_metrics(
         self,
@@ -288,7 +367,7 @@ class MetricsEngine:
         Sorts data by ticker and date to ensure correct temporal ordering.
         """
         # Sort by ticker and date to ensure shift operates on correct temporal order
-        df_sorted = df_fundamentals.sort(["ticker", "date"])
+        df_sorted = df_fundamentals.sort(["ticker", "report_date"])
 
         growth_cols = [
             (((pl.col(c) / pl.col(c).shift(period)) - 1).over("ticker")).alias(f"{c}_growth")

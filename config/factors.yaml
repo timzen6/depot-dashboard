@@ -1,70 +1,125 @@
-# config/factors.yaml
 # Strategy Factor Configuration
 # values can but do not have to sum to 10 -> weights will be normalized
+# Harmonized Strategy Factors (Scale 0-10)
+
 defaults:
-  Technology:
-    stab: 3
-    real: 1
-    tech: 6
-  Materials:
-    stab: 1
-    real: 8
-    tech: 1
-  Industrials:
-    stab: 2
-    real: 6
-    tech: 2
-  "Consumer Discretionary": # Cars, Retail but also Luxury Goods very different from each other
-    stab: 1
-    real: 5
-    tech: 1
-    price: 3
-  "Consumer Staples":
-    stab: 5
-    real: 2
-    price: 3
-  Healthcare:
-    stab: 4
-    real: 1
-    tech: 5
-  Financials:
-    stab: 3
-    real: 6
-    tech: 1
-  Communication:
-    stab: 2
-    real: 4
-    tech: 3
-    price: 1
-  Utilities:
-    stab: 6
-    real: 4
-  "Real Estate":
-    stab: 2
-    real: 8
+  Technology:               {tech: 7, stab: 2, real: 1} # Software is Tech+Stab
+  Materials:                {real: 8, stab: 1, tech: 1}
+  Industrials:              {real: 6, tech: 2, stab: 2} # Classic Industry
+  Consumer Discretionary:   {price: 5, real: 4, stab: 1} # Mixed Bag
+  Consumer Staples:         {stab: 6, price: 3, real: 1} # Defensive + Brand
+  Healthcare:               {stab: 5, tech: 4, real: 1} # Patent + Need
+  Financials:               {real: 5, stab: 3, tech: 2} # Balance Sheet heavy
+  Communication:            {tech: 4, stab: 3, price: 2, real: 1}
+  Utilities:                {real: 7, stab: 3}           # Infrastructure
+  Real Estate:              {real: 8, stab: 2}           # Physical
 
 overrides:
-  MSFT: {tech: 5, stab: 4, price: 1}  # More stable due to strong market position
-  MUV2.DE: {real: 4, tech: 3, stab: 3}
-  UNA.AS: {real: 1, price: 4, stab: 5}
-  ROG.SW: {tech: 4, stab: 6}
-  SU.PA: {real: 4, tech: 4, stab: 2}
-  AI.PA: {real: 5, stab: 4, tech: 1}
-  MC.PA: {real: 1, price: 9}
-  8001.T: {real: 5, tech: 2, stab: 3}
-  SY1.DE: {real: 3, stab: 3, tech: 4}
-  ASML.AS: {tech: 10}
-  V: {tech: 8, stab: 2}
-  SPGI: {stab: 5, tech: 5}
+  # --- LEVEL 1: ANCHORS ---
+  # Microsoft: Cloud is Tech + Stability. Data centers are Real assets.
+  MSFT:    {tech: 5, stab: 4, real: 1}
+
+  # Roche: Diagnostics (Lock-in) + Pharma (Patent) + Demand (Stab)
+  ROG.SW:  {stab: 6, tech: 4}
+
+  # LVMH: Massive Brand, but backed by Real Estate/Manufacture
+  MC.PA:   {price: 8, real: 2}
+
+  # S&P Global: Pure IP & Data (Tech) + Regulatory Need (Stab)
+  SPGI:    {tech: 5, stab: 5}
+
+  # Air Liquide: Pipes & Plants (Real) + Long Contracts (Stab)
+  AI.PA:   {real: 5, stab: 4, tech: 1}
+
+  # --- LEVEL 2: COMPOUNDERS ---
+  # Novo Nordisk: Patent Monopoly (Tech) + Chronic Need (Stab) + Brand Hype (Price)
   NOVO-B.CO: {tech: 5, stab: 3, price: 2}
-  ATCO-B.ST: {real: 3, stab: 4, tech: 3}
-  RMS.PA: {stab: 1, price: 9}
+
+  # ASML: The Machine is the Moat. Pure Tech. Small Real footprint.
+  ASML.AS: {tech: 9, real: 1}
+
+  # Schneider: Hardware (Real) becoming Software/Solutions (Tech)
+  SU.PA:   {real: 4, tech: 4, stab: 2}
+
+  # Atlas Copco: Service Model makes it more Stable than normal Industrials!
+  ATCO-B.ST: {stab: 4, real: 3, tech: 3}
+
+  # Hermes: Scarcity is the product. Almost pure Price.
+  RMS.PA:  {price: 9, real: 1}
+
+  # Visa: Network Effect (Tech) on Consumer Spend (Stab).
+  V:       {tech: 7, stab: 3}
+
+  # Munich Re: Balance Sheet (Real) + Risk Models (Tech) + Demand (Stab)
+  MUV2.DE: {real: 4, stab: 3, tech: 3}
+
+  # --- LEVEL 3: SPECIALISTS & OPTIONS ---
+  # Itochu: Assets & Commodities (Real). "Tech" is Info-Network.
+  8001.T:  {real: 6, stab: 3, tech: 1}
+
+  # Symrise: Chemical Plants (Real) + Recipes (Tech) + Food (Stab)
+  SY1.DE:  {tech: 4, stab: 3, real: 3}
+
+  # Colgate: You brush your teeth in a crisis. Brand helps slightly.
+  CL:      {stab: 7, price: 3}
+
+  # LSE Group: Data/Terminal (Tech) + Exchange Monopoly (Stab)
+  LSEG.L:  {tech: 6, stab: 4}
+
+  # Google: Search Algo (Tech) but Ad-Revenue is Cyclical (Low Stab vs MSFT)
+  GOOG:    {tech: 7, stab: 2, real: 1}
+
+
+  UNA.AS: {real: 1, price: 4, stab: 5}
   OR.PA: {stab: 3, real: 1, price: 4, tech: 2}
+  EL.PA: {price: 3.5, stab: 3.0, real: 2.5, tech: 1.0}
   LISP.SW: {stab: 4, real: 1, price: 5}
   DSY.PA: {stab: 3, tech: 7}
   TMO: {tech: 5, stab: 4, real: 1}
-  # Merck KGaA
   MRK.DE: {tech: 5, stab: 3, real: 2}
   CNI: {real: 7, stab: 3}
-  APPL: {tech: 4, stab: 2, price: 3, real: 1}
-  GOOG: {tech: 6, stab: 2, price: 1, real: 1}
+
+# --- REFERENCE BENCHMARKS ---
+
+  # Consumer Giants
+  PG:      {stab: 6, real: 2, price: 2} # The boring baseline
+  KO:      {price: 5, stab: 4, real: 1} # Brand power > Product
+  COST:    {stab: 5, real: 3, price: 2} # Membership Moat
+  NESN.SW: {stab: 5, real: 3, price: 2} # Nestle: Scale & Supply Chain
+
+  # Tech & Hybrids
+  AAPL:    {tech: 4, price: 4, stab: 2} # The perfect Trap
+  ADBE:    {tech: 6, stab: 4}           # Creative Tax
+  CRM:     {tech: 5, stab: 5}           # Database Lock-in
+  SNOW:    {tech: 7.5, stab: 1.5, price: 1.0, real: 0.0}
+  CRWD:    {tech: 5.0, stab: 4.0, price: 1.0, real: 0.0}
+  AMZN:    {real: 3.5, tech: 3.5, stab: 2.5, price: 0.5}
+  NVDA:    {tech: 8, real: 1, price: 1}
+  TSM:     {real: 5, tech: 5}
+
+  # Industrial & Real Assets
+  LIN:     {real: 5, stab: 4, tech: 1}  # Same as Air Liquide
+  SIKA.SW: {tech: 4, real: 4, stab: 2}  # Critical Component
+  WM:      {real: 6, stab: 4}           # Trash Monopoly (Landfills)
+
+
+  # some more references
+  RACE.MI:    {price: 8, real: 2}          # Hermes with an Engine
+  MA:      {tech: 7, stab: 3}           # Visa's twin
+  BMW.DE: {real: 4.5, tech: 2.5, price: 2.0, stab: 1.0}
+  SAP.DE:  {tech: 6, stab: 4}
+  META:    {tech: 7, stab: 2, real: 1}
+  NFLX:    {stab: 5, tech: 3, price: 2}
+  SIE.DE:  {real: 5, tech: 3, stab: 2}
+  AIR.PA:  {real: 6, tech: 3, stab: 1}
+  RHM.DE:  {real: 5, stab: 4, tech: 1}
+  TSLA:    {real: 4, tech: 4, price: 2}
+  MCD:     {real: 5, stab: 3, price: 2}
+  NKE:     {price: 7, real: 2, stab: 1}
+  PM:      {stab: 6, price: 3, tech: 1}
+  JPM:     {real: 5, stab: 3, tech: 2}
+  HSBC:    {real: 6, stab: 3, tech: 1}
+
+
+  # Samsung: Fabs + Chips (Real) + Phones (Price). Very cyclical commodity risk.
+  005930.KS: {real: 6, price: 2, tech: 2}

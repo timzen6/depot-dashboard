@@ -107,7 +107,11 @@ def cmd_etl(args: argparse.Namespace) -> None:
 
     # Initialize extractor
     extractor = DataExtractor()
-    total_tickers = config.all_tickers
+
+    if getattr(args, "full", False):
+        total_tickers = config.all_tickers
+    else:
+        total_tickers = config.portfolio_tickers
 
     tickers_metadata = (
         metadata.filter(pl.col("ticker").is_in(total_tickers))
@@ -288,6 +292,12 @@ def main() -> None:
 
     # ETL command
     parser_etl = subparsers.add_parser("etl", help="Run data extraction and storage pipeline")
+    parser_etl.add_argument(
+        "-f",
+        "--full",
+        action="store_true",
+        help="Run ETL for all tickers (full load). If not set, only portfolio tickers are loaded.",
+    )
     parser_etl.set_defaults(func=cmd_etl)
 
     # Snapshot command

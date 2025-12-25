@@ -73,6 +73,13 @@ class Config(BaseModel):
 
         return sorted(list(tickers))
 
+    @property
+    def portfolio_tickers(self) -> list[str]:
+        """Return all tickers defined in portfolios only."""
+        if not self.portfolios:
+            return []
+        return sorted(self.portfolios.all_tickers)
+
 
 def load_config(config_path: Path = Path("config/config.yaml")) -> Config:
     """Load configuration from YAML file.

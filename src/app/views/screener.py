@@ -131,6 +131,15 @@ def color_debt_to_ebit_warning(val: float) -> str:
     return "" if pd.isna(val) or val <= 3.0 else f"background-color: {Colors.red}; color: white"
 
 
+def color_data_lag_warning(val: float) -> str:
+    # mid warning over 90 days, high warning over 180 days
+    if pd.isna(val) or val <= 90:
+        return ""
+    if val <= 180:
+        return f"background-color: {COLOR_SCALE_GREEN_RED[2]}; color: black"
+    return f"background-color: {COLOR_SCALE_GREEN_RED[3]}; color: black"
+
+
 def key_to_selected_tickers(
     key_name: str, filtered_metadata: pl.DataFrame, return_all_if_none: bool = True
 ) -> list[str]:
@@ -200,6 +209,10 @@ def render_stats_table(df_prices_latest: pl.DataFrame) -> list[str]:
             lambda _: df_prices_pandas["net_debt_to_ebit"].map(color_debt_to_ebit_warning),
             subset=["net_debt_to_ebit"],
         )
+        .apply(
+            lambda _: df_prices_pandas["data_lag_days"].map(color_data_lag_warning),
+            subset=["data_lag_days"],
+        )
     )
 
     st.dataframe(
@@ -211,6 +224,7 @@ def render_stats_table(df_prices_latest: pl.DataFrame) -> list[str]:
         column_order=[
             "name",
             "close",
+            "data_lag_days",
             "upside",
             "pe_ratio",
             "pe_ratio_median",
@@ -234,9 +248,15 @@ def render_stats_table(df_prices_latest: pl.DataFrame) -> list[str]:
                 max_value=50,
                 format="%.0f%%",
                 color="auto",
+                width="small",
             ),
             "roce": st.column_config.ProgressColumn(
-                "💎 ROCE", min_value=0, max_value=30, format="%.0f%%", color="auto"
+                "💎 ROCE",
+                min_value=0,
+                max_value=30,
+                format="%.0f%%",
+                color="auto",
+                width="small",
             ),
             "ebit_margin": st.column_config.ProgressColumn(
                 "💎 EBIT Margin",
@@ -244,6 +264,7 @@ def render_stats_table(df_prices_latest: pl.DataFrame) -> list[str]:
                 max_value=30,
                 format="%.0f%%",
                 color="auto",
+                width="small",
             ),
             "fcf_yield": st.column_config.NumberColumn("💰 FCF Yield", format="%.1f%%"),
             "net_debt_to_ebit": st.column_config.NumberColumn("🏥 Net Debt to EBIT", format="%.1f"),
@@ -252,6 +273,11 @@ def render_stats_table(df_prices_latest: pl.DataFrame) -> list[str]:
             "pe_ratio_median": st.column_config.NumberColumn("📊 P/E Median", format="%.1f"),
             "close": st.column_config.NumberColumn("💶 Price (EUR)", format="%.2f"),
             "revenue_growth": st.column_config.NumberColumn("🚀 Revenue Growth", format="%.0f%%"),
+            "data_lag_days": st.column_config.NumberColumn(
+                "⏱ Data Lag",
+                format="%d",
+                width="small",
+            ),
         },
     )
     return key_to_selected_tickers(

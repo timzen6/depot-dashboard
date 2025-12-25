@@ -88,7 +88,11 @@ def render_factor_profile_chart(
 
 
 def render_title_section(
-    ticker: str, metadata: dict[str, str], strategy_engine: StrategyEngine
+    ticker: str,
+    metadata: dict[str, str],
+    strategy_engine: StrategyEngine,
+    valuation_source: str,
+    data_lag_days: int,
 ) -> None:
     """Render the title section with ticker and company name.
 
@@ -119,6 +123,23 @@ def render_title_section(
             f"{sector} {sector_emoji} | {metadata.get('industry', 'N/A')} |"
             f" {country_flag or country_name}"
         )
+        subcol1, subcol2 = st.columns(2)
+        with subcol1:
+            st.metric(
+                value=valuation_source,
+                label="Valuation Source 🏷",
+                delta_color="inverse",
+                delta_arrow="off",
+            )
+        with subcol2:
+            st.metric(
+                value=data_lag_days,
+                label="Data Lag (Days) ⏱",
+                delta_color="inverse",
+                # warn if data lag is more than 180 days
+                delta="  ⚠️ Warning: Data Lag  " if data_lag_days > 180 else None,
+                delta_arrow="off",
+            )
     with col2:
         render_factor_profile_chart(metadata, strategy_engine)
 
@@ -595,6 +616,8 @@ def render_growth_data(stock_data: StockData) -> None:
     """Render growth metrics over time."""
     ticker = stock_data.ticker
     df_fund = stock_data.fundamentals
+    currency = df_fund.select(pl.first("currency")).item()
+    symbol = CURRENCY_SYMBOLS.get(currency, currency)
     if df_fund.is_empty():
         st.warning(f"No fundamental data available for {ticker}")
         return
@@ -612,47 +635,94 @@ def render_growth_data(stock_data: StockData) -> None:
             f"{latest_fund.select('net_income_growth').item()*100:.2f}%",
         )
     with col2:
-        df_growth = (
-            df_fund.select(["date", "revenue_growth", "net_income_growth"])
-            .filter(
-                pl.col("revenue_growth").is_not_null() | pl.col("net_income_growth").is_not_null()
+        tab1, tab2 = st.tabs(["Growth Metrics", "Total Revenue & Net Income"])
+        with tab1:
+            df_growth = (
+                df_fund.select(["date", "revenue_growth", "net_income_growth"])
+                .filter(
+                    pl.col("revenue_growth").is_not_null()
+                    | pl.col("net_income_growth").is_not_null()
+                )
+                .unpivot(
+                    index="date",
+                    variable_name="metric",
+                    value_name="value",
+                )
+                .with_columns(
+                    pl.col("metric").replace(
+                        {
+                            "revenue_growth": "Revenue Growth",
+                            "net_income_growth": "Net Income Growth",
+                        }
+                    ),
+                    (pl.col("value") * 100).alias("value"),
+                )
             )
-            .unpivot(
-                index="date",
-                variable_name="metric",
-                value_name="value",
-            )
-            .with_columns(
-                pl.col("metric").replace(
-                    {
-                        "revenue_growth": "Revenue Growth",
-                        "net_income_growth": "Net Income Growth",
-                    }
-                ),
-                (pl.col("value") * 100).alias("value"),
-            )
-        )
 
-        # Growth Metrics
-        fig_growth = px.bar(
-            df_growth,
-            x="date",
-            y="value",
-            color="metric",
-            title=f"{ticker} Growth Metrics Over Time",
-            labels={"value": "Growth (%)", "date": "Date", "variable": "Metric"},
-            barmode="group",
-            color_discrete_map={
-                "Revenue Growth": Colors.blue,
-                "Net Income Growth": Colors.orange,
-            },
-        )
-        fig_growth.update_layout(
-            template="plotly_white",
-            height=400,
-            legend_title_text="",
-        )
-        st.plotly_chart(fig_growth, use_container_width=True)
+            # Growth Metrics
+            fig_growth = px.bar(
+                df_growth,
+                x="date",
+                y="value",
+                color="metric",
+                title=f"{ticker} Growth Metrics Over Time",
+                labels={"value": "Growth (%)", "date": "Date", "variable": "Metric"},
+                barmode="group",
+                color_discrete_map={
+                    "Revenue Growth": COLOR_SCALE_CONTRAST[0],
+                    "Net Income Growth": COLOR_SCALE_CONTRAST[1],
+                },
+            )
+            fig_growth.update_layout(
+                template="plotly_white",
+                height=400,
+                legend_title_text="",
+            )
+            st.plotly_chart(fig_growth, use_container_width=True)
+        with tab2:
+            df_revenue_income = (
+                df_fund.select(["date", "revenue", "net_income"])
+                .filter(pl.col("revenue").is_not_null() | pl.col("net_income").is_not_null())
+                .unpivot(
+                    index="date",
+                    variable_name="metric",
+                    value_name="value",
+                )
+                .with_columns(
+                    pl.col("metric").replace(
+                        {
+                            "revenue": "Total Revenue",
+                            "net_income": "Net Income",
+                        }
+                    ),
+                    (1e-9 * pl.col("value")).alias("value"),
+                )
+            )
+
+            # Total Revenue & Net Income
+            fig_revenue_income = px.bar(
+                df_revenue_income,
+                x="date",
+                y="value",
+                color="metric",
+                title=f"{ticker} Total Revenue & Net Income Over Time",
+                labels={
+                    "value": f"Amount B({symbol})",
+                    "date": "Date",
+                    "variable": "Metric",
+                },
+                barmode="group",
+                color_discrete_map={
+                    "Total Revenue": Colors.blue,
+                    "Net Income": Colors.orange,
+                },
+            )
+            fig_revenue_income.update_layout(
+                template="plotly_white",
+                height=400,
+                legend_title_text="",
+            )
+            st.plotly_chart(fig_revenue_income, use_container_width=True)
 
 
 def render_health_data(stock_data: StockData) -> None:
