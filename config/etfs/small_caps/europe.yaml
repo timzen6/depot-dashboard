@@ -1,0 +1,45 @@
+EXSE.DE:
+  name: "iShares STOXX Europe Small 200"
+  ter: 0.20
+  strategy: "Europe Small Cap"
+  weight_format: percent
+  sectors:
+    Industrials: 19.87
+    Financials: 18.09
+    Basic Materials: 8.36
+    Real Estate: 8.06
+    Health Care: 7.76
+    Utilities: 7.24
+    Consumer Discretionary: 6.81
+    Technology: 5.57
+    Consumer Staples: 5.21
+    Telecommunication: 3.78
+    Energy: 2.76
+    Other: 6.49
+  countries:
+    United Kingdom: 17.87
+    Italy: 9.97
+    France: 9.87
+    Sweden: 8.68
+    Germany: 8.37
+    Switzerland: 7.02
+    Spain: 6.13
+    Belgium: 6.05
+    Denmark: 5.50
+    Norway: 3.05
+    Netherlands: 2.73
+    Austria: 2.31
+    Finland: 1.45
+    Poland: 1.17
+    Other: 9.83
+  top_holdings:
+    - { name: "Telecom Italia SpA", ticker: "TIT.MI", weight: 0.95 }
+    - { name: "Italgas", ticker: "IG.MI", weight: 0.93 }
+    - { name: "NKT", ticker: "NKT.CO", weight: 0.84 }
+    - { name: "Elia Group", ticker: "ELI.BR", weight: 0.83 }
+    - { name: "MERLIN Properties SOCIMI SA", ticker: "MRL.MC", weight: 0.81 }
+    - { name: "SCOR SE", ticker: "SCR.PA", weight: 0.77 }
+    - { name: "Acciona SA", ticker: "ANA.MC", weight: 0.76 }
+    - { name: "Hochtief AG", ticker: "HOT.DE", weight: 0.75 }
+    - { name: "Ackermans & van Haaren NV", ticker: "ACKB.BR", weight: 0.74 }
+    - { name: "Fresnillo Plc", ticker: "FRES.L", weight: 0.74 }

@@ -1,0 +1,138 @@
+IS3N.DE:
+  name: "iShares Core MSCI Emerging Markets IMI UCITS ETF (Acc)"
+  ter: 0.18
+  strategy: "Emerging Markets IMI"
+  weight_format: percent
+  sectors:
+    Technology: 26.12
+    Financials: 19.22
+    Consumer Discretionary: 11.52
+    Telecommunication: 8.58
+    Industrials: 7.39
+    Basic Materials: 6.50
+    Consumer Staples: 3.58
+    Energy: 3.52
+    Health Care: 3.52
+    Utilities: 2.28
+    Real Estate: 1.88
+    Other: 5.89
+  countries:
+    China: 24.17
+    Taiwan: 20.03
+    India: 14.42
+    South Korea: 12.64
+    Brazil: 3.86
+    Saudi Arabia: 3.10
+    South Africa: 2.54
+    Mexico: 1.63
+    Malaysia: 1.33
+    United Arab Emirates: 1.31
+    Hong Kong: 1.29
+    Indonesia: 1.15
+    Thailand: 1.09
+    Poland: 1.04
+    Other: 10.40
+  top_holdings:
+    - { name: "Taiwan Semiconductor Manufacturing Co., Ltd.", ticker: "TSMC", weight: 10.22 }
+    - { name: "Tencent Holdings Ltd.", ticker: "TCEHY", weight: 4.55 }
+    - { name: "Alibaba Group Holding Ltd.", ticker: "BABA", weight: 3.21 }
+    - { name: "Samsung Electronics Co., Ltd.", ticker: "SSNLF", weight: 2.92 }
+    - { name: "SK hynix, Inc.", ticker: "000660.KS", weight: 1.84 }
+    - { name: "HDFC Bank Ltd.", ticker: "HDB", weight: 1.08 }
+    - { name: "Hon Hai Precision Industry Co., Ltd.", ticker: "2317.TW", weight: 0.90 }
+    - { name: "Reliance Industries Ltd.", ticker: "RELIANCE.NS", weight: 0.85 }
+    - { name: "Xiaomi Corp.", ticker: "1810.HK", weight: 0.82 }
+    - { name: "China Construction Bank Corp.", ticker: "0939.HK", weight: 0.82 }
+
+
+EUNM.DE:
+  name: "iShares MSCI EM UCITS ETF"
+  ter: 0.18
+  strategy: "Emerging Markets"
+  weight_format: percent
+  sectors:
+    Technology: 27.57
+    Financials: 20.80
+    Consumer Discretionary: 11.84
+    Telecommunication: 9.51
+    Industrials: 6.17
+    Basic Materials: 5.81
+    Energy: 3.80
+    Consumer Staples: 3.36
+    Health Care: 2.70
+    Utilities: 2.19
+    Real Estate: 1.35
+    Other: 4.90
+  countries:
+    China: 26.95
+    Taiwan: 20.22
+    India: 13.61
+    South Korea: 12.66
+    Brazil: 4.00
+    Saudi Arabia: 3.12
+    South Africa: 2.34
+    Mexico: 1.67
+    United Arab Emirates: 1.36
+    Malaysia: 1.12
+    Hong Kong: 1.09
+    Indonesia: 1.03
+    Other: 10.83
+  top_holdings:
+    - { name: "Taiwan Semiconductor Manufacturing Co., Ltd.", ticker: "TSMC", weight: 11.83 }
+    - { name: "Tencent Holdings Ltd.", ticker: "TCEHY", weight: 5.26 }
+    - { name: "Alibaba Group Holding Ltd.", ticker: "BABA", weight: 3.72 }
+    - { name: "Samsung Electronics Co., Ltd.", ticker: "SSNLF", weight: 3.38 }
+    - { name: "SK hynix, Inc.", ticker: "000660.KS", weight: 2.12 }
+    - { name: "HDFC Bank Ltd.", ticker: "HDB", weight: 1.25 }
+    - { name: "Hon Hai Precision Industry Co., Ltd.", ticker: "2317.TW", weight: 1.04 }
+    - { name: "Reliance Industries Ltd.", ticker: "RELIANCE.NS", weight: 1.00 }
+    - { name: "Xiaomi Corp.", ticker: "1810.HK", weight: 0.95 }
+    - { name: "China Construction Bank Corp.", ticker: "0939.HK", weight: 0.95 }
+
+AEEM.PA:
+  name: "Amundi MSCI Emerging Markets Swap"
+  ter: 0.18
+  strategy: "Emerging Markets (Synthetic)"
+  weight_format: percent
+  sectors:
+    Technology: 26.83
+    Financials: 22.51
+    Consumer Discretionary: 12.11
+    Telecommunication: 9.67
+    Industrials: 7.06
+    Basic Materials: 6.76
+    Energy: 4.02
+    Consumer Staples: 3.86
+    Health Care: 3.38
+    Utilities: 2.40
+    Real Estate: 1.39
+  countries:
+    China: 28.79
+    Taiwan: 19.98
+    Indien: 15.77
+    Korea: 12.40
+    Brasilien: 4.56
+    Südafrika: 3.55
+    Saudi-Arabien: 2.94
+    Mexiko: 1.91
+    Vereinigte Arabische Emirate: 1.39
+    Indonesien: 1.22
+    Malaysia: 1.18
+    Polen: 1.05
+    Thailand: 1.00
+    Kuwait: 0.70
+    Katar: 0.66
+    Griechenland: 0.57
+    Ungarn: 0.54
+    Sonstige: 1.80
+  top_holdings:
+    - { name: "Taiwan Semiconductor Manufacturing Co., Ltd.", ticker: "TSMC", weight: 11.31 }
+    - { name: "Tencent Holdings Ltd.", ticker: "TCEHY", weight: 5.05 }
+    - { name: "Samsung Electronics Co., Ltd.", ticker: "SSNLF", weight: 3.35 }
+    - { name: "Alibaba Group Holding Ltd.", ticker: "BABA", weight: 3.33 }
+    - { name: "SK hynix, Inc.", ticker: "000660.KS", weight: 2.03 }
+    - { name: "HDFC Bank Ltd.", ticker: "HDB", weight: 1.29 }
+    - { name: "Reliance Industries Ltd.", ticker: "RELIANCE.NS", weight: 1.07 }
+    - { name: "China Construction Bank Corp.", ticker: "0939.HK", weight: 1.02 }
+    - { name: "Hon Hai Precision Industry Co., Ltd.", ticker: "2317.TW", weight: 0.93 }
+    - { name: "Xiaomi Corp.", ticker: "1810.HK", weight: 0.91 }

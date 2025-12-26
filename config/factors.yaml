@@ -5,8 +5,9 @@
 defaults:
   Technology:               {tech: 7, stab: 2, real: 1} # Software is Tech+Stab
   Materials:                {real: 8, stab: 1, tech: 1}
+  Energy:                   {real: 8, stab: 1, tech: 1}
   Industrials:              {real: 6, tech: 2, stab: 2} # Classic Industry
-  Consumer Discretionary:   {price: 5, real: 4, stab: 1} # Mixed Bag
+  Consumer Discretionary:   {price: 4, real: 4, stab: 1, tech: 1} # Mixed Bag
   Consumer Staples:         {stab: 6, price: 3, real: 1} # Defensive + Brand
   Healthcare:               {stab: 5, tech: 4, real: 1} # Patent + Need
   Financials:               {real: 5, stab: 3, tech: 2} # Balance Sheet heavy
@@ -123,3 +124,37 @@ overrides:
 
   # Samsung: Fabs + Chips (Real) + Phones (Price). Very cyclical commodity risk.
   005930.KS: {real: 6, price: 2, tech: 2}
+
+
+# ETFs
+# We have to define the ETF Factors as well as the weighted sum of
+# sector factors is not that good of a measure
+# (neglects regional differences in the sectors itself,
+# hence nearly always the same)
+
+  # Global Developed Large Cap
+  EUNL.DE: {tech: 3.5, stab: 2.0, real: 4.0, price: 0.5}
+
+  # More conservative eastimate for ESG
+  # WSRI.PA: {tech: 4.5, stab: 2.0, real: 3.0, price: 0.5}
+  # This might be the strictest ESG version there is -> more Tech, less Real
+  WSRI.PA: {tech: 6.5, stab: 3.0, real: 0.0, price: 0.5}
+
+  # Emerging Markets
+  EUNM.DE: {real: 6, tech: 2.5 , stab: 1.0, price: 0.5}
+  AEEM.PA: {real: 6, tech: 2.5 , stab: 1.0, price: 0.5}
+  # Ex-China -> less Tech, more Real 6.5, 2.0
+
+  # Europe small caps
+  EXSE.DE: {real: 7, stab: 1.5, tech: 1.0, price: 0.5}            # Europe Small Cap
+  # World small caps quite similar to Europe small caps
+
+
+  # Vanguard USA
+  VUSA.DE: {tech: 5.0, stab: 3.5, real: 1.0, price: 0.5}
+  # Xtrackers Japan
+  DBXJ.DE: {real: 6.0, tech: 2.5, stab: 1.0, price: 0.5}
+  VEUR.AS: {real: 5.0, stab: 3.0, price: 1.5, tech: 0.5}
+  IUSN.DE: {real: 7.0, tech: 1.5, stab: 1.0, price: 0.5}
+  SXR1.DE: {tech: 6.0, stab: 3.0, real: 0.5, price: 0.5}
+  IS3N.DE: {real: 6.0, tech: 2.0, stab: 1.5, price: 0.5}

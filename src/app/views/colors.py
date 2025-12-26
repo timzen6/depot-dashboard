@@ -65,3 +65,11 @@ COLOR_SCALE_SOFT = [
     Colors.light_purple,
     Colors.light_gray,
 ]
+
+STRATEGY_FACTOR_COLOR_MAP = {
+    "Technology": COLOR_SCALE_CONTRAST[0],
+    "Stability": COLOR_SCALE_CONTRAST[1],
+    "Real Assets": COLOR_SCALE_CONTRAST[2],
+    "Pricing Power": COLOR_SCALE_CONTRAST[3],
+    "Unclassified": Colors.light_gray,
+}

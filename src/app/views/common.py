@@ -3,9 +3,12 @@
 Pure rendering functions for reusable Streamlit widgets.
 """
 
+import plotly.express as px
+import polars as pl
 import streamlit as st
 
 from src.app.logic.overview import PortfolioKPIs
+from src.app.views.colors import COLOR_SCALE_CONTRAST
 from src.config.models import Portfolio
 
 
@@ -122,3 +125,67 @@ def render_empty_state(message: str, icon: str = "📊") -> None:
         icon: Emoji icon to show
     """
     st.info(f"{icon} {message}")
+
+
+GLOBAL_MARGINS = dict(t=30, l=5, r=5, b=0)
+GLOBAL_FONT = dict(
+    family="Arial",
+    size=16,
+)
+
+
+def make_sunburst_chart(
+    df: pl.DataFrame,
+    path: list[str],
+    title: str | None = None,
+    value: str = "position_value_EUR",
+) -> px.sunburst:
+    fig = px.sunburst(
+        df,
+        path=path,
+        values=value,
+        color_discrete_sequence=COLOR_SCALE_CONTRAST,
+        title=title,
+    )
+    fig.update_traces(
+        insidetextorientation="horizontal",
+        textinfo="label+percent parent",
+        marker=dict(line=dict(color="#FFFFFF", width=2.0)),
+    )
+    fig.update_layout(
+        height=400,
+        margin=GLOBAL_MARGINS,
+        showlegend=False,  # Stabilizes layout.
+        font=GLOBAL_FONT,
+        uniformtext=dict(
+            minsize=10,  # If text < 10px is required to fit, hide it instead.
+            mode="hide",  # options: 'hide' | 'show'
+        ),
+    )
+    return fig
+
+
+def style_pie_chart(fig: px.pie) -> None:
+    fig.update_traces(
+        textposition="inside",
+        textinfo="label+percent",
+        marker=dict(line=dict(color="#FFFFFF", width=2.0)),
+    )
+    fig.update_layout(
+        height=400,
+        margin=GLOBAL_MARGINS,
+        showlegend=False,
+        font=GLOBAL_FONT,
+    )
+
+
+def make_pie_chart(df: pl.DataFrame, names: str, values: str, title: str | None = None) -> px.pie:
+    fig = px.pie(
+        df,
+        names=names,
+        values=values,
+        color_discrete_sequence=COLOR_SCALE_CONTRAST,
+        title=title,
+    )
+    style_pie_chart(fig)
+    return fig

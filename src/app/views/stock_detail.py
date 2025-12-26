@@ -10,16 +10,22 @@ import plotly.graph_objects as go
 import polars as pl
 import streamlit as st
 from plotly.subplots import make_subplots
-from views.colors import COLOR_SCALE_CONTRAST, COLOR_SCALE_GREEN_RED, Colors
+from views.colors import (
+    COLOR_SCALE_CONTRAST,
+    COLOR_SCALE_GREEN_RED,
+    STRATEGY_FACTOR_COLOR_MAP,
+    Colors,
+)
 
 from src.analysis.fx import FXEngine
 from src.app.logic.common import get_strategy_factor_profiles
+from src.app.views.common import make_pie_chart, style_pie_chart
 from src.app.views.constants import (
     COUNTRY_FLAGS,
     CURRENCY_SYMBOLS,
     get_sector_emoji_from_str,
 )
-from src.core.domain_models import AssetType
+from src.core.domain_models import AssetType, ETFComposition
 from src.core.stock_data import StockData
 from src.core.strategy_engine import StrategyEngine
 
@@ -773,3 +779,95 @@ def render_health_data(stock_data: StockData) -> None:
                 height=400,
             )
             st.plotly_chart(fig_net_debt_ebit, use_container_width=True)
+
+
+def render_etf_composition_charts(
+    etf_comp: ETFComposition, strategy_engine: StrategyEngine
+) -> None:
+    """Render ETF composition charts for sectors and countries."""
+    st.subheader(f"ETF Information | TER: {etf_comp.ter}% | Strategy: {etf_comp.strategy}")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        s_fig = make_pie_chart(
+            etf_comp.sectors_df,
+            names="category",
+            values="weight",
+            title="Sector Allocation",
+        )
+        st.plotly_chart(s_fig, use_container_width=True)
+        holdings_df = etf_comp.top_holdings_df.select(
+            [
+                pl.col("holding_name").alias("name"),
+                (pl.col("weight") * 100).round(2).alias("weight_%"),
+            ]
+        )
+        st.markdown("### Top Holdings")
+        st.dataframe(
+            holdings_df,
+            column_order=["name", "weight_%"],
+            column_config={
+                "name": "Holding Name",
+                "weight_%": "Weight (%)",
+            },
+        )
+    with col2:
+        c_fig = make_pie_chart(
+            etf_comp.countries_df,
+            names="category",
+            values="weight",
+            title="Country Allocation",
+        )
+        st.plotly_chart(c_fig, use_container_width=True)
+    with col3:
+        direct_estimate = strategy_engine.get_factor_profile(etf_comp.ticker, sector="ETF")
+
+        factor_mapping = strategy_engine.factor_mapping
+        factor_mapping["unclassified"] = "Unclassified"
+
+        df_direct = (
+            pl.DataFrame(direct_estimate.to_dict())
+            .unpivot(
+                variable_name="metric",
+                value_name="value",
+            )
+            .with_columns(
+                pl.col("metric").replace(factor_mapping),
+            )
+        )
+
+        fig_direct = px.pie(
+            df_direct,
+            names="metric",
+            values="value",
+            title="Strategy Factor Exposure (direct estimate)",
+            color="metric",
+            color_discrete_map=STRATEGY_FACTOR_COLOR_MAP,
+        )
+        style_pie_chart(fig_direct)
+        st.plotly_chart(fig_direct, use_container_width=True)
+
+        st.caption(
+            "Usually the direct estimate should better capture the "
+            "actual factor exposure of the ETF."
+            " However, the sector-weighted exposure is provided for comparison."
+        )
+
+        sector_df = etf_comp.sectors_df.with_columns(pl.lit("dummy").alias("ticker"))
+        factors = strategy_engine.calculate_portfolio_exposure(
+            sector_df,
+            value_column="weight",
+            sector_column="category",
+        ).with_columns(
+            # for all factor names map Real Assetes / Industry to Real Assets
+            pl.col("key").replace(factor_mapping).alias("factor"),
+        )
+        fig_factor = px.pie(
+            factors,
+            names="factor",
+            values="proportion",
+            color="factor",
+            title="Strategy Factor Exposure (weighted sector allocation)",
+            color_discrete_map=STRATEGY_FACTOR_COLOR_MAP,
+        )
+        style_pie_chart(fig_factor)
+        st.plotly_chart(fig_factor, use_container_width=True)
