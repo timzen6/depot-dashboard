@@ -109,22 +109,22 @@ AEEM.PA:
   countries:
     China: 28.79
     Taiwan: 19.98
-    Indien: 15.77
-    Korea: 12.40
-    Brasilien: 4.56
-    Südafrika: 3.55
-    Saudi-Arabien: 2.94
-    Mexiko: 1.91
-    Vereinigte Arabische Emirate: 1.39
-    Indonesien: 1.22
+    India: 15.77
+    South Korea: 12.40
+    Brazil: 4.56
+    South Africa: 3.55
+    Saudi Arabia: 2.94
+    Mexico: 1.91
+    United Arab Emirates: 1.39
+    Indonesia: 1.22
     Malaysia: 1.18
-    Polen: 1.05
+    Poland: 1.05
     Thailand: 1.00
     Kuwait: 0.70
-    Katar: 0.66
-    Griechenland: 0.57
-    Ungarn: 0.54
-    Sonstige: 1.80
+    Qatar: 0.66
+    Greece: 0.57
+    Hungary: 0.54
+    Other: 1.80
   top_holdings:
     - { name: "Taiwan Semiconductor Manufacturing Co., Ltd.", ticker: "TSMC", weight: 11.31 }
     - { name: "Tencent Holdings Ltd.", ticker: "TCEHY", weight: 5.05 }
