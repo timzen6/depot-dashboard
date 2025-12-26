@@ -379,7 +379,14 @@ def render_portfolio_composition_chart(
             ["ticker", "group", "position_value_EUR", "sector", "asset_type"]
         )
         tmp_etfs = (
-            df_etf_sectors.select(["ticker", "group", "weighted_value_EUR", "category"])
+            df_etf_sectors.select(
+                [
+                    "ticker",
+                    "group",
+                    "weighted_value_EUR",
+                    "category",
+                ]
+            )
             .rename(
                 {
                     "weighted_value_EUR": "position_value_EUR",
@@ -416,6 +423,24 @@ def render_portfolio_composition_chart(
             )
             .with_columns(pl.lit("ETF").alias("asset_type"))
         )
+
+        # grouping minor countries into "Other" for better visibility
+        top_countries = (
+            tmp_etfs.group_by("country")
+            .agg(pl.sum("position_value_EUR").alias("total_value"))
+            .sort("total_value", descending=True)
+            .head(12)
+            .select("country")
+            .to_series()
+            .to_list()
+        )
+        tmp_etfs = tmp_etfs.with_columns(
+            pl.when(~pl.col("country").is_in(top_countries))
+            .then(pl.lit("Other"))
+            .otherwise(pl.col("country"))
+            .alias("country")
+        )
+
         col1, col2 = st.columns(2)
         with col1:
             fig_countries = make_pie_chart(

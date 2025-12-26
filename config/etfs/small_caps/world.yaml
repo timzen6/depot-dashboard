@@ -1,0 +1,41 @@
+IUSN.DE:
+  name: "iShares MSCI World Small Cap UCITS ETF"
+  ter: 0.35
+  strategy: "World Small Cap"
+  weight_format: percent
+  sectors:
+    Industrials: 18.61
+    Financials: 13.03
+    Technology: 11.96
+    Consumer Discretionary: 10.96
+    Health Care: 9.17
+    Basic Materials: 7.24
+    Real Estate: 7.21
+    Consumer Staples: 3.88
+    Energy: 3.79
+    Telecommunication: 3.01
+    Utilities: 2.60
+    Other: 8.54
+  countries:
+    United States: 53.14
+    Japan: 11.99
+    United Kingdom: 4.61
+    Australia: 3.52
+    Canada: 3.28
+    Sweden: 1.59
+    Israel: 1.42
+    Switzerland: 1.42
+    Germany: 1.16
+    France: 1.02
+    Other: 16.85
+  top_holdings:
+    - { name: "Insmed", ticker: "INSM", weight: 0.39 }
+    - { name: "Comfort Systems USA", ticker: "FIX", weight: 0.36 }
+    - { name: "Bloom Energy", ticker: "BE", weight: 0.30 }
+    - { name: "Sandisk", ticker: "SNDK", weight: 0.29 }
+    - { name: "Ciena", ticker: "CIEN", weight: 0.28 }
+    - { name: "Credo Technology Grp Hldg", ticker: "CRDO", weight: 0.27 }
+    - { name: "Flex Ltd", ticker: "FLEX", weight: 0.25 }
+    - { name: "Curtiss-Wright", ticker: "CW", weight: 0.24 }
+    - { name: "Astera Labs Inc", ticker: "ALAB", weight: 0.23 }
+    - { name: "Coherent Corp", ticker: "COHR", weight: 0.22 }

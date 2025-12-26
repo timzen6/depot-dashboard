@@ -134,7 +134,11 @@ overrides:
 
   # Global Developed Large Cap
   EUNL.DE: {tech: 3.5, stab: 2.0, real: 4.0, price: 0.5}
-  WSRI.PA: {tech: 4.5, stab: 2.0, real: 3.0, price: 0.5}                # Global ESG / SRI
+
+  # More conservative eastimate for ESG
+  # WSRI.PA: {tech: 4.5, stab: 2.0, real: 3.0, price: 0.5}
+  # This might be the strictest ESG version there is -> more Tech, less Real
+  WSRI.PA: {tech: 6.5, stab: 3.0, real: 0.0, price: 0.5}
 
   # Emerging Markets
   EUNM.DE: {real: 6, tech: 2.5 , stab: 1.0, price: 0.5}
@@ -144,3 +148,13 @@ overrides:
   # Europe small caps
   EXSE.DE: {real: 7, stab: 1.5, tech: 1.0, price: 0.5}            # Europe Small Cap
   # World small caps quite similar to Europe small caps
+
+
+  # Vanguard USA
+  VUSA.DE: {tech: 5.0, stab: 3.5, real: 1.0, price: 0.5}
+  # Xtrackers Japan
+  DBXJ.DE: {real: 6.0, tech: 2.5, stab: 1.0, price: 0.5}
+  VEUR.AS: {real: 5.0, stab: 3.0, price: 1.5, tech: 0.5}
+  IUSN.DE: {real: 7.0, tech: 1.5, stab: 1.0, price: 0.5}
+  SXR1.DE: {tech: 6.0, stab: 3.0, real: 0.5, price: 0.5}
+  IS3N.DE: {real: 6.0, tech: 2.0, stab: 1.5, price: 0.5}

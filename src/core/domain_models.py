@@ -2,7 +2,8 @@ from datetime import date
 from enum import StrEnum
 
 import polars as pl
-from pydantic import BaseModel, ConfigDict, Field
+from loguru import logger
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 # --- Constants & Schemas ---
 
@@ -266,6 +267,51 @@ class ETFComposition(BaseModel):
     top_holdings: list[ETFHolding] = Field(
         default_factory=list, description="List of top holdings in the ETF"
     )
+
+    @model_validator(mode="after")
+    def validate_coverage(self) -> "ETFComposition":
+        """
+        Validates that allocations do not exceed 105% (allowing for small rounding errors/cash).
+        Also warns if coverage is significantly low (< 90%).
+        """
+        max_tolerance = 1.05  # 105% erlaubt wegen Rundung/Cash
+        min_warning = 0.90  # Unter 90% gibt es eine Warnung im Log
+
+        # 1. Validate Sectors
+        total_sectors = self.total_sector_coverage
+        if total_sectors > max_tolerance:
+            raise ValueError(
+                f"❌ Data Error in {self.ticker}: "
+                f" Sector weights sum to {total_sectors:.1%} (Limit: {max_tolerance:.0%})"
+            )
+        if total_sectors < min_warning and self.sector_weights:
+            logger.warning(
+                f"⚠️  Data Warning {self.ticker}: "
+                f" Sector coverage only {total_sectors:.1%} (Missing data?)"
+            )
+
+        # 2. Validate Countries
+        total_countries = self.total_country_coverage
+        if total_countries > max_tolerance:
+            raise ValueError(
+                f"❌ Data Error in {self.ticker}: "
+                f" Country weights sum to {total_countries:.1%} (Limit: {max_tolerance:.0%})"
+            )
+        if total_countries < min_warning and self.country_weights:
+            logger.warning(
+                f"⚠️  Data Warning {self.ticker}: "
+                f" Country coverage only {total_countries:.1%} (Missing data?)"
+            )
+
+        # 3. Validate Holdings (Nur Max-Check, da Holdings selten 100% sind)
+        total_holdings = self.total_top_holdings_coverage
+        if total_holdings > max_tolerance:
+            raise ValueError(
+                f"❌ Data Error in {self.ticker}: "
+                f"Top Holdings sum to {total_holdings:.1%}! Did you mix up % and ratio?"
+            )
+
+        return self
 
     @property
     def total_sector_coverage(self) -> float:

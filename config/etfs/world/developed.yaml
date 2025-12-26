@@ -1,3 +1,150 @@
+SXR1.DE:
+  name: "Amundi MSCI Pacific ESG Broad Transition UCITS ETF Dist"
+  ter: 0.45
+  strategy: "Pacific ESG Broad CTB Select"
+  weight_format: percent
+  sectors:
+    Financials: 28.11
+    Industrials: 16.34
+    Consumer Discretionary: 12.52
+    Technology: 11.31
+    Real Estate: 9.25
+    Health Care: 8.26
+    Telecommunication: 6.07
+    Basic Materials: 3.73
+    Consumer Staples: 2.36
+    Utilities: 0.74
+    Energy: 0.27
+    Other: 1.04
+  countries:
+    Japan: 66.82
+    Australia: 19.55
+    Hong Kong: 6.10
+    Singapore: 4.51
+    New Zealand: 1.31
+    Other: 1.71
+  top_holdings:
+    - { name: "Sony Group Corp.", ticker: "6758.T", weight: 3.35 }
+    - { name: "Mitsubishi UFJ Financial Group, Inc.", ticker: "8306.T", weight: 2.91 }
+    - { name: "Commonwealth Bank of Australia", ticker: "CBA.AX", weight: 2.83 }
+    - { name: "SoftBank Group Corp.", ticker: "9984.T", weight: 2.37 }
+    - { name: "Toyota Motor Corp.", ticker: "7203.T", weight: 2.01 }
+    - { name: "Sumitomo Mitsui Financial Group, Inc.", ticker: "8316.T", weight: 2.00 }
+    - { name: "KEYENCE Corp.", ticker: "6861.T", weight: 1.77 }
+    - { name: "Transurban Group", ticker: "TCL.AX", weight: 1.66 }
+    - { name: "Mizuho Financial Group, Inc.", ticker: "8411.T", weight: 1.61 }
+    - { name: "Hitachi Ltd.", ticker: "6501.T", weight: 1.60 }
+
+DBXJ.DE:
+  name: "Xtrackers MSCI Japan UCITS ETF"
+  ter: 0.12
+  strategy: "Japan Large & Mid Cap"
+  weight_format: percent
+  sectors:
+    Industrials: 23.77
+    Consumer Discretionary: 17.87
+    Financials: 16.75
+    Technology: 13.20
+    Telecommunication: 8.95
+    Health Care: 6.55
+    Consumer Staples: 5.01
+    Basic Materials: 3.35
+    Real Estate: 2.40
+    Utilities: 1.03
+    Energy: 0.88
+    Other: 0.24
+  countries:
+    Japan: 99.77
+    Other: 0.23
+  top_holdings:
+    - { name: "Toyota Motor Corp.", ticker: "7203.T", weight: 4.20 }
+    - { name: "Mitsubishi UFJ Financial Group, Inc.", ticker: "8306.T", weight: 4.18 }
+    - { name: "Sony Group Corp.", ticker: "6758.T", weight: 4.07 }
+    - { name: "Hitachi Ltd.", ticker: "6501.T", weight: 2.79 }
+    - { name: "SoftBank Group Corp.", ticker: "9984.T", weight: 2.74 }
+    - { name: "Sumitomo Mitsui Financial Group, Inc.", ticker: "8316.T", weight: 2.35 }
+    - { name: "Nintendo Co., Ltd.", ticker: "7974.T", weight: 2.26 }
+    - { name: "Mizuho Financial Group, Inc.", ticker: "8411.T", weight: 1.90 }
+    - { name: "Mitsubishi Heavy Industries, Ltd.", ticker: "7011.T", weight: 1.88 }
+    - { name: "Tokyo Electron Ltd.", ticker: "8035.T", weight: 1.82 }
+
+VEUR.AS:
+  name: "Vanguard FTSE Developed Europe UCITS ETF Distributing"
+  ter: 0.10
+  strategy: "Europe Developed Large Cap"
+  weight_format: percent
+  sectors:
+    Financials: 22.30
+    Industrials: 18.15
+    Health Care: 10.15
+    Consumer Staples: 9.00
+    Consumer Discretionary: 8.55
+    Technology: 8.17
+    Utilities: 4.43
+    Energy: 4.16
+    Basic Materials: 4.14
+    Telecommunication: 3.11
+    Real Estate: 0.95
+    Other: 6.89
+  countries:
+    United Kingdom: 20.93
+    France: 14.09
+    Germany: 13.84
+    Switzerland: 13.68
+    Netherlands: 8.54
+    Spain: 5.14
+    Italy: 4.88
+    Sweden: 4.71
+    Finland: 1.49
+    Denmark: 1.47
+    Belgium: 1.21
+    Other: 10.02
+  top_holdings:
+    - { name: "ASML Holding NV", ticker: "ASML", weight: 3.13 }
+    - { name: "SAP SE", ticker: "SAP", weight: 2.00 }
+    - { name: "AstraZeneca PLC", ticker: "AZN", weight: 1.84 }
+    - { name: "HSBC Holdings Plc", ticker: "HSBA.L", weight: 1.82 }
+    - { name: "Nestlé SA", ticker: "NESN.SW", weight: 1.82 }
+    - { name: "Novartis AG", ticker: "NOVN.SW", weight: 1.73 }
+    - { name: "Roche Holding AG", ticker: "ROG.SW", weight: 1.70 }
+    - { name: "Shell Plc", ticker: "SHEL.L", weight: 1.65 }
+    - { name: "Siemens AG", ticker: "SIE.DE", weight: 1.56 }
+    - { name: "LVMH Moët Hennessy Louis Vuitton SE", ticker: "MC.PA", weight: 1.35 }
+
+VUSA.DE:
+  name: "Vanguard S&P 500 UCITS ETF (USD) Distributing"
+  ter: 0.07
+  strategy: "US Large Cap"
+  weight_format: percent
+  sectors:
+    Technology: 37.73
+    Consumer Discretionary: 10.62
+    Financials: 10.40
+    Telecommunication: 9.99
+    Health Care: 8.81
+    Industrials: 7.49
+    Consumer Staples: 4.45
+    Energy: 2.78
+    Utilities: 2.34
+    Real Estate: 1.79
+    Basic Materials: 1.28
+    Other: 2.32
+  countries:
+    United States: 95.80
+    Ireland: 1.30
+    Other: 2.90
+  top_holdings:
+    - { name: "NVIDIA Corp.", ticker: "NVDA", weight: 8.45 }
+    - { name: "Apple", ticker: "AAPL", weight: 6.86 }
+    - { name: "Microsoft", ticker: "MSFT", weight: 6.58 }
+    - { name: "Amazon.com, Inc.", ticker: "AMZN", weight: 4.05 }
+    - { name: "Broadcom", ticker: "AVGO", weight: 2.97 }
+    - { name: "Alphabet, Inc. A", ticker: "GOOGL", weight: 2.80 }
+    - { name: "Meta Platforms", ticker: "META", weight: 2.40 }
+    - { name: "Alphabet, Inc. C", ticker: "GOOG", weight: 2.25 }
+    - { name: "Tesla", ticker: "TSLA", weight: 2.19 }
+    - { name: "Berkshire Hathaway, Inc.", ticker: "BRK.B", weight: 1.50 }
+
 EUNL.DE:
   name: "iShares Core MSCI World UCITS ETF"
   ter: 0.20
