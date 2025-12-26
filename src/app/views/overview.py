@@ -8,6 +8,7 @@ import polars as pl
 import streamlit as st
 from views.colors import COLOR_SCALE_CONTRAST, STRATEGY_FACTOR_COLOR_MAP, Colors
 
+from src.app.logic.common import COUNTRY_REGION_MAP
 from src.app.logic.overview import filter_days_with_incomplete_tickers
 from src.app.views.common import (
     GLOBAL_FONT,
@@ -410,8 +411,10 @@ def render_portfolio_composition_chart(
             )
             st.plotly_chart(fig_sectors_sunburst, use_container_width=True)
     with tab4:
-        tmp_stocks = df_latest.filter(pl.col("asset_type") == AssetType.STOCK.upper()).select(
-            ["ticker", "group", "position_value_EUR", "country", "asset_type"]
+        tmp_stocks = (
+            df_latest.filter(pl.col("asset_type") == AssetType.STOCK.upper())
+            .select(["ticker", "group", "position_value_EUR", "country", "asset_type"])
+            .with_columns(pl.col("country").replace(COUNTRY_REGION_MAP).alias("region"))
         )
         tmp_etfs = (
             df_etf_countries.select(["ticker", "group", "weighted_value_EUR", "category"])
@@ -435,12 +438,30 @@ def render_portfolio_composition_chart(
             .to_list()
         )
         tmp_etfs = tmp_etfs.with_columns(
+            pl.col("country").replace(COUNTRY_REGION_MAP).alias("region"),
             pl.when(~pl.col("country").is_in(top_countries))
             .then(pl.lit("Other"))
             .otherwise(pl.col("country"))
-            .alias("country")
+            .alias("country"),
         )
 
+        col1, col2 = st.columns(2)
+        with col1:
+            fig_regions = make_pie_chart(
+                pl.concat([tmp_stocks, tmp_etfs]),
+                names="region",
+                values="position_value_EUR",
+            )
+            st.plotly_chart(fig_regions, use_container_width=True)
+        with col2:
+            fig_regions_sunburst = make_sunburst_chart(
+                pl.concat([tmp_stocks, tmp_etfs]),
+                path=[
+                    "region",
+                    "country",
+                ],
+            )
+            st.plotly_chart(fig_regions_sunburst, use_container_width=True)
         col1, col2 = st.columns(2)
         with col1:
             fig_countries = make_pie_chart(
@@ -452,9 +473,14 @@ def render_portfolio_composition_chart(
         with col2:
             fig_countries_sunburst = make_sunburst_chart(
                 pl.concat([tmp_stocks, tmp_etfs]),
-                path=["country", "asset_type"],
+                path=[
+                    "region",
+                    "country",
+                    "asset_type",
+                ],
             )
             st.plotly_chart(fig_countries_sunburst, use_container_width=True)
+
     with tab5:
         cols = st.columns(n_col)
         with cols[0]:
@@ -468,7 +494,7 @@ def render_portfolio_composition_chart(
             with cols[1]:
                 fig_group = make_sunburst_chart(
                     df_latest,
-                    path=["group", "asset_type"],
+                    path=["group", "asset_type", "ticker"],
                 )
                 st.plotly_chart(fig_group, use_container_width=True)
 
