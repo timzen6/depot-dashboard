@@ -6,8 +6,7 @@ from src.app.logic.common import get_sorted_occurrences
 from src.app.logic.data_loader import DashboardData
 from src.app.logic.screener import load_all_stock_data, prepare_screener_snapshot
 from src.app.views.constants import (
-    COUNTRY_FLAGS,
-    SECTOR_EMOJI,
+    assign_info_emojis,
 )
 from src.app.views.screener import (
     render_factor_overview_chart,
@@ -29,15 +28,9 @@ st.set_page_config(
 
 dashboard_data, portfolio_dict = load_all_stock_data()
 
-all_stock_metadata = (
-    dashboard_data.metadata.filter(pl.col("asset_type") == AssetType.STOCK.value)
-    .with_columns(
-        # get emojis for sectors and countries
-        pl.col("sector").replace(SECTOR_EMOJI).alias("sector_emoji"),
-        pl.col("country").replace(COUNTRY_FLAGS).alias("country_emoji"),
-    )
-    .with_columns((pl.col("country_emoji") + pl.col("sector_emoji")).alias("info"))
-)
+all_stock_metadata = dashboard_data.metadata.filter(
+    pl.col("asset_type") == AssetType.STOCK.value
+).pipe(assign_info_emojis, "sector", "country", "asset_type", "name")
 
 all_sectors = get_sorted_occurrences(all_stock_metadata, "sector")
 all_countries = get_sorted_occurrences(all_stock_metadata, "country")

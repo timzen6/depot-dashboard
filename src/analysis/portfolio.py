@@ -205,25 +205,3 @@ class PortfolioEngine:
         return df_prices.select(
             ["date", "ticker", "close", "currency", "rolling_dividend_sum"]
         ).rename({"close": "position_value", "rolling_dividend_sum": "position_dividend_yoy"})
-
-    def aggregate_total_value(self, df_portfolio: pl.DataFrame) -> pl.DataFrame:
-        """Aggregate position values to daily total portfolio value.
-
-        Groups by date and sums position_value across all tickers.
-        Useful for weighted and absolute portfolios.
-
-        Args:
-            df_portfolio: Output from calculate_portfolio_history()
-
-        Returns:
-            DataFrame with columns [date, total_value]
-        """
-        if "position_value" not in df_portfolio.columns:
-            logger.warning("Cannot aggregate: position_value column missing")
-            return pl.DataFrame()
-
-        return (
-            df_portfolio.group_by("date")
-            .agg(pl.col("position_value").sum().alias("total_value"))
-            .sort("date")
-        )

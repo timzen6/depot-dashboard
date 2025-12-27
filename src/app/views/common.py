@@ -7,7 +7,7 @@ import plotly.express as px
 import polars as pl
 import streamlit as st
 
-from src.app.logic.overview import PortfolioKPIs
+from src.app.logic.portfolio import PortfolioKPIs
 from src.app.views.colors import COLOR_SCALE_CONTRAST
 from src.config.models import Portfolio
 

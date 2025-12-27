@@ -20,6 +20,11 @@ def prepare_screener_snapshot(
     if not selected_tickers:
         return pl.DataFrame()
 
+    if "info" not in df_metadata.columns:
+        df_metadata = df_metadata.with_columns(
+            (pl.col("country") + " " + pl.col("sector")).alias("info")
+        )
+
     df_fundamentals_latest = (
         df_fundamentals.sort(["ticker", "report_date"])
         .group_by("ticker")
