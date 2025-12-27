@@ -17,10 +17,12 @@ from src.app.logic.startpage import (
     check_watch_list,
 )
 from src.app.views.startpage import (
+    render_info_section,
     render_portfolio_overview_table,
     render_stocks_to_watch_table,
     render_watch_list_alert_tables,
 )
+from src.config.landing_page import load_landing_page_config
 from src.config.models import PortfolioType
 from src.core.etf_loader import ETFLoader
 from src.core.strategy_engine import StrategyEngine
@@ -44,6 +46,7 @@ except Exception as e:
     logger.error(f"Data loading error: {e}", exc_info=True)
     raise e
 
+landing_config = load_landing_page_config()
 portfolios_config = loader.config.portfolios
 fx_engine = FXEngine(data.prices)
 portfolio_engine = PortfolioEngine()
@@ -67,45 +70,13 @@ df_portfolio = calculate_multiple_portfolio_metrics(
     etf_loader,
 )
 
+st.header("📁 Portfolio Overview")
 render_portfolio_overview_table(df_portfolio)
 
 
-selected_ticker = [
-    "MSFT",
-    "AAPL",
-    "AMZN",
-    "ASML.AS",
-    "AI.PA",
-    "SU.PA",
-    "ATCO-A.ST",
-    "MC.PA",
-    "RMS.PA",
-    # Imideate watchlist
-    "SPGI",
-    "MA",
-    "V",
-    "ROG.SW",
-    "NOVO-B.CO",
-]
+selected_ticker = landing_config.watchlist_tickers
 
-# selected_metadata = data.metadata.filter(pl.col("ticker").is_in(selected_ticker))
-
-watch_list = [
-    dict(ticker="MSFT", action="buy", metric="upside", threshold=20),
-    dict(ticker="NOVO-B.CO", action="buy", metric="price", threshold=40),
-    dict(ticker="SPGI", action="buy", metric="pe_ratio", threshold=35),
-    dict(ticker="RMS.PA", action="buy", metric="price", threshold=2000),
-    dict(ticker="ATCO-A.ST", action="buy", metric="pe_ratio", threshold=24),
-    dict(ticker="AI.PA", action="buy", metric="upside", threshold=15),
-    # Some Testing Dummies
-    dict(ticker="LISP.SW", action="buy", metric="upside", threshold=5),
-    dict(ticker="EL.PA", action="buy", metric="price", threshold=280),
-    # Sell Positions
-    dict(ticker="UNA.AS", action="sell", metric="upside", threshold=-25),
-    # Some dummies for testing
-    dict(ticker="AAPL", action="sell", metric="price", threshold=230),
-    dict(ticker="AMZN", action="sell", metric="pe_ratio", threshold=30),
-]
+watch_list = [alert.model_dump() for alert in landing_config.alerts]
 
 df_screener_snapshot = (
     prepare_screener_snapshot(
@@ -121,6 +92,7 @@ df_screener_snapshot = (
     .sort("ticker_enum")
 )
 
+st.header("🔔 Stocks to Watch")
 col1, col2 = st.columns([3, 2])
 with col1:
     render_stocks_to_watch_table(df_screener_snapshot)
@@ -135,3 +107,6 @@ with col2:
         fx_engine,
     )
     render_watch_list_alert_tables(df_watch)
+
+st.header("📖 Strategy Manifest and Factor Definitions")
+render_info_section(landing_config)

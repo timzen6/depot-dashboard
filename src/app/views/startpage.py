@@ -4,6 +4,7 @@ import streamlit as st
 
 from src.app.views.colors import COLOR_SCALE_GREEN_RED, Colors
 from src.app.views.constants import assign_info_emojis
+from src.config.landing_page import LandingPageConfig
 
 
 def render_portfolio_overview_table(
@@ -174,3 +175,35 @@ def render_watch_list_alert_tables(df_watch: pl.DataFrame) -> None:
             ],
             column_config=column_config,
         )
+
+
+def render_info_section(landing_config: LandingPageConfig) -> None:
+    col1, col2 = st.columns([3, 2])
+    with col1:
+        st.subheader("📜 The Quality Core Strategy")
+        if landing_config.strategy is not None:
+            etf_strategy = landing_config.strategy.foundation
+            st.markdown(f"### {etf_strategy.name}")
+            st.markdown(etf_strategy.description)
+            for component in etf_strategy.components:
+                st.markdown(f"**{component.name}:** {component.detail}")
+
+            stock_strategy = landing_config.strategy.quality_core
+            st.markdown(f"### {stock_strategy.name}")
+            st.markdown(stock_strategy.description)
+            for pillar in stock_strategy.pillars:
+                st.markdown(f"**{pillar.name}:** {pillar.detail}")
+        execution_rules = landing_config.execution
+        if execution_rules is not None:
+            st.markdown("### 📐 The Execution Rules")
+            for rule in execution_rules:
+                st.markdown(f"**{rule.title}:** {rule.text}")
+
+    with col2:
+        st.subheader("📊 The Quality Factors")
+        for _, factor in landing_config.factors.items():
+            st.markdown(f"### {factor.icon} {factor.title}")
+            st.markdown(f"**Description:** {factor.description}")
+            st.markdown(f"**Test Question:** {factor.test_question}")
+            st.markdown(f"**Indicators:** {factor.indicators}")
+            st.markdown(f"**Examples:** {factor.examples}")
