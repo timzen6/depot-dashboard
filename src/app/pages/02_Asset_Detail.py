@@ -148,18 +148,32 @@ try:
     # Create tabs for different analyses
     st.subheader("📈 Price History")
     render_latest_price_info(filtered_stock_data.prices, fx_engine)
-    tab1, tab2, tab3 = st.tabs(["Simple Chart", "Analyst Style Chart", "PE Ratio Chart"])
+    tab1, tab2, tab3, tab4 = st.tabs(
+        ["Simple Chart", "Simple Chart (EUR)", "Analyst Style Chart", "PE Ratio Chart"]
+    )
     with tab1:
         render_price_chart(
             filtered_stock_data.prices,
             selected_ticker,
             simple_display_mode=True,
+            fx_engine=fx_engine,
+            use_euro=False,
         )
     with tab2:
         render_price_chart(
             filtered_stock_data.prices,
             selected_ticker,
+            simple_display_mode=True,
+            fx_engine=fx_engine,
+            use_euro=True,
+        )
+
+    with tab4:
+        render_price_chart(
+            filtered_stock_data.prices,
+            selected_ticker,
             simple_display_mode=False,
+            fx_engine=fx_engine,
         )
     with tab3:
         render_pe_ratio_chart(

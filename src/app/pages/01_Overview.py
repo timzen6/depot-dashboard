@@ -11,9 +11,9 @@ from loguru import logger
 from src.analysis.fx import FXEngine
 from src.analysis.portfolio import PortfolioEngine
 from src.app.logic.data_loader import GlobalDataLoader
-from src.app.logic.overview import (
-    calculate_etf_weighted_exposure,
-    get_market_snapshot,
+from src.app.logic.etf import calculate_etf_weighted_exposure
+from src.app.logic.overview import get_market_snapshot
+from src.app.logic.portfolio import (
     get_portfolio_kpis,
     get_portfolio_performance,
 )

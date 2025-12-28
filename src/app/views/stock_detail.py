@@ -285,7 +285,11 @@ def render_pe_ratio_chart(df_price: pl.DataFrame, ticker: str) -> None:
 
 
 def render_price_chart(
-    df_price: pl.DataFrame, ticker: str, simple_display_mode: bool = True
+    df_price: pl.DataFrame,
+    ticker: str,
+    simple_display_mode: bool,
+    fx_engine: FXEngine,
+    use_euro: bool = True,
 ) -> None:
     """Render price history with volume as candlestick chart.
 
@@ -299,28 +303,52 @@ def render_price_chart(
     currency = df_price.select(pl.first("currency")).item()
     symbol = CURRENCY_SYMBOLS.get(currency, currency)
 
-    if simple_display_mode:
-        df_price = df_price.with_columns(
-            # add 200 day moving average
-            pl.col("close").rolling_mean(window_size=200).alias("MA200"),
-            pl.col("close").alias("Closing Price"),
-            pl.col("fair_value").alias("Fair Value"),
+    if use_euro:
+        df_price = fx_engine.convert_multiple_to_target(
+            df_price,
+            amount_cols=["close", "fair_value"],
+            source_currency_col="currency",
         )
+
+    if simple_display_mode:
+        if use_euro:
+            df_price = df_price.with_columns(
+                # add 200 day moving average
+                pl.col("close_EUR").rolling_mean(window_size=200).alias("MA200"),
+                pl.col("close_EUR").alias("Closing Price"),
+                pl.col("fair_value_EUR").alias("Fair Value"),
+            )
+        else:
+            df_price = df_price.with_columns(
+                # add 200 day moving average
+                pl.col("close").rolling_mean(window_size=200).alias("MA200"),
+                pl.col("close").alias("Closing Price"),
+                pl.col("fair_value").alias("Fair Value"),
+            )
         fig = px.line(
             df_price,
             x="date",
             y=["Closing Price", "MA200", "Fair Value"],
             title=f"{ticker} Closing Price History",
             labels={
-                "close": f"Closing Price ({symbol})",
                 "date": "Date",
-                "fair_value": "Fair Value",
             },
             color_discrete_sequence=COLOR_SCALE_CONTRAST,
         )
         fig.update_layout(legend_title_text="")
-        fig.update_yaxes(title_text=f"Price ({symbol})")
-        st.plotly_chart(fig, use_container_width=True)
+        if use_euro:
+            fig.update_yaxes(title_text="Price (€)")
+        else:
+            fig.update_yaxes(title_text=f"Price ({symbol})")
+        st.plotly_chart(
+            fig,
+            use_container_width=True,
+            key=(
+                f"{ticker}_simple_price_chart"
+                if not use_euro
+                else f"{ticker}_simple_price_chart_eur"
+            ),
+        )
         return
 
     # Create subplot with secondary y-axis for volume

@@ -9,7 +9,7 @@ import streamlit as st
 from views.colors import COLOR_SCALE_CONTRAST, STRATEGY_FACTOR_COLOR_MAP, Colors
 
 from src.app.logic.common import COUNTRY_REGION_MAP
-from src.app.logic.overview import filter_days_with_incomplete_tickers
+from src.app.logic.portfolio import filter_days_with_incomplete_tickers
 from src.app.views.common import (
     GLOBAL_FONT,
     GLOBAL_MARGINS,
@@ -17,7 +17,9 @@ from src.app.views.common import (
     make_sunburst_chart,
     style_pie_chart,
 )
-from src.app.views.constants import COUNTRY_FLAGS, SECTOR_EMOJI
+from src.app.views.constants import (
+    assign_info_emojis,
+)
 from src.core.domain_models import AssetType
 from src.core.strategy_engine import StrategyEngine
 
@@ -150,9 +152,10 @@ def render_positions_table(df_latest: pl.DataFrame, portfolio_name: str) -> None
             "group",
             "position_value",
             "currency",
+            "weight_pct",
             "position_value_EUR",
             "position_dividend_yoy_EUR",
-            "weight_pct",
+            "yoy_total_return_pct",
         ],
         column_config={
             "ticker": "Ticker",
@@ -173,6 +176,10 @@ def render_positions_table(df_latest: pl.DataFrame, portfolio_name: str) -> None
             ),
             "weight_pct": st.column_config.NumberColumn(
                 "Weight",
+                format="%.1f %%",
+            ),
+            "yoy_total_return_pct": st.column_config.NumberColumn(
+                "YoY Total Return",
                 format="%.1f %%",
             ),
             "currency": "Currency",
@@ -254,14 +261,14 @@ def render_stock_composition_chart(
             names="sector",
             values="position_value_EUR",
         )
-        st.plotly_chart(fig_sector_simple, use_container_width=True)
+        st.plotly_chart(fig_sector_simple, use_container_width=True, key="sector_simple_stock")
     with tabs[5]:
         fig_country_simple = make_pie_chart(
             df_latest,
             names="country",
             values="position_value_EUR",
         )
-        st.plotly_chart(fig_country_simple, use_container_width=True)
+        st.plotly_chart(fig_country_simple, use_container_width=True, key="country_simple_stock")
     with tabs[0]:
         df_factors = (
             strategy_engine.calculate_portfolio_exposure(
@@ -519,12 +526,8 @@ def render_market_snapshot_tables(
     if df_snapshot.is_empty():
         st.warning("No market fundamentals data to display")
         return
-    df_snapshot = df_snapshot.filter(pl.col("asset_type") == AssetType.STOCK).with_columns(
-        (
-            pl.col("country").replace(COUNTRY_FLAGS, default="❓")
-            + " "
-            + pl.col("sector").replace(SECTOR_EMOJI, default="👻")
-        ).alias("info")
+    df_snapshot = df_snapshot.filter(pl.col("asset_type") == AssetType.STOCK).pipe(
+        assign_info_emojis, "sector", "country", "asset_type", "name"
     )
 
     st.dataframe(
@@ -569,30 +572,7 @@ def render_strategy_factor_table(
     if df_snapshot.is_empty():
         st.warning("No market fundamentals data to display")
         return
-    df_snapshot = (
-        df_snapshot.filter(
-            # pl.col("asset_type") == AssetType.STOCK
-        )
-        .with_columns(
-            (
-                pl.col("country").replace(COUNTRY_FLAGS, default="❓")
-                + " "
-                + pl.col("sector").replace(SECTOR_EMOJI, default="👻")
-            )
-            # when asset class is ETF show an emoji for etf and the globe
-            .alias("info")
-        )
-        .with_columns(
-            pl.when(pl.col("asset_type") == AssetType.ETF)
-            .then(
-                pl.when(pl.col("name").str.to_lowercase().str.contains("europe"))
-                .then(pl.lit("📑🇪🇺"))
-                .otherwise(pl.lit("📑🌍"))
-            )
-            .otherwise(pl.col("info"))
-            .alias("info")
-        )
-    )
+    df_snapshot = df_snapshot.pipe(assign_info_emojis, "sector", "country", "asset_type", "name")
     df_profile = (
         df_snapshot.select("ticker", "name", "sector", "info")
         .pipe(strategy_engine.join_factor_profiles)

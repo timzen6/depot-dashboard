@@ -30,6 +30,7 @@ class Colors:
     teal = "#0d9488"  # Teal (Nice complement to blue)
     gray = "#4b5563"  # Cool Gray
     light_gray = "#9ca3af"
+    white = "#ffffff"
 
 
 # 1. Diverging Scale (Good vs. Bad)
