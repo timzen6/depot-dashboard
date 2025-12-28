@@ -32,12 +32,15 @@ def get_portfolio_performance(
             amount_col="position_dividend_yoy",
             source_currency_col="currency",
         )
-    q = df_history_target_currency.select("position_value_EUR", "date", "ticker").with_columns(
-        pl.col("date").dt.offset_by("1y").alias("matching_date")
+    q = (
+        df_history_target_currency.select("position_value_EUR", "date", "ticker")
+        .with_columns(pl.col("date").dt.offset_by("1y").alias("matching_date"))
+        .sort(["ticker", "matching_date"])
     )
 
     df_history_target_currency = (
-        df_history_target_currency.join_asof(
+        df_history_target_currency.sort(["ticker", "date"])
+        .join_asof(
             q,
             left_on="date",
             right_on="matching_date",
