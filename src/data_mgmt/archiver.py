@@ -96,7 +96,7 @@ class DataArchiver:
                 cast_nulls_to_float(pl.read_parquet(fp), string_cols=categorical_cols)
                 for fp in file_paths
             ]
-            data = pl.concat(dfs, how="diagonal")
+            data = pl.concat(dfs, how="diagonal_relaxed")
         except Exception as e:
             logger.error(f"Failed to read parquet files: {e}")
             raise

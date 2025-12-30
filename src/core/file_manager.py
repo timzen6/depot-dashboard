@@ -83,7 +83,9 @@ class ParquetStorage:
             )
             # Combine and deduplicate
             df_harmonized, history_to_keep_harmonized = self._harmonize_schemas(df, history_to_keep)
-            combined_df = pl.concat([df_harmonized, history_to_keep_harmonized]).sort(unique_keys)
+            combined_df = pl.concat(
+                [df_harmonized, history_to_keep_harmonized], how="diagonal_relaxed"
+            ).sort(unique_keys)
         else:
             combined_df = df.sort(unique_keys)
 

@@ -5,7 +5,7 @@ This module bridges the gap between raw data (yfinance pandas DataFrames)
 and our internal domain representation (Polars DataFrames + Pydantic models).
 """
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 import pandas as pd
@@ -135,7 +135,7 @@ def map_ticker_info_to_asset_metadata(
     if short_name:
         short_name = short_name.replace("   I", "").strip()
     name = _safe_str(info, ["longName", "shortName", "displayName", "name", "ticker"])
-    if calendar:
+    if calendar is not None:
         dividend_date = _safe_date(calendar, ["Dividend Date", "dividendDate"])
         earnings_date = _safe_date(calendar, ["Earnings Date", "earningsDate"])
     else:
@@ -443,21 +443,36 @@ def _get_float(data: dict[str, Any], keys: list[str]) -> float | None:
     return None
 
 
-def _safe_date(data: dict[str, Any], keys: list[str]) -> datetime | None:
+def _safe_date(data: dict[str, Any], keys: list[str]) -> date | None:
     lookup_map = {idx.strip().lower(): idx for idx in data.keys() if isinstance(idx, str)}
     for key in keys:
         key_clean = key.strip().lower()
         if key_clean in lookup_map:
             original_key = lookup_map[key_clean]
             value = data.get(original_key, None)
-            # Handle list of dates (e.g., [datetime.date, ...])
-            if isinstance(value, list) and value:
-                # Try to parse the first element
-                first = value[0]
-                if isinstance(first, datetime):
-                    return first
-            elif isinstance(value, datetime):
-                return value
+        # 1. Handle Nulls / NaNs
+        if value is None:
+            continue
+        if isinstance(value, float) and (pd.isna(value) or value != value):
+            continue
+
+        # 2. Handle Lists (unpack first element)
+        if isinstance(value, list):
+            if not value:
+                continue
+            value = value[0]
+
+        # 3. Try parsing whatever is left (String, Timestamp, Int, etc.)
+        try:
+            # pandas to_datetime is the most robust parser we have
+            dt_val = pd.to_datetime(value)
+
+            # Check if the result is valid (not NaT)
+            if pd.notna(dt_val):
+                return dt_val.date()  # type: ignore[no-any-return]
+        except (ValueError, TypeError):
+            continue
+
     return None
 
 
