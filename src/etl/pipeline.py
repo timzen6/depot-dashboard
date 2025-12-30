@@ -75,9 +75,10 @@ class ETLPipeline:
             try:
                 # Fetch full ticker info from yfinance
                 info = self.extractor.get_full_ticker_info(ticker)
+                calendar = self.extractor.get_full_ticker_calendar(ticker)
 
                 # Transform to domain model
-                asset_metadata = map_ticker_info_to_asset_metadata(info)
+                asset_metadata = map_ticker_info_to_asset_metadata(info, calendar)
                 # Correct currency if needed
                 if ticker in self.CURRENCY_OVERRIDE:
                     tmp_dict = asset_metadata.to_dict()

@@ -99,7 +99,6 @@ class FXEngine:
                     f"No FX rate available for {currency} → {self.target_currency}, "
                     "values will be kept in original currency"
                 )
-
         # Convert supported currencies
         converted_chunks = []
         for currency, df_rate in self.fx_rates.items():

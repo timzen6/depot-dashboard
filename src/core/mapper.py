@@ -117,7 +117,9 @@ def map_asset_type(info: dict[str, str]) -> AssetType:
     return AssetType.STOCK
 
 
-def map_ticker_info_to_asset_metadata(info: dict[str, str]) -> AssetMetadata:
+def map_ticker_info_to_asset_metadata(
+    info: dict[str, str], calendar: dict[str, Any]
+) -> AssetMetadata:
     """
     Map yfinance ticker info dictionary to AssetMetadata domain model.
 
@@ -148,6 +150,12 @@ def map_ticker_info_to_asset_metadata(info: dict[str, str]) -> AssetMetadata:
         sector_raw=_safe_str(info, ["sector", "sectorDisp", "sectorKey"]),
         sector=sector,
         industry=_safe_str(info, ["industry", "industryDisp", "industryKey"]),
+        # important metrics for quick analysis, we cannot get them in the fundamentals
+        forward_pe=_get_float(info, ["forwardPE"]),
+        forward_eps=_get_float(info, ["forwardEps"]),
+        display_name=_safe_str(info, ["displayName"]),
+        dividend_date=_safe_date(calendar, ["Dividend Date", "dividendDate"]),
+        earnings_date=_safe_date(calendar, ["Earnings Date", "earningsDate"]),
     )
     logger.debug(f"Mapped AssetMetadata for {asset_metadata.name} ({asset_metadata.exchange})")
     return asset_metadata
@@ -378,6 +386,23 @@ def map_fundamentals_to_domain(
                     ],
                 ),
                 cash_and_equivalents=_get_float(row_data, ["cash and cash equivalents", "cash"]),
+                goodwill=_get_float(row_data, ["goodwill"]),
+                intangible_assets=_get_float(
+                    row_data, ["intangible assets", "other intangible assets"]
+                ),
+                goodwill_and_other_intangible_assets=_get_float(
+                    row_data, ["goodwill and other intangible assets"]
+                ),
+                share_issued=_get_float(
+                    row_data,
+                    [
+                        "share issued",
+                        "shares issued",
+                        "ordinary shares number",
+                        "common shares outstanding",
+                        "common stock shares outstanding",
+                    ],
+                ),
             )
 
             # Quality check: skip reports with future dates
@@ -412,6 +437,24 @@ def _get_float(data: dict[str, Any], keys: list[str]) -> float | None:
     return None
 
 
+def _safe_date(data: dict[str, Any], keys: list[str]) -> datetime | None:
+    lookup_map = {idx.strip().lower(): idx for idx in data.keys() if isinstance(idx, str)}
+    for key in keys:
+        key_clean = key.strip().lower()
+        if key_clean in lookup_map:
+            original_key = lookup_map[key_clean]
+            value = data.get(original_key, None)
+            # Handle list of dates (e.g., [datetime.date, ...])
+            if isinstance(value, list) and value:
+                # Try to parse the first element
+                first = value[0]
+                if isinstance(first, datetime):
+                    return first
+            elif isinstance(value, datetime):
+                return value
+    return None
+
+
 def _safe_str(data: dict[str, str], keys: list[str]) -> str | None:
     """
     Extract string value from pandas Series using multiple possible keys.
@@ -435,35 +478,4 @@ def _safe_str(data: dict[str, str], keys: list[str]) -> str | None:
             value = data.get(original_key, None)
             if pd.notna(value):
                 return str(value)
-    return None
-
-
-def _safe_float(row: pd.Series, keys: list[str]) -> float | None:
-    """
-    Extract numeric value from pandas Series using multiple possible keys.
-    Due to variations in yfinance column names, we try several options.
-    The matching is case-insensitive and ignores leading/trailing whitespace.
-
-    Args:
-        row: pandas Series (one row from transposed DataFrame)
-        keys: List of possible column names to try (case-insensitive)
-
-    Returns:
-        Float value if found and valid, None otherwise
-    """
-    # Create lowercase index for case-insensitive lookup
-    lookup_map = {idx.strip().lower(): idx for idx in row.index if isinstance(idx, str)}
-
-    for key in keys:
-        key_clean = key.strip().lower()
-        if key_clean in lookup_map:
-            original_key = lookup_map[key_clean]
-            value = row[original_key]
-            if pd.notna(value):
-                try:
-                    if isinstance(value, str):
-                        return float(value.replace(",", ""))
-                    return float(value)
-                except (ValueError, TypeError):
-                    continue
     return None

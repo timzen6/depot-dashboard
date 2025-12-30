@@ -22,7 +22,9 @@ from src.etl.pipeline import ETLPipeline
 
 
 def cmd_load_metadata(args: argparse.Namespace) -> None:
-    """Load Metadata from yfinance for given tickers."""
+    """Load Metadata from yfinance for given tickers, only loads
+    not yet known tickers.
+    """
     logger.info("=== Loading Asset Metadata ===")
     config = load_config()
     metadata_storage = ParquetStorage(config.settings.metadata_dir)
@@ -39,6 +41,23 @@ def cmd_load_metadata(args: argparse.Namespace) -> None:
     logger.info(f"Loading ticker metadata for {len(new_tickers)} tickers")
     metadata_pipeline = ETLPipeline(metadata_storage, extractor)
     metadata_pipeline.run_metadata_update(new_tickers)
+
+
+def cmd_update_metadata(args: argparse.Namespace) -> None:
+    """Update existing metadata with new tickers."""
+    logger.info("=== Updating Asset Metadata ===")
+    config = load_config()
+    metadata_storage = ParquetStorage(config.settings.metadata_dir)
+    extractor = DataExtractor()
+
+    if getattr(args, "full", False):
+        total_tickers = config.all_tickers
+    else:
+        total_tickers = config.portfolio_tickers
+
+    logger.info(f"Updating ticker metadata for {len(total_tickers)}  tickers")
+    metadata_pipeline = ETLPipeline(metadata_storage, extractor)
+    metadata_pipeline.run_metadata_update(total_tickers)
 
 
 def load_fundamentals(config: Config) -> None:
@@ -281,8 +300,17 @@ def main() -> None:
     subparsers = parser.add_subparsers(dest="command", required=True, help="Available commands")
 
     # Metadata load command
-    parser_metadata = subparsers.add_parser("meta", help="Load asset metadata from yfinance")
-    parser_metadata.set_defaults(func=cmd_load_metadata)
+    parser_metadata = subparsers.add_parser("meta", help="Update asset metadata from yfinance")
+    parser_metadata.add_argument(
+        "-f",
+        "--full",
+        action="store_true",
+        help=(
+            "Update metadata for all tickers (full load)."
+            " If not set, only portfolio tickers are updated."
+        ),
+    )
+    parser_metadata.set_defaults(func=cmd_update_metadata)
 
     # Fundamentals ETL command
     parser_fundamentals = subparsers.add_parser(
@@ -296,7 +324,9 @@ def main() -> None:
         "-f",
         "--full",
         action="store_true",
-        help="Run ETL for all tickers (full load). If not set, only portfolio tickers are loaded.",
+        help=(
+            "Run ETL for all tickers (full load). " "If not set, only portfolio tickers are loaded."
+        ),
     )
     parser_etl.set_defaults(func=cmd_etl)
 

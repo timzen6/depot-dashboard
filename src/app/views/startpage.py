@@ -82,6 +82,7 @@ def render_stocks_to_watch_table(
             "fair_value",
             "upside",
             "pe_ratio",
+            "forward_pe",
             "data_lag_days",
             # "close_30d",
         ],
@@ -105,6 +106,7 @@ def render_stocks_to_watch_table(
                 "📈 30d Price Chart", width="medium", color="auto"
             ),
             "pe_ratio": st.column_config.NumberColumn("P/E Ratio", format="%.1f"),
+            "forward_pe": st.column_config.NumberColumn("Fwd P/E", format="%.1f"),
             "data_lag_days": st.column_config.NumberColumn(
                 "Data Lag", format="%.0f", width="small"
             ),

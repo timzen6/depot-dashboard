@@ -127,6 +127,7 @@ class FinancialReport(BaseModel):
     # We need this to calculate market-cap based metrics
     basic_average_shares: float | None = None  # For per-share metrics
     diluted_average_shares: float | None = None
+    share_issued: float | None = None
 
     # Balance Sheet (Snapshot at report_date)
     total_assets: float | None = None
@@ -136,6 +137,10 @@ class FinancialReport(BaseModel):
     short_term_debt: float | None = None
     total_debt: float | None = None
     cash_and_equivalents: float | None = None
+    goodwill: float | None = None
+    intangible_assets: float | None = None
+    # Sometimes a combined field is provided directly
+    goodwill_and_other_intangible_assets: float | None = None
 
     @property
     def capital_employed(self) -> float | None:
@@ -166,6 +171,22 @@ class FinancialReport(BaseModel):
             return debt - self.cash_and_equivalents
         return None
 
+    @property
+    def tangible_book_value(self) -> float | None:
+        """
+        Proxy for Tangible Book Value.
+        Formula: Total Equity - Goodwill - Intangible Assets
+        """
+        if self.total_equity is None:
+            return None
+
+        intangibles = self.goodwill_and_other_intangible_assets
+        if intangibles is None:
+            goodwill = self.goodwill or 0.0
+            intangible_assets = self.intangible_assets or 0.0
+            intangibles = goodwill + intangible_assets
+        return self.total_equity - intangibles
+
 
 class AssetMetadata(BaseModel):
     """Metadata about a financial asset."""
@@ -183,20 +204,18 @@ class AssetMetadata(BaseModel):
     industry: str | None = None
     country: str | None = None
 
+    display_name: str | None = None
+    forward_pe: float | None = None
+    forward_eps: float | None = None
+
+    dividend_date: date | None = None
+    earnings_date: date | None = None
+
     def to_dict(self) -> dict[str, str | None]:
         """Convert AssetMetadata to a dictionary for easy serialization."""
-        return {
-            "ticker": self.ticker,
-            "name": self.name,
-            "asset_type": self.asset_type.value,
-            "currency": self.currency,
-            "short_name": self.short_name,
-            "exchange": self.exchange,
-            "sector_raw": self.sector_raw,
-            "sector": self.sector.value if self.sector else None,
-            "industry": self.industry,
-            "country": self.country,
-        }
+        # just use the model dump
+        data = self.model_dump()
+        return data
 
     @classmethod
     def from_dict(cls, data: dict[str, str | None]) -> "AssetMetadata":

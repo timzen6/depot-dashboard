@@ -227,6 +227,7 @@ def render_stats_table(df_prices_latest: pl.DataFrame) -> list[str]:
             "data_lag_days",
             "upside",
             "pe_ratio",
+            "forward_pe",
             "pe_ratio_median",
             "fcf_yield",
             # We can put this in optionally later
@@ -269,6 +270,7 @@ def render_stats_table(df_prices_latest: pl.DataFrame) -> list[str]:
             "fcf_yield": st.column_config.NumberColumn("💰 FCF Yield", format="%.1f%%"),
             "net_debt_to_ebit": st.column_config.NumberColumn("🏥 Net Debt to EBIT", format="%.1f"),
             "pe_ratio": st.column_config.NumberColumn("💰 P/E Ratio", format="%.1f"),
+            "forward_pe": st.column_config.NumberColumn("💰 Fwd P/E", format="%.1f"),
             "peg_ratio": st.column_config.NumberColumn("💰 PEG Ratio", format="%.1f"),
             "pe_ratio_median": st.column_config.NumberColumn("📊 P/E Median", format="%.1f"),
             "close": st.column_config.NumberColumn("💶 Price (EUR)", format="%.2f"),

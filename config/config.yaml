@@ -30,6 +30,7 @@ universe:
     - EURDKK=X
     - EURSEK=X
     - EURCAD=X
+
     # ETFs (via Xetra in EUR)
     - EUNL.DE  # iShares Core MSCI World
     - WSRI.PA
