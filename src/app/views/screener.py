@@ -333,11 +333,13 @@ def render_in_depth_performance_charts(
             color_discrete_sequence=COLOR_SCALE_CONTRAST,
             height=plot_height,
         )
-        fig_pe.update_layout(legend=dict(title=""))
+        fig_pe.update_layout(legend=dict(title=""), xaxis_title="Date", yaxis_title="P/E Ratio")
         st.plotly_chart(fig_pe, use_container_width=True)
     with col2:
         fig_roce = px.scatter(
-            df_filtered_fundamentals,
+            df_filtered_fundamentals.with_columns(
+                (pl.col("roce").round(2) * 100).alias("roce"),
+            ),
             x="date",
             y="roce",
             color="name",
@@ -345,7 +347,7 @@ def render_in_depth_performance_charts(
             color_discrete_sequence=COLOR_SCALE_CONTRAST,
             height=plot_height,
         )
-        fig_roce.update_layout(legend=dict(title=""))
+        fig_roce.update_layout(legend=dict(title=""), xaxis_title="Date", yaxis_title="ROCE (%)")
         # add markers and lines
         # increase marker size
         fig_roce.update_traces(mode="markers+lines", marker=dict(size=12))
@@ -354,7 +356,9 @@ def render_in_depth_performance_charts(
     col3, col4 = st.columns(2)
     with col3:
         fig_fcf = px.line(
-            df_filtered_prices,
+            df_filtered_prices.with_columns(
+                (pl.col("fcf_yield") * 100).alias("fcf_yield"),
+            ),
             x="date",
             y="fcf_yield",
             color="name",
@@ -362,11 +366,15 @@ def render_in_depth_performance_charts(
             color_discrete_sequence=COLOR_SCALE_CONTRAST,
             height=plot_height,
         )
-        fig_fcf.update_layout(legend=dict(title=""))
+        fig_fcf.update_layout(
+            legend=dict(title=""), xaxis_title="Date", yaxis_title="FCF Yield (%)"
+        )
         st.plotly_chart(fig_fcf, use_container_width=True)
     with col4:
         fig_rev = px.scatter(
-            df_filtered_fundamentals.drop_nulls(subset=["revenue_growth"]),
+            df_filtered_fundamentals.drop_nulls(subset=["revenue_growth"]).with_columns(
+                (pl.col("revenue_growth") * 100).alias("revenue_growth")
+            ),
             x="date",
             y="revenue_growth",
             color="name",
@@ -374,6 +382,8 @@ def render_in_depth_performance_charts(
             color_discrete_sequence=COLOR_SCALE_CONTRAST,
             height=plot_height,
         )
-        fig_rev.update_layout(legend=dict(title=""))
+        fig_rev.update_layout(
+            legend=dict(title=""), xaxis_title="Date", yaxis_title="Revenue Growth (%)"
+        )
         fig_rev.update_traces(mode="markers+lines", marker=dict(size=12))
         st.plotly_chart(fig_rev, use_container_width=True)
