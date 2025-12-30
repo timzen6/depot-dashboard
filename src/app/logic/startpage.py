@@ -1,6 +1,7 @@
 from typing import Any
 
 import polars as pl
+from loguru import logger
 
 from src.analysis.fx import FXEngine
 from src.analysis.portfolio import PortfolioEngine
@@ -18,16 +19,32 @@ def _check_watch_list_row(row: dict[str, str | int | float | None]) -> str | Non
     raw_metric = row["metric"]
     if not isinstance(raw_metric, str):
         return None
-    metric = raw_metric if raw_metric != "price" else "close_EUR"
 
-    raw_threshold = row.get("threshold")
-    raw_value = row.get(metric)
-    if raw_value is None or raw_threshold is None:
+    metric = raw_metric
+    if raw_metric in ["price", "price_below"]:
+        raw_value = row.get("close_EUR")
+    else:
+        raw_value = row.get(metric)
+
+    raw_threshold_fair = row.get("fair_threshold")
+    raw_threshold_good = row.get("good_threshold")
+
+    if raw_value is None or raw_threshold_good is None:
         return None
+    if raw_threshold_fair is None:
+        raw_threshold_fair = raw_threshold_good
     try:
-        threshold = float(raw_threshold)
+        fair_threshold = float(raw_threshold_fair)
+        good_threshold = float(raw_threshold_good)
         value = float(raw_value)
     except (TypeError, ValueError):
+        return None
+
+    gt_metrics = ["upside", "fcf_yield", "price_below"]
+    lt_metrics = ["pe_ratio", "price", "forward_pe"]
+    all_metrics = gt_metrics + lt_metrics
+    if metric not in all_metrics:
+        logger.warning(f"Unknown metric '{metric}' in watch list alert.")
         return None
 
     action = row.get("action")
@@ -35,25 +52,28 @@ def _check_watch_list_row(row: dict[str, str | int | float | None]) -> str | Non
         return None
 
     if action == "buy":
-        if metric == "upside":
-            if value >= threshold:
-                return f"Upside > {threshold}%"
-        elif metric == "pe_ratio":
-            if value <= threshold:
-                return f"P/E Ratio < {threshold}"
-        elif metric == "close_EUR":
-            if value <= threshold:
-                return f"Price < {threshold} EUR"
-    elif action == "sell":
-        if metric == "upside":
-            if value <= threshold:
-                return f"Upside < {threshold}%"
-        elif metric == "pe_ratio":
-            if value >= threshold:
-                return f"P/E Ratio > {threshold}"
-        elif metric == "close_EUR":
-            if value >= threshold:
-                return f"Price > {threshold} EUR"
+        if metric in gt_metrics:
+            if value >= good_threshold:
+                return f"GOOD: {metric} > {good_threshold}"
+            if value >= fair_threshold:
+                return f"FAIR: {metric} > {fair_threshold}"
+        if metric in lt_metrics:
+            if value <= good_threshold:
+                return f"GOOD: {metric} < {good_threshold}"
+            if value <= fair_threshold:
+                return f"FAIR: {metric} < {fair_threshold}"
+    if action == "sell":
+        if metric in gt_metrics:
+            if value <= good_threshold:
+                return f"GOOD: {metric} < {good_threshold}"
+            if value <= fair_threshold:
+                return f"FAIR: {metric} < {fair_threshold}"
+        if metric in lt_metrics:
+            if value >= good_threshold:
+                return f"GOOD: {metric} > {good_threshold}"
+            if value >= fair_threshold:
+                return f"FAIR: {metric} > {fair_threshold}"
+
     return None
 
 
@@ -69,8 +89,23 @@ def check_watch_list(
         .sort(["ticker", "date"])
         .group_by("ticker")
         .last()
-        .select(["ticker", "name", "close", "date", "pe_ratio", "fair_value", "currency"])
-        .with_columns((((pl.col("fair_value") / pl.col("close")) - 1) * 100).alias("upside"))
+        .select(
+            [
+                "ticker",
+                "name",
+                "close",
+                "date",
+                "pe_ratio",
+                "fair_value",
+                "currency",
+                "forward_pe",
+                "fcf_yield",
+            ]
+        )
+        .with_columns(
+            (((pl.col("fair_value") / pl.col("close")) - 1) * 100).alias("upside"),
+            pl.col("fcf_yield") * 100,
+        )
         .pipe(
             fx_engine.convert_multiple_to_target,
             amount_cols=["close", "fair_value"],

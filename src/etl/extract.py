@@ -61,6 +61,8 @@ class DataExtractor:
         """
         yf_ticker = yf.Ticker(ticker)
         cal = yf_ticker.calendar
+        if cal is None:
+            return {"ticker": ticker}
         cal["ticker"] = ticker
         return dict(cal)
 

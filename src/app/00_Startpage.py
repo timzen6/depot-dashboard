@@ -4,8 +4,6 @@ Welcome page for the Streamlit application.
 Navigate to specific pages using the sidebar.
 """
 
-from datetime import date, timedelta
-
 import polars as pl
 import streamlit as st
 from loguru import logger
@@ -21,12 +19,12 @@ from src.app.logic.startpage import (
 from src.app.views.startpage import (
     render_info_section,
     render_portfolio_overview_table,
+    render_recent_reports_section,
     render_stocks_to_watch_table,
     render_watch_list_alert_tables,
 )
 from src.config.landing_page import load_landing_page_config
 from src.config.models import PortfolioType
-from src.core.domain_models import ReportType
 from src.core.etf_loader import ETFLoader
 from src.core.strategy_engine import StrategyEngine
 
@@ -83,78 +81,8 @@ with col1:
     st.subheader("")
     render_portfolio_overview_table(df_portfolio)
 with col2:
-    # TODO: Encapsulate in function
     st.header("📅 Recent Earnings")
-    tmp_meta = (
-        data.metadata.filter(pl.col("ticker").is_in(selected_ticker))
-        .select(["ticker", "display_name", "short_name", "earnings_date", "dividend_date"])
-        .with_columns(pl.coalesce(pl.col("display_name"), pl.col("short_name")).alias("name"))
-        .drop("short_name", "display_name")
-    )
-    tmp_fund = (
-        (
-            data.fundamentals.filter(pl.col("ticker").is_in(selected_ticker))
-            .select(["ticker", "date", "period_type"])
-            .sort(["ticker", "date"], descending=False)
-        )
-        .filter(pl.col("period_type") == ReportType.ANNUAL)
-        .group_by("ticker")
-        .agg(pl.col("date").last())
-        .with_columns(
-            # eastimated next fiscal year end by adding 1 year
-            (pl.col("date") + pl.duration(days=365)).alias("est_next_annual_earning")
-        )
-        .rename({"date": "last_annual_earning"})
-    )
-
-    tmp = tmp_meta.join(tmp_fund, on="ticker", how="left").sort(
-        ["est_next_annual_earning", "ticker"]
-    )
-    # for now we take the estimated next annual earning to
-    # have annual report alerts consistently
-    # (quarterly reports are not always available and less relevant in general)
-    today = date.today()
-    end_lookup = today + timedelta(days=30)
-    tmp_next_earnings = tmp.filter(
-        (pl.col("est_next_annual_earning") >= today)
-        & (pl.col("est_next_annual_earning") <= end_lookup)
-    )
-    if tmp_next_earnings.is_empty():
-        st.info("No upcoming earnings dates in the next 30 days.")
-    else:
-        st.subheader("Upcoming Earnings Dates")
-        st.dataframe(
-            tmp_next_earnings,
-            column_order=["ticker", "name", "est_next_annual_earning"],
-            column_config={
-                "est_next_annual_earning": st.column_config.DateColumn(
-                    "Next Annual Earnings",
-                    format="YYYY-MM-DD",
-                ),
-                "ticker": "Ticker",
-                "name": "Company Name",
-            },
-        )
-    tmp_recent_earnings = tmp.filter(
-        pl.col("last_annual_earning") >= today - timedelta(days=60)
-    ).sort(["last_annual_earning", "ticker"], descending=True)
-    if tmp_recent_earnings.is_empty():
-        st.info("No recent earnings reports.")
-    else:
-        st.subheader("Recently Reported Earnings")
-        st.dataframe(
-            tmp_recent_earnings,
-            column_order=["ticker", "name", "last_annual_earning"],
-            column_config={
-                "last_annual_earning": st.column_config.DateColumn(
-                    "Last Annual Earnings",
-                    format="YYYY-MM-DD",
-                ),
-                "ticker": "Ticker",
-                "name": "Company Name",
-            },
-        )
-
+    render_recent_reports_section(data, selected_ticker)
 
 df_screener_snapshot = (
     prepare_screener_snapshot(
@@ -177,7 +105,7 @@ with col1:
 with col2:
     df_watch = check_watch_list(
         data.prices.join(
-            data.metadata.select("ticker", "name", "asset_type"),
+            data.metadata.select("ticker", "name", "asset_type", "forward_pe"),
             on="ticker",
             how="left",
         ),
