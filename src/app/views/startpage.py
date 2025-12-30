@@ -1,10 +1,14 @@
+from datetime import date, timedelta
+
 import pandas as pd
 import polars as pl
 import streamlit as st
 
+from src.app.logic.data_loader import DashboardData
 from src.app.views.colors import COLOR_SCALE_GREEN_RED, Colors
 from src.app.views.constants import assign_info_emojis
 from src.config.landing_page import LandingPageConfig
+from src.core.domain_models import ReportType
 
 
 def render_portfolio_overview_table(
@@ -53,6 +57,78 @@ def color_data_lag(val: float) -> str:
     return f"background-color: {color}; color: black"
 
 
+def render_recent_reports_section(data: DashboardData, selected_ticker: list[str]) -> None:
+    tmp_meta = (
+        data.metadata.filter(pl.col("ticker").is_in(selected_ticker))
+        .select(["ticker", "display_name", "short_name", "earnings_date", "dividend_date"])
+        .with_columns(pl.coalesce(pl.col("display_name"), pl.col("short_name")).alias("name"))
+        .drop("short_name", "display_name")
+    )
+    tmp_fund = (
+        (
+            data.fundamentals.filter(pl.col("ticker").is_in(selected_ticker))
+            .select(["ticker", "date", "period_type"])
+            .sort(["ticker", "date"], descending=False)
+        )
+        .filter(pl.col("period_type") == ReportType.ANNUAL)
+        .group_by("ticker")
+        .agg(pl.col("date").last())
+        .with_columns(
+            # eastimated next fiscal year end by adding 1 year
+            (pl.col("date") + pl.duration(days=365)).alias("est_next_annual_earning")
+        )
+        .rename({"date": "last_annual_earning"})
+    )
+
+    tmp = tmp_meta.join(tmp_fund, on="ticker", how="left").sort(
+        ["est_next_annual_earning", "ticker"]
+    )
+    # for now we take the estimated next annual earning to
+    # have annual report alerts consistently
+    # (quarterly reports are not always available and less relevant in general)
+    today = date.today()
+    end_lookup = today + timedelta(days=30)
+    tmp_next_earnings = tmp.filter(
+        (pl.col("est_next_annual_earning") >= today)
+        & (pl.col("est_next_annual_earning") <= end_lookup)
+    )
+    if tmp_next_earnings.is_empty():
+        st.info("No upcoming earnings dates in the next 30 days.")
+    else:
+        st.subheader("Upcoming Earnings Dates")
+        st.dataframe(
+            tmp_next_earnings,
+            column_order=["ticker", "name", "est_next_annual_earning"],
+            column_config={
+                "est_next_annual_earning": st.column_config.DateColumn(
+                    "Next Annual Earnings",
+                    format="YYYY-MM-DD",
+                ),
+                "ticker": "Ticker",
+                "name": "Company Name",
+            },
+        )
+    tmp_recent_earnings = tmp.filter(
+        pl.col("last_annual_earning") >= today - timedelta(days=60)
+    ).sort(["last_annual_earning", "ticker"], descending=True)
+    if tmp_recent_earnings.is_empty():
+        st.info("No recent earnings reports.")
+    else:
+        st.subheader("Recently Reported Earnings")
+        st.dataframe(
+            tmp_recent_earnings,
+            column_order=["ticker", "name", "last_annual_earning"],
+            column_config={
+                "last_annual_earning": st.column_config.DateColumn(
+                    "Last Annual Earnings",
+                    format="YYYY-MM-DD",
+                ),
+                "ticker": "Ticker",
+                "name": "Company Name",
+            },
+        )
+
+
 def render_stocks_to_watch_table(
     df_snapshot: pl.DataFrame,
 ) -> None:
@@ -82,6 +158,7 @@ def render_stocks_to_watch_table(
             "fair_value",
             "upside",
             "pe_ratio",
+            "forward_pe",
             "data_lag_days",
             # "close_30d",
         ],
@@ -105,6 +182,7 @@ def render_stocks_to_watch_table(
                 "📈 30d Price Chart", width="medium", color="auto"
             ),
             "pe_ratio": st.column_config.NumberColumn("P/E Ratio", format="%.1f"),
+            "forward_pe": st.column_config.NumberColumn("Fwd P/E", format="%.1f"),
             "data_lag_days": st.column_config.NumberColumn(
                 "Data Lag", format="%.0f", width="small"
             ),
@@ -136,17 +214,44 @@ def render_watch_list_alert_tables(df_watch: pl.DataFrame) -> None:
             "upside",
             "alert",
         ]
-        st.markdown(""" ### Buy or Increase Positions""")
+        st.subheader("Buy or Increase Positions")
+        df_watch_buy_pandas = df_watch.filter(
+            (pl.col("action") == "buy") & (pl.col("alert").is_not_null())
+        ).to_pandas()
+        styler = df_watch_buy_pandas.style.apply(
+            lambda _: df_watch_buy_pandas["alert"].apply(
+                lambda val: (
+                    f"background-color: {COLOR_SCALE_GREEN_RED[1]}; color: black"
+                    if val.startswith("GOOD")
+                    else ""
+                )
+            ),
+            subset=["alert"],
+        )
+
         st.dataframe(
-            df_watch.filter((pl.col("action") == "buy") & (pl.col("alert").is_not_null())),
+            styler,
             column_order=display_order,
             column_config=column_config,
         )
 
-        st.markdown(""" ### Sell or Decrease Positions""")
+        st.subheader("Sell or Decrease Positions")
+        df_watch_sell_pandas = df_watch.filter(
+            (pl.col("action") == "sell") & (pl.col("alert").is_not_null())
+        ).to_pandas()
+        styler = df_watch_sell_pandas.style.apply(
+            lambda _: df_watch_sell_pandas["alert"].apply(
+                lambda val: (
+                    f"background-color: {COLOR_SCALE_GREEN_RED[3]}; color: black"
+                    if val.startswith("GOOD")
+                    else ""
+                )
+            ),
+            subset=["alert"],
+        )
 
         st.dataframe(
-            df_watch.filter((pl.col("action") == "sell") & (pl.col("alert").is_not_null())),
+            styler,
             column_order=display_order,
             column_config=column_config,
         )
@@ -156,12 +261,27 @@ def render_watch_list_alert_tables(df_watch: pl.DataFrame) -> None:
         styler = df_watch_pandas.style.apply(
             lambda _: df_watch_pandas["alert"].apply(
                 lambda val: (
-                    f"background-color: {COLOR_SCALE_GREEN_RED[0]}; color: white"
-                    if pd.notna(val)
-                    else ""
+                    ""
+                    if pd.isna(val)
+                    else (
+                        f"background-color: {COLOR_SCALE_GREEN_RED[1]}; color: black"
+                        if val.startswith("GOOD")
+                        else (
+                            f"background-color: {COLOR_SCALE_GREEN_RED[2]}; color: black"
+                            if val.startswith("FAIR")
+                            else ""
+                        )
+                    )
                 )
             ),
-            subset=["alert", "action", "metric", "threshold", "ticker"],
+            subset=[
+                "alert",
+                "action",
+                "metric",
+                "fair_threshold",
+                "good_threshold",
+                "ticker",
+            ],
         )
         st.dataframe(
             styler,
@@ -170,7 +290,8 @@ def render_watch_list_alert_tables(df_watch: pl.DataFrame) -> None:
                 "ticker",
                 "action",
                 "metric",
-                "threshold",
+                "fair_threshold",
+                "good_threshold",
                 "alert",
             ],
             column_config=column_config,

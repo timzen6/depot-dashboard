@@ -5,7 +5,7 @@ This module bridges the gap between raw data (yfinance pandas DataFrames)
 and our internal domain representation (Polars DataFrames + Pydantic models).
 """
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 import pandas as pd
@@ -117,7 +117,9 @@ def map_asset_type(info: dict[str, str]) -> AssetType:
     return AssetType.STOCK
 
 
-def map_ticker_info_to_asset_metadata(info: dict[str, str]) -> AssetMetadata:
+def map_ticker_info_to_asset_metadata(
+    info: dict[str, str], calendar: dict[str, Any] | None = None
+) -> AssetMetadata:
     """
     Map yfinance ticker info dictionary to AssetMetadata domain model.
 
@@ -133,6 +135,12 @@ def map_ticker_info_to_asset_metadata(info: dict[str, str]) -> AssetMetadata:
     if short_name:
         short_name = short_name.replace("   I", "").strip()
     name = _safe_str(info, ["longName", "shortName", "displayName", "name", "ticker"])
+    if calendar is not None:
+        dividend_date = _safe_date(calendar, ["Dividend Date", "dividendDate"])
+        earnings_date = _safe_date(calendar, ["Earnings Date", "earningsDate"])
+    else:
+        dividend_date = None
+        earnings_date = None
     if name:
         name = name.replace("   I", "").strip()
     else:
@@ -148,6 +156,12 @@ def map_ticker_info_to_asset_metadata(info: dict[str, str]) -> AssetMetadata:
         sector_raw=_safe_str(info, ["sector", "sectorDisp", "sectorKey"]),
         sector=sector,
         industry=_safe_str(info, ["industry", "industryDisp", "industryKey"]),
+        # important metrics for quick analysis, we cannot get them in the fundamentals
+        forward_pe=_get_float(info, ["forwardPE"]),
+        forward_eps=_get_float(info, ["forwardEps"]),
+        display_name=_safe_str(info, ["displayName"]),
+        dividend_date=dividend_date,
+        earnings_date=earnings_date,
     )
     logger.debug(f"Mapped AssetMetadata for {asset_metadata.name} ({asset_metadata.exchange})")
     return asset_metadata
@@ -378,6 +392,23 @@ def map_fundamentals_to_domain(
                     ],
                 ),
                 cash_and_equivalents=_get_float(row_data, ["cash and cash equivalents", "cash"]),
+                goodwill=_get_float(row_data, ["goodwill"]),
+                intangible_assets=_get_float(
+                    row_data, ["intangible assets", "other intangible assets"]
+                ),
+                goodwill_and_other_intangible_assets=_get_float(
+                    row_data, ["goodwill and other intangible assets"]
+                ),
+                share_issued=_get_float(
+                    row_data,
+                    [
+                        "share issued",
+                        "shares issued",
+                        "ordinary shares number",
+                        "common shares outstanding",
+                        "common stock shares outstanding",
+                    ],
+                ),
             )
 
             # Quality check: skip reports with future dates
@@ -412,6 +443,39 @@ def _get_float(data: dict[str, Any], keys: list[str]) -> float | None:
     return None
 
 
+def _safe_date(data: dict[str, Any], keys: list[str]) -> date | None:
+    lookup_map = {idx.strip().lower(): idx for idx in data.keys() if isinstance(idx, str)}
+    for key in keys:
+        key_clean = key.strip().lower()
+        if key_clean in lookup_map:
+            original_key = lookup_map[key_clean]
+            value = data.get(original_key, None)
+            # 1. Handle Nulls / NaNs
+            if value is None:
+                continue
+            if isinstance(value, float) and (pd.isna(value) or value != value):
+                continue
+
+            # 2. Handle Lists (unpack first element)
+            if isinstance(value, list):
+                if not value:
+                    continue
+                value = value[0]
+
+            # 3. Try parsing whatever is left (String, Timestamp, Int, etc.)
+            try:
+                # pandas to_datetime is the most robust parser we have
+                dt_val = pd.to_datetime(value)
+
+                # Check if the result is valid (not NaT)
+                if pd.notna(dt_val):
+                    return dt_val.date()  # type: ignore[no-any-return]
+            except (ValueError, TypeError):
+                continue
+
+    return None
+
+
 def _safe_str(data: dict[str, str], keys: list[str]) -> str | None:
     """
     Extract string value from pandas Series using multiple possible keys.
@@ -435,35 +499,4 @@ def _safe_str(data: dict[str, str], keys: list[str]) -> str | None:
             value = data.get(original_key, None)
             if pd.notna(value):
                 return str(value)
-    return None
-
-
-def _safe_float(row: pd.Series, keys: list[str]) -> float | None:
-    """
-    Extract numeric value from pandas Series using multiple possible keys.
-    Due to variations in yfinance column names, we try several options.
-    The matching is case-insensitive and ignores leading/trailing whitespace.
-
-    Args:
-        row: pandas Series (one row from transposed DataFrame)
-        keys: List of possible column names to try (case-insensitive)
-
-    Returns:
-        Float value if found and valid, None otherwise
-    """
-    # Create lowercase index for case-insensitive lookup
-    lookup_map = {idx.strip().lower(): idx for idx in row.index if isinstance(idx, str)}
-
-    for key in keys:
-        key_clean = key.strip().lower()
-        if key_clean in lookup_map:
-            original_key = lookup_map[key_clean]
-            value = row[original_key]
-            if pd.notna(value):
-                try:
-                    if isinstance(value, str):
-                        return float(value.replace(",", ""))
-                    return float(value)
-                except (ValueError, TypeError):
-                    continue
     return None

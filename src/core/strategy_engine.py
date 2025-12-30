@@ -69,6 +69,9 @@ class StrategyEngine:
         relevant_profiles = []
         relevant_sector_references = []
 
+        if df_positions.is_empty():
+            return df_positions
+
         for row in df_positions.to_dicts():
             ticker = row["ticker"]
             sector = row.get(sector_column, "")
@@ -91,6 +94,8 @@ class StrategyEngine:
             return df_result
 
         df_profiles = pl.DataFrame(relevant_profiles)
+        if df_profiles.is_empty():
+            return df_positions
         df_result = df_positions.join(df_profiles, on="ticker", how="left")
         return df_result
 

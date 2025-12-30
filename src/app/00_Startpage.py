@@ -19,6 +19,7 @@ from src.app.logic.startpage import (
 from src.app.views.startpage import (
     render_info_section,
     render_portfolio_overview_table,
+    render_recent_reports_section,
     render_stocks_to_watch_table,
     render_watch_list_alert_tables,
 )
@@ -70,13 +71,18 @@ df_portfolio = calculate_multiple_portfolio_metrics(
     etf_loader,
 )
 
-st.header("📁 Portfolio Overview")
-render_portfolio_overview_table(df_portfolio)
-
-
 selected_ticker = landing_config.watchlist_tickers
-
 watch_list = [alert.model_dump() for alert in landing_config.alerts]
+
+col1, col2 = st.columns([5, 2])
+with col1:
+    st.header("📁 Portfolio Overview")
+    # leave some vertical space
+    st.subheader("")
+    render_portfolio_overview_table(df_portfolio)
+with col2:
+    st.header("📅 Recent Earnings")
+    render_recent_reports_section(data, selected_ticker)
 
 df_screener_snapshot = (
     prepare_screener_snapshot(
@@ -99,7 +105,7 @@ with col1:
 with col2:
     df_watch = check_watch_list(
         data.prices.join(
-            data.metadata.select("ticker", "name", "asset_type"),
+            data.metadata.select("ticker", "name", "asset_type", "forward_pe"),
             on="ticker",
             how="left",
         ),

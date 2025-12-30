@@ -58,7 +58,7 @@ class ParquetStorage:
                 how="anti",
             )
             # Combine and deduplicate
-            combined_df = pl.concat([df, history_to_keep]).sort(unique_keys)
+            combined_df = pl.concat([df, history_to_keep], how="diagonal_relaxed").sort(unique_keys)
         else:
             combined_df = df.sort(unique_keys)
 

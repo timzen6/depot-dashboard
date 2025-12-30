@@ -3,6 +3,8 @@
 Provides fundamental and valuation metrics for portfolio analysis.
 """
 
+from typing import Any
+
 import polars as pl
 from loguru import logger
 
@@ -18,6 +20,28 @@ class MetricsEngine:
 
     def __init__(self) -> None:
         self.ttm_engine = TTMEngine()
+
+    def _ensure_schema(self, df_to_check: pl.DataFrame, required_cols: list[str]) -> pl.DataFrame:
+        """Ensure that all required columns exist in the DataFrame."""
+        existing_cols = set(df_to_check.columns)
+        missing_cols = [c for c in required_cols if c not in existing_cols]
+        if missing_cols:
+            exprs = []
+            for c in missing_cols:
+                dtype: Any
+                # Heuristic to determine type based on column name
+                if "date" in c:
+                    dtype = pl.Date
+                elif any(x in c for x in ["ticker", "currency", "period", "source"]):
+                    dtype = pl.Utf8
+                else:
+                    dtype = pl.Float64
+
+                exprs.append(pl.lit(None).cast(dtype).alias(c))
+
+            df_to_check = df_to_check.with_columns(exprs)
+
+        return df_to_check
 
     def calculate_fundamental_metrics(self, df_fund: pl.DataFrame) -> pl.DataFrame:
         """Add calculated fundamental metrics to raw fundamentals data.
@@ -43,97 +67,136 @@ class MetricsEngine:
             logger.warning("Fundamentals DataFrame is empty, skipping fundamental metrics")
             return df_fund
         logger.info(f"Calculating fundamental metrics for {df_fund.height} records")
+        if "currency" in df_fund.columns:
+            df_fund = df_fund.pipe(self._pound_fix, value_cols=["cash_dividends_paid"])
+
+        required_cols = [
+            # fmt: off
+            "ticker",
+            # ROCE
+            "total_assets",
+            "total_current_liabilities",
+            # Capital
+            "total_equity",
+            "total_debt",
+            "long_term_debt",
+            "short_term_debt",
+            "cash_and_equivalents",
+            # ROTCE
+            "goodwill",
+            "intangible_assets",
+            "goodwill_and_intangible_assets",
+            # FCF
+            "operating_cash_flow",
+            "capital_expenditure",
+            "free_cash_flow",
+            # Profitability / Margins
+            "revenue",
+            "gross_profit",
+            "ebit",
+            "net_income",
+            "interest_expense",
+            # fmt: on
+        ]
 
         if "report_date" in df_fund.columns and "date" not in df_fund.columns:
             df_fund = df_fund.with_columns(pl.col("report_date").alias("date"))
 
-        cols = set(df_fund.columns)
+        df_fund = self._ensure_schema(df_fund, required_cols)
+
         # Base metrics
-        base_exprs = []
+        exprs = []
+        # Debt
+        debt_expr = pl.coalesce(
+            pl.col("total_debt"),
+            pl.col("long_term_debt").fill_null(0) + pl.col("short_term_debt").fill_null(0),
+        )
 
-        if "total_assets" in cols and "total_current_liabilities" in cols:
-            base_exprs.append(
-                (pl.col("total_assets") - pl.col("total_current_liabilities")).alias(
-                    "capital_employed"
-                )
+        # Intangibles
+        intangibles_expr = pl.coalesce(
+            pl.col("goodwill_and_intangible_assets"),
+            pl.col("goodwill").fill_null(0) + pl.col("intangible_assets").fill_null(0),
+        )
+
+        # Core Metrics
+        capital_employed_expr = pl.col("total_assets") - pl.col("total_current_liabilities")
+
+        # Capital Employed
+        exprs.append(capital_employed_expr.alias("capital_employed"))
+
+        tangible_cap_expr = (
+            pl.col("total_equity")
+            + debt_expr.fill_null(0)
+            - pl.col("cash_and_equivalents").fill_null(0)
+            - intangibles_expr.fill_null(0)
+        )
+        exprs.append(tangible_cap_expr.alias("tangible_capital_employed"))
+
+        # Net Debt
+        exprs.append(
+            (debt_expr.fill_null(0) - pl.col("cash_and_equivalents").fill_null(0)).alias("net_debt")
+        )
+
+        # Free Cash Flow (calculated)
+        fcf_calculated = pl.col("operating_cash_flow") - pl.col("capital_expenditure").abs()
+        exprs.append(fcf_calculated.alias("fcf_calculated"))
+
+        exprs.append(
+            pl.coalesce(pl.col("free_cash_flow"), fcf_calculated).alias("free_cash_flow_final")
+        )
+
+        # Ratios
+
+        # ROCE
+        exprs.append((pl.col("ebit") / capital_employed_expr).alias("roce"))
+        # ROTCE
+        exprs.append(
+            pl.when(tangible_cap_expr.gt(0))
+            .then(pl.col("ebit") / tangible_cap_expr)
+            .otherwise(None)
+            .alias("rotce")
+        )
+        # Net Debt to EBIT
+        exprs.append((debt_expr / pl.col("ebit")).alias("net_debt_to_ebit"))
+        # Interest Coverage
+        exprs.append((pl.col("ebit") / pl.col("interest_expense").abs()).alias("interest_coverage"))
+        # Margins
+        exprs.append((pl.col("net_income") / pl.col("revenue")).alias("net_profit_margin"))
+        exprs.append((pl.col("gross_profit") / pl.col("revenue")).alias("gross_margin"))
+        exprs.append((pl.col("ebit") / pl.col("revenue")).alias("ebit_margin"))
+
+        df_fund = (
+            df_fund.with_columns(exprs)
+            .with_columns(pl.col("free_cash_flow_final").alias("free_cash_flow"))
+            .with_columns(
+                # Cash Conversion Ratio
+                (pl.col("free_cash_flow") / pl.col("net_income")).alias("cash_conversion_ratio")
             )
-        # Free Cash Flow Fallback
-        if "operating_cash_flow" in cols and "capital_expenditure" in cols:
-            base_exprs.append(
-                # ensures against inconsistent sign conventions for capex
-                (pl.col("operating_cash_flow") - pl.col("capital_expenditure").abs()).alias(
-                    "free_cash_flow"
-                )
-            )
-
-        debt_expr = None
-        if "total_debt" in cols:
-            debt_expr = pl.col("total_debt")
-        elif "long_term_debt" in cols:
-            ltd = pl.col("long_term_debt").fill_null(0)
-            std = pl.col("short_term_debt").fill_null(0) if "short_term_debt" in cols else 0
-            debt_expr = ltd + std
-
-        if debt_expr is not None and "cash_and_equivalents" in cols:
-            base_exprs.append((debt_expr - pl.col("cash_and_equivalents")).alias("net_debt"))
-
-        if base_exprs:
-            df_fund = df_fund.with_columns(base_exprs)
-
-        cols = set(df_fund.columns)
-
-        # Derived metrics
-        ratio_exprs = []
-        if "net_income" in cols and "revenue" in cols:
-            ratio_exprs.append(
-                (pl.col("net_income") / pl.col("revenue")).alias("net_profit_margin")
-            )
-        if "gross_profit" in cols and "revenue" in cols:
-            ratio_exprs.append((pl.col("gross_profit") / pl.col("revenue")).alias("gross_margin"))
-        if "ebit" in cols and "revenue" in cols:
-            ratio_exprs.append((pl.col("ebit") / pl.col("revenue")).alias("ebit_margin"))
-        if "ebit" in cols and "capital_employed" in cols:
-            ratio_exprs.append(
-                (pl.col("ebit") / pl.col("capital_employed")).fill_nan(None).alias("roce")
-            )
-        if "ebit" in cols and "interest_expense" in cols:
-            ratio_exprs.append(
-                (pl.col("ebit") / pl.col("interest_expense").abs())
-                .fill_nan(None)
-                .alias("interest_coverage")
-            )
-        if "ebit" in cols and "net_debt" in cols:
-            ratio_exprs.append(
-                (pl.col("net_debt") / pl.col("ebit")).fill_nan(None).alias("net_debt_to_ebit")
-            )
-        if "fcf_calculated" in cols:
-            if "free_cash_flow" not in cols:
-                ratio_exprs.append(pl.col("fcf_calculated").alias("free_cash_flow"))
-            else:
-                # both exist, prefer existing, but fallback to calculated if value is null
-                ratio_exprs.append(
-                    pl.coalesce(pl.col("free_cash_flow"), pl.col("fcf_calculated")).alias(
-                        "free_cash_flow"
-                    )
-                )
-        elif "free_cash_flow" in cols:
-            # the calculated one does not exist, but the original does
-            ratio_exprs.append(pl.col("free_cash_flow").alias("free_cash_flow"))
-
-        if ratio_exprs:
-            df_fund = df_fund.with_columns(ratio_exprs)
+            .drop("free_cash_flow_final")
+        )
         return df_fund
 
-    def _ensure_columns_exist(
-        self, df_to_check: pl.DataFrame, required_cols: list[str]
-    ) -> pl.DataFrame:
-        """Ensure that all required columns exist in the DataFrame."""
-        existing_cols = set(df_to_check.columns)
-        missing_cols = [c for c in required_cols if c not in existing_cols]
-        df_to_check = df_to_check.with_columns(
-            [pl.lit(None).cast(pl.Float64).alias(c) for c in missing_cols]
+    def _pound_fix(self, df: pl.DataFrame, value_cols: list[str] | None = None) -> pl.DataFrame:
+        """
+        There are two problems with LSE data:
+        1. Prices are in pence, need to convert to pounds
+        2. Currency column is 'GBp' but should be 'GBP'
+        """
+        expr = []
+        for col in value_cols or []:
+            expr.append(
+                pl.when((pl.col("currency") == "GBp") & (pl.col("ticker").str.ends_with(".L")))
+                .then(pl.col(col) / 100)
+                .otherwise(pl.col(col))
+                .alias(col)
+            )
+        expr.append(
+            pl.when(pl.col("currency") == "GBp")
+            .then(pl.lit("GBP"))
+            .otherwise(pl.col("currency"))
+            .alias("currency")
         )
-        return df_to_check
+        return df.with_columns(expr)
 
     def calculate_valuation_metrics(
         self,
@@ -161,8 +224,33 @@ class MetricsEngine:
         if df_prices.is_empty():
             logger.warning("Price DataFrame is empty, skipping valuation metrics")
             return df_prices
+
+        # Before we do anything, prices from London Stock Exchange (LSE) need special handling
+        # They are reported in pence, so we convert to pounds here
+        # when currency GBP and ticker ends with .L
+        if "currency" in df_prices.columns:
+            df_prices = df_prices.pipe(
+                self._pound_fix,
+                value_cols=["open", "high", "low", "close", "adj_close"],
+            )
+
         # A. Annual Data
         if not df_annual.is_empty():
+            df_annual = self._ensure_schema(
+                df_annual,
+                [
+                    # fmt: off
+                    "ticker",
+                    "report_date",
+                    "diluted_eps",
+                    "diluted_average_shares",
+                    "revenue",
+                    "free_cash_flow",
+                    "basic_average_shares",
+                    "cash_dividends_paid",
+                    # fmt: on
+                ],
+            )
             q_annual = df_annual.select(
                 [
                     pl.col("ticker"),
@@ -182,6 +270,20 @@ class MetricsEngine:
             q_annual = pl.DataFrame()
         # B. TTM Data
         if df_quarterly is not None and not df_quarterly.is_empty():
+            df_quarterly = self._ensure_schema(
+                df_quarterly,
+                [
+                    # fmt: off
+                    "ticker",
+                    "report_date",
+                    "diluted_eps",
+                    "diluted_average_shares",
+                    "revenue",
+                    "free_cash_flow",
+                    "share_issued",
+                    # fmt: on
+                ],
+            )
             ttm_tmp = self.ttm_engine.calculate_ttm_history(df_quarterly)
             q_ttm = ttm_tmp.select(
                 [
@@ -194,6 +296,7 @@ class MetricsEngine:
                     pl.col("free_cash_flow_ttm").alias("fcf_ttm"),
                     # Prefer diluted TTM
                     pl.coalesce(
+                        pl.col("share_issued_ttm"),
                         pl.col("diluted_average_shares_ttm"),
                         pl.col("basic_average_shares_ttm"),
                     ).alias("shares_ttm"),
@@ -228,7 +331,7 @@ class MetricsEngine:
             "shares_ttm",
             "report_date_ttm",
         ]
-        df_p = self._ensure_columns_exist(df_p, expected_ttm_cols)
+        df_p = self._ensure_schema(df_p, expected_ttm_cols)
         expected_annual_cols = [
             "eps_annual",
             "revenue_annual",
@@ -237,7 +340,7 @@ class MetricsEngine:
             "dividend_annual",
             "report_date",
         ]
-        df_p = self._ensure_columns_exist(df_p, expected_annual_cols)
+        df_p = self._ensure_schema(df_p, expected_annual_cols)
 
         eps_expr = pl.coalesce(pl.col("eps_ttm"), pl.col("eps_annual"))
         report_date_expr = pl.coalesce(pl.col("report_date_ttm"), pl.col("report_date"))

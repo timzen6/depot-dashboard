@@ -142,7 +142,7 @@ def _load_cached_raw_data(
         logger.warning(f"No price files found in {prices_dir}")
         df_prices = pl.DataFrame()
     else:
-        df_prices = pl.concat([pl.read_parquet(f) for f in price_files], how="vertical_relaxed")
+        df_prices = pl.concat([pl.read_parquet(f) for f in price_files], how="diagonal_relaxed")
         logger.info(f"Loaded {df_prices.height:,} price records from {len(price_files)} files")
 
     annual_path = fundamentals_dir / "annual"
@@ -157,8 +157,7 @@ def _load_cached_raw_data(
     else:
         df_annual = pl.concat(
             [pl.read_parquet(f) for f in annual_files],
-            # how="vertical_relaxed",
-            how="diagonal",
+            how="diagonal_relaxed",
         )
         logger.info(
             f"Loaded {df_annual.height:,} fundamental records from {len(annual_files)} files"
@@ -173,8 +172,7 @@ def _load_cached_raw_data(
             if quarterly_files:
                 df_quarterly = pl.concat(
                     [pl.read_parquet(f) for f in quarterly_files],
-                    how="vertical_relaxed",
-                    # how="diagonal",
+                    how="diagonal_relaxed",
                 )
                 logger.info(
                     f"Loaded {df_quarterly.height:,} quarterly fundamental"

@@ -3,7 +3,9 @@
 Pure visualization functions using Plotly for interactive charts.
 """
 
+import math
 from dataclasses import dataclass
+from datetime import date
 
 import plotly.express as px
 import plotly.graph_objects as go
@@ -217,7 +219,9 @@ def render_latest_price_info(
         )
 
 
-def render_pe_ratio_chart(df_price: pl.DataFrame, ticker: str) -> None:
+def render_pe_ratio_chart(
+    df_price: pl.DataFrame, ticker: str, start_date: date | None = None
+) -> None:
     """Render PE Ratio history chart.
 
     Args:
@@ -251,6 +255,8 @@ def render_pe_ratio_chart(df_price: pl.DataFrame, ticker: str) -> None:
             )
         )
     )
+    if start_date:
+        df_price = df_price.filter(pl.col("date") >= start_date)
 
     fig = px.line(
         df_price,
@@ -284,12 +290,129 @@ def render_pe_ratio_chart(df_price: pl.DataFrame, ticker: str) -> None:
     st.plotly_chart(fig, use_container_width=True)
 
 
+def render_fcf_yield_chart(
+    df_price: pl.DataFrame,
+    ticker: str,
+    fx_engine: FXEngine,
+    start_date: date | None = None,
+    use_log: bool = True,
+) -> None:
+    if (
+        df_price.is_empty()
+        or "fcf_yield" not in df_price.columns
+        or df_price["fcf_yield"].is_null().all()
+    ):
+        st.warning(f"No price data available for {ticker}")
+        return
+    df_price = df_price.sort(["ticker", "date"]).pipe(
+        fx_engine.convert_multiple_to_target,
+        amount_cols=["close"],
+        source_currency_col="currency",
+    )
+
+    median_yield = df_price.select(pl.col("fcf_yield").median()).item() * 100
+    current_yield = df_price.tail(1).select(pl.col("fcf_yield")).item() * 100
+
+    if start_date:
+        df_price = df_price.filter(pl.col("date") >= start_date)
+    if df_price.is_empty():
+        st.warning(f"No price data available for {ticker} in selected date range")
+        return
+
+    # we must set ranges manually, because plotly leaves much to much space
+    price_min = df_price.select(pl.col("close_EUR").min()).item()
+    price_max = df_price.select(pl.col("close_EUR").max()).item()
+
+    if use_log:
+        safe_min = max(price_min, 0.01)
+        y_min = math.log10(safe_min)
+        y_max = math.log10(price_max)
+        log_padding = (y_max - y_min) * 0.1
+        y_min = y_min - log_padding
+        y_max = y_max + log_padding
+
+    else:
+        padding = (price_max - price_min) * 0.1
+        y_min = price_min - padding
+        y_max = price_max + padding
+
+    yield_min = df_price.select(pl.col("fcf_yield").min()).item() * 100
+    yield_max = df_price.select(pl.col("fcf_yield").max()).item() * 100
+    yield_range = yield_max - yield_min
+    yield_padding = yield_range * 0.1
+
+    y2_min = max(min(yield_min, median_yield) - yield_padding, 0)
+    y2_max = max(yield_max + yield_padding, median_yield + yield_padding)
+
+    fig = make_subplots(specs=[[{"secondary_y": True}]])
+
+    # Lina A: Stock Price
+    fig.add_trace(
+        go.Scatter(
+            x=df_price["date"],
+            y=df_price["close_EUR"],
+            name="Stock Price",
+            line=dict(color=Colors.blue),
+        ),
+        secondary_y=False,
+    )
+    # Line B: FCF Yield
+    fig.add_trace(
+        go.Scatter(
+            x=df_price["date"],
+            y=df_price["fcf_yield"] * 100,  # convert to percentage
+            name="FCF Yield (%)",
+            line=dict(color=Colors.green),
+        ),
+        secondary_y=True,
+    )
+    # Median Line
+    fig.add_hline(
+        y=median_yield,
+        line_dash="dot",
+        line_color=Colors.amber,
+        annotation_text=f"Median: {median_yield:.1f}%",
+        annotation_position="bottom right",
+        secondary_y=True,
+    )
+
+    # Styling & Log Scale Logic
+    fig.update_layout(
+        title=dict(
+            text=f"💎 Valuation Radar: Price vs. FCF Yield (Current: {current_yield:.1f}%)",
+            font=dict(size=16),
+        ),
+        hovermode="x unified",
+        legend=dict(orientation="h", y=1.1),
+        margin=dict(t=80, l=10, r=10, b=10),
+        height=500,
+    )
+
+    # Axes Updates
+    fig.update_yaxes(
+        title_text="Price",
+        type="log" if use_log else "linear",
+        range=[y_min, y_max],
+        showgrid=False,
+        secondary_y=False,
+    )
+    fig.update_yaxes(
+        title_text="FCF Yield %",
+        range=[y2_min, y2_max],
+        showgrid=True,
+        secondary_y=True,
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
+
+
 def render_price_chart(
     df_price: pl.DataFrame,
     ticker: str,
     simple_display_mode: bool,
     fx_engine: FXEngine,
     use_euro: bool = True,
+    start_date: date | None = None,
 ) -> None:
     """Render price history with volume as candlestick chart.
 
@@ -325,6 +448,8 @@ def render_price_chart(
                 pl.col("close").alias("Closing Price"),
                 pl.col("fair_value").alias("Fair Value"),
             )
+        if start_date:
+            df_price = df_price.filter(pl.col("date") >= start_date)
         fig = px.line(
             df_price,
             x="date",
@@ -360,6 +485,8 @@ def render_price_chart(
         subplot_titles=(f"{ticker} Price", "Volume"),
         row_heights=[0.7, 0.3],
     )
+    if start_date:
+        df_price = df_price.filter(pl.col("date") >= start_date)
 
     # Candlestick chart
     fig.add_trace(
@@ -402,16 +529,17 @@ def render_price_chart(
     st.plotly_chart(fig, use_container_width=True)
 
 
-def render_quality_chart(stock_data: StockData, metrics: list[MetricDisplayInfo]) -> None:
+def render_quality_chart(df_fund: pl.DataFrame) -> None:
     """Render fundamental metrics over time (ROCE, Margins, FCF)."""
-    ticker = stock_data.ticker
-    df_fund = stock_data.fundamentals
+    ticker = df_fund.select(pl.first("ticker")).item() if "ticker" in df_fund.columns else "Unknown"
     if df_fund.is_empty():
         st.warning(f"No fundamental data available for {ticker}")
         return
 
     # Create tabs for different metric categories
-    tab1, tab2, tab3 = st.tabs(["Capital Efficiency", "Margins", "Cash Flow"])
+    tab1, tab2, tab3, tab4 = st.tabs(
+        ["Capital Efficiency", "Margins", "Cash Flow", "Cash Conversion Ratio"]
+    )
 
     currency = df_fund.select(pl.first("currency")).item()
     symbol = CURRENCY_SYMBOLS.get(currency, currency)
@@ -420,7 +548,8 @@ def render_quality_chart(stock_data: StockData, metrics: list[MetricDisplayInfo]
         df_fund.sort("date")
         .filter(pl.col("revenue").is_not_null())
         .with_columns(
-            (pl.col("roce") * 100).alias("roce%"),
+            (pl.col("roce") * 100).alias("ROCE %"),
+            (pl.col("rotce") * 100).alias("ROTCE %"),
             (pl.col("ebit_margin") * 100).alias("ebit_margin%"),
             (pl.col("gross_margin") * 100).alias("gross_margin%"),
         )
@@ -432,15 +561,18 @@ def render_quality_chart(stock_data: StockData, metrics: list[MetricDisplayInfo]
             fig_roce = px.bar(
                 df_fund,
                 x="date",
-                y="roce%",
-                labels={"roce%": "ROCE (%)", "date": "Date"},
-                title=f"{ticker} Return on Capital Employed (ROCE)",
+                y=["ROCE %", "ROTCE %"],
+                labels={"date": "Date", "value": "Percentage (%)"},
+                title=f"{ticker} Return on Capital Employed (ROCE / ROTCE)",
                 color_discrete_sequence=COLOR_SCALE_CONTRAST,
+                barmode="group",
             )
-
+            # set y range
             fig_roce.update_layout(
                 template="plotly_white",
                 height=400,
+                yaxis=dict(range=[0, 100]),
+                legend_title_text="",
             )
 
             st.plotly_chart(fig_roce, use_container_width=True)
@@ -502,50 +634,98 @@ def render_quality_chart(stock_data: StockData, metrics: list[MetricDisplayInfo]
             st.plotly_chart(fig_fcf, use_container_width=True)
         else:
             st.info("Free Cash Flow data not available")
-        # no legend
+    with tab4:
+        if "cash_conversion_ratio" in df_fund.columns:
+            fig_ccr = px.bar(
+                df_fund,
+                x="date",
+                y="cash_conversion_ratio",
+                labels={
+                    "cash_conversion_ratio": "Cash Conversion Ratio",
+                    "date": "Date",
+                },
+                title=f"{ticker} Cash Conversion Ratio",
+                color_discrete_sequence=COLOR_SCALE_CONTRAST,
+            )
+            fig_ccr.update_layout(
+                template="plotly_white",
+                height=400,
+            )
+            st.plotly_chart(fig_ccr, use_container_width=True)
+        else:
+            st.info("Cash Conversion Ratio data not available")
 
 
-def render_valuation_data(stock_data: StockData) -> None:
+def render_valuation_data(stock_data: StockData, fx_engine: FXEngine) -> None:
     """Render key valuation and fundamental metrics as Streamlit metrics."""
 
     df_price = stock_data.prices
-
     latest_price_metrics = df_price.tail(1)
-    yearly_price_metrics = df_price.group_by(pl.col("date").dt.year().alias("year")).agg(
-        pl.mean("close").alias("close"),
-        pl.mean("volume").alias("volume"),
-        pl.sum("dividend").alias("dividend"),
-        pl.mean("rolling_dividend_sum").alias("rolling_dividend_sum"),
-        pl.mean("fcf_yield").alias("fcf_yield"),
-        pl.mean("dividend_yield").alias("dividend_yield"),
-        pl.mean("pe_ratio").alias("pe_ratio"),
-        pl.mean("diluted_average_shares").alias("diluted_average_shares"),
+    latest_price_metrics = latest_price_metrics.pipe(
+        fx_engine.convert_multiple_to_target,
+        amount_cols=["rolling_dividend_sum", "fair_value"],
+        source_currency_col="currency",
+    )
+    yearly_price_metrics = (
+        df_price.pipe(
+            fx_engine.convert_multiple_to_target,
+            amount_cols=["close", "dividend", "fair_value"],
+            source_currency_col="currency",
+        )
+        .group_by(pl.col("date").dt.year().alias("year"))
+        .agg(
+            pl.mean("close_EUR").alias("close_EUR"),
+            pl.mean("volume").alias("volume"),
+            pl.sum("dividend_EUR").alias("dividend_EUR"),
+            pl.mean("fcf_yield").alias("fcf_yield"),
+            pl.mean("dividend_yield").alias("dividend_yield"),
+            pl.mean("pe_ratio").alias("pe_ratio"),
+            pl.mean("diluted_average_shares").alias("diluted_average_shares"),
+            pl.mean("fair_value_EUR").alias("fair_value_EUR"),
+        )
     )
     st.subheader("💰 Valuation Metrics")
     col1, col2 = st.columns([1, 3])
     with col1:
-        if "pe_ratio" in df_price.columns:
+        sub_col1, sub_col2 = st.columns(2)
+        with sub_col1:
+            if "pe_ratio" in df_price.columns:
+                st.metric(
+                    "Current P/E Ratio",
+                    f"{latest_price_metrics.select('pe_ratio').item():.1f}",
+                )
+        with sub_col2:
+            latest_fcf_yield = latest_price_metrics.select("fcf_yield").item()
+            if latest_fcf_yield is not None:
+                st.metric(
+                    "Current FCF Yield",
+                    f"{ latest_fcf_yield * 100:.1f}%",
+                )
+        with sub_col1:
+            forward_pe = stock_data.metadata.get("forward_pe", None)
+            if forward_pe is not None:
+                st.metric(
+                    "Forward P/E Ratio",
+                    f"{forward_pe:.1f}",
+                )
+        with sub_col2:
+            if "fair_value" in latest_price_metrics.columns:
+                st.metric(
+                    "Current Fair Value",
+                    f"{latest_price_metrics.select('fair_value_EUR').item():.0f} €",
+                )
+        with sub_col1:
             st.metric(
-                "Current P/E Ratio",
-                f"{latest_price_metrics.select('pe_ratio').item():.1f}",
+                "Current Dividend Yield",
+                f"{latest_price_metrics.select('dividend_yield').item() * 100:.1f}%",
             )
-        latest_fcf_yield = latest_price_metrics.select("fcf_yield").item()
-        if latest_fcf_yield is not None:
+        with sub_col2:
             st.metric(
-                "Current FCF Yield",
-                f"{ latest_fcf_yield * 100:.1f}%",
-            )
-        st.metric(
-            "Current Dividend Yield",
-            f"{latest_price_metrics.select('dividend_yield').item() * 100:.1f}%",
-        )
-        if "fair_value" in latest_price_metrics.columns:
-            st.metric(
-                "Current Fair Value",
-                f"${latest_price_metrics.select('fair_value').item():.0f}",
+                "Current Dividend (Rolling 12M)",
+                f"{latest_price_metrics.select('rolling_dividend_sum_EUR').item():.2f} €",
             )
     with col2:
-        tab1, tab2, tab3 = st.tabs(["P/E Ratio", "Yield", "Dilution"])
+        tab1, tab2, tab3, tab4 = st.tabs(["P/E Ratio", "Yield", "Dilution", "Dividends"])
         tmp_metrics = (
             yearly_price_metrics.select(
                 "year",
@@ -553,6 +733,7 @@ def render_valuation_data(stock_data: StockData) -> None:
                 "dividend_yield",
                 "pe_ratio",
                 "diluted_average_shares",
+                "dividend_EUR",
             )
             .with_columns(
                 (pl.col("fcf_yield") * 100).alias("fcf_yield"),
@@ -609,28 +790,48 @@ def render_valuation_data(stock_data: StockData) -> None:
                 color_discrete_sequence=COLOR_SCALE_CONTRAST,
             )
             st.plotly_chart(fig, use_container_width=True)
+        with tab4:
+            fig = px.bar(
+                tmp_metrics.filter(pl.col("metric") == "dividend_EUR"),
+                x="year",
+                y="yield",
+                labels={"yield": "Dividend Amount (€)", "year": "Year"},
+                color_discrete_sequence=COLOR_SCALE_CONTRAST,
+            )
+            st.plotly_chart(fig, use_container_width=True)
 
 
-def render_quality_data(stock_data: StockData) -> None:
-    metrics = [
+def render_quality_data(stock_data: StockData, fx_engine: FXEngine) -> None:
+    metrics_col1 = [
         MetricDisplayInfo("roce", 100, "%", "ROCE"),
         MetricDisplayInfo("gross_margin", 100, "%", "Gross Margin"),
+        MetricDisplayInfo("free_cash_flow_EUR", 1e-9, "B", "Free Cash Flow"),
+    ]
+    metrics_col2 = [
+        MetricDisplayInfo("rotce", 100, "%", "ROTCE"),
         MetricDisplayInfo("ebit_margin", 100, "%", "EBIT Margin"),
-        MetricDisplayInfo("free_cash_flow", 1e-9, "B", "Free Cash Flow"),
         MetricDisplayInfo("cash_conversion_ratio", 100, "%", "Cash Conversion Ratio"),
     ]
+    df_fund = stock_data.fundamentals.pipe(
+        fx_engine.convert_multiple_to_target,
+        amount_cols=["free_cash_flow"],
+        source_currency_col="currency",
+    )
+
     st.subheader("💎 Quality Metrics")
-    col1, col2 = st.columns([1, 3])
+    col1, col2, col3 = st.columns([1, 1, 4])
     with col1:
-        render_quality_metrics(stock_data, metrics)
+        render_quality_metrics(df_fund, metrics_col1)
     with col2:
-        render_quality_chart(stock_data, metrics)
+        render_quality_metrics(df_fund, metrics_col2)
+    with col3:
+        render_quality_chart(df_fund)
 
 
-def render_quality_metrics(stock_data: StockData, metrics: list[MetricDisplayInfo]) -> None:
-    latest_fund = stock_data.fundamentals.tail(1)
-    currency = stock_data.fundamentals.select(pl.first("currency")).item()
-    symbol = CURRENCY_SYMBOLS.get(currency, currency)
+def render_quality_metrics(df_fund: pl.DataFrame, metrics: list[MetricDisplayInfo]) -> None:
+    latest_fund = df_fund.tail(1)
+    # all values should be in EUR for display
+    symbol = "€"
 
     for metric in metrics:
         label = metric.display_name
@@ -899,3 +1100,55 @@ def render_etf_composition_charts(
         )
         style_pie_chart(fig_factor)
         st.plotly_chart(fig_factor, use_container_width=True)
+
+
+def render_fundamentals_reference(df_fund: pl.DataFrame) -> None:
+    """Render key fundamental metrics as Reference for Debugging."""
+    raw_fundamentals = (
+        df_fund.select(
+            [
+                # fmt: off
+                "ticker",
+                "report_date",
+                "revenue",
+                "gross_profit",
+                "ebit",
+                "net_income",
+                "tax_provision",
+                "interest_expense",
+                "diluted_eps",
+                "basic_eps",
+                "operating_cash_flow",
+                "capital_expenditure",
+                "free_cash_flow",
+                "cash_dividends_paid",
+                "basic_average_shares",
+                "diluted_average_shares",
+                "share_issued",
+                "total_assets",
+                "total_current_liabilities",
+                "total_equity",
+                "long_term_debt",
+                "short_term_debt",
+                "cash_and_equivalents",
+                "total_debt",
+                "goodwill",
+                "intangible_assets",
+                "goodwill_and_intangible_assets",
+                # fmt: on
+            ]
+        )
+        .unpivot(
+            index=[
+                "report_date",
+            ],
+            variable_name="metric",
+            value_name="value",
+        )
+        .sort(["report_date", "metric"], descending=[True, False])
+    )
+    with st.expander("Show Raw Fundamental Data"):
+        st.dataframe(
+            raw_fundamentals,
+            use_container_width=True,
+        )

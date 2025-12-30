@@ -39,6 +39,10 @@ class TTMEngine:
             "cash_and_equivalents",
             "basic_average_shares",
             "diluted_average_shares",
+            "share_issued",
+            "goodwill",
+            "intangible_assets",
+            "goodwill_and_intangible_assets",
         ]
 
     def calculate_ttm_history(self, df_quarterly: pl.DataFrame) -> pl.DataFrame:

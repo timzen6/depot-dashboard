@@ -83,7 +83,7 @@ def prepare_screener_snapshot(
             .alias("peg_ratio"),
         )
         .join(
-            df_metadata.select(["ticker", "name", "info"]),
+            df_metadata.select(["ticker", "name", "info", "forward_pe"]),
             on="ticker",
             how="left",
         )

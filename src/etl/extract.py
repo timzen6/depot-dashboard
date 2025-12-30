@@ -39,6 +39,11 @@ class DataExtractor:
             logger.warning(f"[{ticker}] Failed to fetch info: {e}. Defaulting to USD.")
             return {"currency": "USD"}
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        reraise=True,
+    )  # type: ignore[misc]
     def get_full_ticker_info(self, ticker: str) -> dict[str, str]:
         """
         Fetches full ticker info for discovery/debugging purposes.
@@ -48,6 +53,18 @@ class DataExtractor:
         info = yf_ticker.info
         info["ticker"] = ticker
         return dict(info)
+
+    def get_full_ticker_calendar(self, ticker: str) -> dict[str, str]:
+        """
+        Fetches full ticker calendar for discovery/debugging purposes.
+        No retry logic here; caller can implement if needed.
+        """
+        yf_ticker = yf.Ticker(ticker)
+        cal = yf_ticker.calendar
+        if cal is None:
+            return {"ticker": ticker}
+        cal["ticker"] = ticker
+        return dict(cal)
 
     @retry(
         stop=stop_after_attempt(3),

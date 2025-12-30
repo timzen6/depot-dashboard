@@ -73,7 +73,8 @@ class AlertDefinition(BaseModel):
     ticker: str
     action: Literal["buy", "sell", "hold"]
     metric: str
-    threshold: float
+    fair_threshold: float | None = None
+    good_threshold: float
     comment: str | None = None
 
 
