@@ -75,7 +75,11 @@ class ETLPipeline:
             try:
                 # Fetch full ticker info from yfinance
                 info = self.extractor.get_full_ticker_info(ticker)
-                calendar = self.extractor.get_full_ticker_calendar(ticker)
+                try:
+                    calendar = self.extractor.get_full_ticker_calendar(ticker)
+                except Exception as e:
+                    logger.warning(f"[{ticker}] Failed to fetch calendar: {e}")
+                    calendar = None
 
                 # Transform to domain model
                 asset_metadata = map_ticker_info_to_asset_metadata(info, calendar)

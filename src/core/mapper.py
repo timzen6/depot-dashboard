@@ -118,7 +118,7 @@ def map_asset_type(info: dict[str, str]) -> AssetType:
 
 
 def map_ticker_info_to_asset_metadata(
-    info: dict[str, str], calendar: dict[str, Any]
+    info: dict[str, str], calendar: dict[str, Any] | None = None
 ) -> AssetMetadata:
     """
     Map yfinance ticker info dictionary to AssetMetadata domain model.
@@ -135,6 +135,12 @@ def map_ticker_info_to_asset_metadata(
     if short_name:
         short_name = short_name.replace("   I", "").strip()
     name = _safe_str(info, ["longName", "shortName", "displayName", "name", "ticker"])
+    if calendar:
+        dividend_date = _safe_date(calendar, ["Dividend Date", "dividendDate"])
+        earnings_date = _safe_date(calendar, ["Earnings Date", "earningsDate"])
+    else:
+        dividend_date = None
+        earnings_date = None
     if name:
         name = name.replace("   I", "").strip()
     else:
@@ -154,8 +160,8 @@ def map_ticker_info_to_asset_metadata(
         forward_pe=_get_float(info, ["forwardPE"]),
         forward_eps=_get_float(info, ["forwardEps"]),
         display_name=_safe_str(info, ["displayName"]),
-        dividend_date=_safe_date(calendar, ["Dividend Date", "dividendDate"]),
-        earnings_date=_safe_date(calendar, ["Earnings Date", "earningsDate"]),
+        dividend_date=dividend_date,
+        earnings_date=earnings_date,
     )
     logger.debug(f"Mapped AssetMetadata for {asset_metadata.name} ({asset_metadata.exchange})")
     return asset_metadata
