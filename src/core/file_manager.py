@@ -28,30 +28,6 @@ class ParquetStorage:
             self.base_path.mkdir(parents=True, exist_ok=True)
         logger.info(f"ParquetStorage initialized at {self.base_path}")
 
-    def _harmonize_schemas(
-        self, df_new: pl.DataFrame, df_old: pl.DataFrame
-    ) -> tuple[pl.DataFrame, pl.DataFrame]:
-        """Ensure both DataFrames have the same schema before merging.
-        This ensures schema evolution is handled gracefully.
-        """
-        cols_new = set(df_new.columns)
-        cols_old = set(df_old.columns)
-
-        missing_in_new = cols_old - cols_new
-        missing_in_old = cols_new - cols_old
-
-        if missing_in_new:
-            exprs = [pl.lit(None).cast(df_old.schema[col]).alias(col) for col in missing_in_new]
-            df_new = df_new.with_columns(exprs)
-
-        if missing_in_old:
-            exprs = [pl.lit(None).cast(df_new.schema[col]).alias(col) for col in missing_in_old]
-            df_old = df_old.with_columns(exprs)
-
-        all_cols = sorted(set(df_new.columns) | set(df_old.columns))
-
-        return df_new.select(all_cols), df_old.select(all_cols)
-
     def atomic_update(
         self,
         df: pl.DataFrame,
@@ -82,10 +58,7 @@ class ParquetStorage:
                 how="anti",
             )
             # Combine and deduplicate
-            df_harmonized, history_to_keep_harmonized = self._harmonize_schemas(df, history_to_keep)
-            combined_df = pl.concat(
-                [df_harmonized, history_to_keep_harmonized], how="diagonal_relaxed"
-            ).sort(unique_keys)
+            combined_df = pl.concat([df, history_to_keep], how="diagonal_relaxed").sort(unique_keys)
         else:
             combined_df = df.sort(unique_keys)
 

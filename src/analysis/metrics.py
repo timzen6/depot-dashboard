@@ -185,16 +185,13 @@ class MetricsEngine:
         expr = []
         for col in value_cols or []:
             expr.append(
-                pl.when(
-                    (pl.col("currency").str.to_lowercase() == "gbp")
-                    & (pl.col("ticker").str.ends_with(".L"))
-                )
+                pl.when((pl.col("currency") == "GBp") & (pl.col("ticker").str.ends_with(".L")))
                 .then(pl.col(col) / 100)
                 .otherwise(pl.col(col))
                 .alias(col)
             )
         expr.append(
-            pl.when(pl.col("currency").str.to_lowercase() == "gbp")
+            pl.when(pl.col("currency") == "GBp")
             .then(pl.lit("GBP"))
             .otherwise(pl.col("currency"))
             .alias("currency")
