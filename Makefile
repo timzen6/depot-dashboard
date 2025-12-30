@@ -21,10 +21,12 @@ fundamentals:
 	uv run qc fundamentals
 
 etl:
-	uv run qc etl
+	@ uv run qc meta
+	@ uv run qc etl
 
 etl-full:
-	uv run qc etl --full
+	@ uv run qc meta --full
+	@ uv run qc etl --full
 
 snapshot:
 	uv run qc snapshot

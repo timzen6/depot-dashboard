@@ -450,28 +450,28 @@ def _safe_date(data: dict[str, Any], keys: list[str]) -> date | None:
         if key_clean in lookup_map:
             original_key = lookup_map[key_clean]
             value = data.get(original_key, None)
-        # 1. Handle Nulls / NaNs
-        if value is None:
-            continue
-        if isinstance(value, float) and (pd.isna(value) or value != value):
-            continue
-
-        # 2. Handle Lists (unpack first element)
-        if isinstance(value, list):
-            if not value:
+            # 1. Handle Nulls / NaNs
+            if value is None:
                 continue
-            value = value[0]
+            if isinstance(value, float) and (pd.isna(value) or value != value):
+                continue
 
-        # 3. Try parsing whatever is left (String, Timestamp, Int, etc.)
-        try:
-            # pandas to_datetime is the most robust parser we have
-            dt_val = pd.to_datetime(value)
+            # 2. Handle Lists (unpack first element)
+            if isinstance(value, list):
+                if not value:
+                    continue
+                value = value[0]
 
-            # Check if the result is valid (not NaT)
-            if pd.notna(dt_val):
-                return dt_val.date()  # type: ignore[no-any-return]
-        except (ValueError, TypeError):
-            continue
+            # 3. Try parsing whatever is left (String, Timestamp, Int, etc.)
+            try:
+                # pandas to_datetime is the most robust parser we have
+                dt_val = pd.to_datetime(value)
+
+                # Check if the result is valid (not NaT)
+                if pd.notna(dt_val):
+                    return dt_val.date()  # type: ignore[no-any-return]
+            except (ValueError, TypeError):
+                continue
 
     return None
 

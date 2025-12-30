@@ -1,25 +1,48 @@
 universe:
   stocks:
-    # US Stocks
-    - AAPL
-    - MSFT
-    - SPGI
+  # some extra stocks we want to import, but are not in any portfolio
+    - SAP.DE
+    - RHM.DE
+    - HO.PA
+    - WM
+    - AIR.PA
+    - TTE.PA
+    - INTU
     - GOOG
-    - TMO
-    - V
-    # European Stocks
-    - MUV2.DE
-    - SY1.DE
-    - UNA.AS
-    - ASML.AS
-    - ROG.SW
-    - NOVO-B.CO
-    - ATCO-A.ST
-    - SU.PA
-    - MC.PA
-    - AI.PA
-    # Asian Stocks
-    - 8001.T
+    - HEN3.DE
+    - BAYN.DE
+    - BAS.DE
+    - VNA.DE
+    - DTE.DE
+    - BMW.DE
+    - VOW3.DE
+    - IBE.MC
+    - ORSTED.CO
+    - SNOW
+    - PLTR
+    - CRWD
+    - NESN.SW
+    - RACE.MI
+    - SAP.DE
+    - IFX.DE
+    - ADYEN.AS
+    - SIE.DE
+    - INGR
+    - DBK.DE
+    - ALV.DE
+    - JPM
+    - HSBA.L
+    - GS
+    - TSM
+    - INTC
+    - NOKIA.HE
+    - MA
+    - MSCI
+    - SIE.DE
+    - AIR.PA
+    - GE
+    - UTX
+    - HON
 
   price_only:
     # Currencies & Crypto
