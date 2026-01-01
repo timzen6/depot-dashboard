@@ -19,6 +19,12 @@ st.set_page_config(
 # ------------------------------------------------------------------
 
 
+def custom_rerun() -> None:
+    """Custom rerun to also invalidate cached resources."""
+    load_all_stock_data.clear()
+    st.rerun()
+
+
 @st.cache_resource  # type: ignore[misc]
 def get_admin_engine() -> AdminEngine:
     return AdminEngine()
@@ -58,7 +64,7 @@ def show_delete_dialog(portfolio_name: str) -> None:
     if st.button("Confirm Delete", type="primary"):
         engine.portfolio_manager.delete_portfolio(portfolio_name)
         st.success("Deleted!")
-        st.rerun()
+        custom_rerun()
 
 
 @st.dialog("Create New Portfolio")  # type: ignore[misc]
@@ -71,7 +77,7 @@ def show_create_dialog() -> None:
         else:
             engine.portfolio_manager.create_portfolio(name, display or None)
             st.success("Created!")
-            st.rerun()
+            custom_rerun()
 
 
 with col_actions:
@@ -181,7 +187,7 @@ with meta_col1:
             if changes > 0:
                 st.success(f"Saved {changes} changes.")
                 sleep(0.5)
-                st.rerun()
+                custom_rerun()
             else:
                 st.info("No changes detected.")
     else:
@@ -248,7 +254,7 @@ with meta_col2:
                         portfolio_selection, sel_ticker, shares_input
                     )
                     st.success(f"Added {sel_ticker}")
-                    st.rerun()
+                    custom_rerun()
 
         # --- NEW: Case B - Onboarding (New Ticker) ---
         elif filter_text and filtered_meta.is_empty():
@@ -268,7 +274,7 @@ with meta_col2:
                         )
                         st.cache_data.clear()
                         sleep(1)
-                        st.rerun()
+                        custom_rerun()
                     except Exception as e:
                         st.error(f"Failed: {e}")
     else:

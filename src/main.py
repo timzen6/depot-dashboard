@@ -19,6 +19,7 @@ from src.core.file_manager import ParquetStorage
 from src.data_mgmt.archiver import DataArchiver
 from src.etl.extract import DataExtractor
 from src.etl.pipeline import ETLPipeline
+from src.etl.snapshot import make_snapshot
 
 
 def cmd_load_metadata(args: argparse.Namespace) -> None:
@@ -159,28 +160,10 @@ def cmd_etl(args: argparse.Namespace) -> None:
 
 def cmd_snapshot(args: argparse.Namespace) -> None:
     """Create compressed snapshots of price and fundamental data."""
-    logger.info("=== Creating Data Snapshots ===")
-
-    # Load configuration
-    config = load_config()
-
-    # Initialize archiver
-    archiver = DataArchiver(config.settings.base_dir, config.settings.archive_dir)
-
-    # Create snapshots for all data types
-    data_types = (
-        args.data_type
-        if args.data_type
-        else ["metadata", "prices", "fundamentals/annual", "fundamentals/quarterly"]
-    )
-
-    for data_type in data_types:
-        try:
-            snapshot_path = archiver.create_snapshot(data_type)
-            logger.success(f"Created {data_type} snapshot: {snapshot_path}")
-        except Exception as e:
-            logger.error(f"Failed to create {data_type} snapshot: {e}")
-            sys.exit(1)
+    try:
+        make_snapshot(args.data_type)
+    except Exception:
+        sys.exit(1)
 
 
 def cmd_restore(args: argparse.Namespace) -> None:

@@ -1,5 +1,3 @@
-import argparse
-from os import makedirs
 from pathlib import Path
 
 import polars as pl
@@ -12,13 +10,13 @@ from src.core.domain_models import AssetType
 from src.core.file_manager import ParquetStorage
 from src.etl.extract import DataExtractor
 from src.etl.pipeline import ETLPipeline
-from src.main import cmd_snapshot
+from src.etl.snapshot import make_snapshot
 
 
 class UserPortfolioManager:
     def __init__(self, portfolio_dir: Path):
         self.file_path = portfolio_dir / "user_portfolios.yaml"
-        makedirs(portfolio_dir, exist_ok=True)
+        portfolio_dir.mkdir(parents=True, exist_ok=True)
 
     def get_system_portfolios(self) -> dict[str, Portfolio]:
         config = load_config()
@@ -257,8 +255,4 @@ class AdminEngine:
 
     def make_snapshot(self) -> None:
         """Create a snapshot of the current data state."""
-        cmd_snapshot(
-            argparse.Namespace(
-                data_type=None,
-            )
-        )
+        make_snapshot()

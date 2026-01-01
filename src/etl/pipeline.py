@@ -70,7 +70,10 @@ class ETLPipeline:
         logger.info(f"Starting metadata update for {len(tickers)} tickers")
 
         all_metadata = []
-        old_metadata_df = self.storage.read("asset_metadata")
+        try:
+            old_metadata_df = self.storage.read("asset_metadata")
+        except FileNotFoundError:
+            old_metadata_df = pl.DataFrame()
 
         for ticker in tqdm(tickers):
             try:
