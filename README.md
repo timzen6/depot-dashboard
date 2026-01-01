@@ -50,7 +50,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 1. **Clone the repository:**
 ```bash
-git clone https://github.com/yourusername/quality-core.git
+git clone https://github.com/timzen6/quality-core.git
 cd quality-core
 ```
 
