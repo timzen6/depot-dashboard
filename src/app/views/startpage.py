@@ -205,6 +205,7 @@ def render_watch_list_alert_tables(df_watch: pl.DataFrame) -> None:
         ),
         "alert": st.column_config.TextColumn("Alert", width="medium"),
     }
+    st.subheader("🔍 Stocks to Watch")
     tab1, tab2 = st.tabs(["Alerts", "Set Alerts"])
     with tab1:
         display_order = [
@@ -233,6 +234,7 @@ def render_watch_list_alert_tables(df_watch: pl.DataFrame) -> None:
             styler,
             column_order=display_order,
             column_config=column_config,
+            hide_index=True,
         )
 
         st.subheader("Sell or Decrease Positions")
@@ -254,9 +256,9 @@ def render_watch_list_alert_tables(df_watch: pl.DataFrame) -> None:
             styler,
             column_order=display_order,
             column_config=column_config,
+            hide_index=True,
         )
     with tab2:
-        st.markdown("### 🔍 Stocks to Watch")
         df_watch_pandas = df_watch.to_pandas()
         styler = df_watch_pandas.style.apply(
             lambda _: df_watch_pandas["alert"].apply(
@@ -328,3 +330,81 @@ def render_info_section(landing_config: LandingPageConfig) -> None:
             st.markdown(f"**Test Question:** {factor.test_question}")
             st.markdown(f"**Indicators:** {factor.indicators}")
             st.markdown(f"**Examples:** {factor.examples}")
+
+
+def render_price_alarms_section(df_price_alarms: pl.DataFrame, display_all: bool = True) -> None:
+    if not display_all:
+        df_price_alarms = df_price_alarms.filter(pl.col("trigger_level").is_not_null())
+    if df_price_alarms.is_empty():
+        st.info("No price alarms set or triggered.")
+    else:
+        df_price_alarms_pandas = df_price_alarms.to_pandas()
+        style_map = {
+            ("positive", 2): COLOR_SCALE_GREEN_RED[0],  # Strong Positive
+            ("positive", 1): COLOR_SCALE_GREEN_RED[1],  # Weak Positive
+            ("negative", 2): COLOR_SCALE_GREEN_RED[4],  # Strong Negative
+            ("negative", 1): COLOR_SCALE_GREEN_RED[3],  # Weak Negative
+        }
+        sentiment_styles = []
+        for sent, level in zip(
+            df_price_alarms_pandas["sentiment"],
+            df_price_alarms_pandas["trigger_level"],
+            strict=False,
+        ):
+            color = style_map.get((sent, level), Colors.white)
+            sentiment_styles.append(f"background-color: {color}; color: black")
+        if not display_all:
+            styler = df_price_alarms_pandas.style.apply(
+                lambda _: sentiment_styles,
+                subset=["price_to_check"],
+            )
+            st.dataframe(
+                styler,
+                hide_index=True,
+                column_order=[
+                    "ticker",
+                    "price_type",
+                    "direction",
+                    "price_to_check",
+                ],
+                column_config={
+                    "ticker": st.column_config.TextColumn("Ticker", width="small"),
+                    "price_to_check": st.column_config.NumberColumn(
+                        "Price to Check €", format="%.1f"
+                    ),
+                    "price_type": st.column_config.TextColumn("Price Type", width="small"),
+                    "direction": st.column_config.TextColumn("Direction", width="small"),
+                },
+            )
+        else:
+            styler = df_price_alarms_pandas.style.apply(
+                lambda _: sentiment_styles,
+                subset=["sentiment", "trigger_level"],
+            )
+            st.dataframe(
+                styler,
+                hide_index=True,
+                column_order=[
+                    "ticker",
+                    "price_type",
+                    "direction",
+                    "price_to_check",
+                    "level_1",
+                    "level_2",
+                    "trigger_level",
+                    "sentiment",
+                ],
+                column_config={
+                    "ticker": st.column_config.TextColumn("Ticker", width="small"),
+                    "price_to_check": st.column_config.NumberColumn(
+                        "Price to Check €", format="%.1f", width="small"
+                    ),
+                    "price_type": st.column_config.TextColumn("Price Type", width="small"),
+                    "direction": st.column_config.TextColumn("Direction", width="small"),
+                    "level_1": st.column_config.NumberColumn("Level 1", format="%.1f"),
+                    "level_2": st.column_config.NumberColumn("Level 2", format="%.1f"),
+                    "trigger_level": st.column_config.NumberColumn(
+                        "Actual Trigger Level", format="%i"
+                    ),
+                },
+            )

@@ -2,7 +2,7 @@
 
 from datetime import date as date_type
 from enum import Enum
-from typing import Any, Literal
+from typing import Any
 
 from pydantic import BaseModel, Field, ValidationInfo, field_validator
 
@@ -25,9 +25,6 @@ class Position(BaseModel):
     shares: float | None = Field(
         default=None, description="Number of shares (for absolute portfolios)"
     )
-    type: Literal["stock", "etf", "fund", "bond"] = Field(
-        default="stock", description="Type of asset"
-    )
     group: str | None = Field(default=None, description="Optional group/category for the position")
 
     @field_validator("weight")
@@ -36,14 +33,6 @@ class Position(BaseModel):
         """Only ensure weight is not negative if provided."""
         if v is not None and v < 0:
             raise ValueError("Weight must not be negative")
-        return v
-
-    @field_validator("type")
-    @classmethod
-    def validate_type(cls, v: str) -> str:
-        """Validate the type of asset."""
-        if v not in {"stock", "etf", "fund", "bond"}:
-            raise ValueError("Type must be one of: stock, etf, fund, bond")
         return v
 
     @field_validator("shares")
@@ -68,6 +57,9 @@ class Portfolio(BaseModel):
         default=None, description="Starting capital (for weighted portfolios)"
     )
     positions: list[Position] = Field(description="List of positions")
+    is_editable: bool = Field(
+        default=False, description="Whether the portfolio can be edited via the UI"
+    )
 
     @property
     def tickers(
@@ -80,14 +72,6 @@ class Portfolio(BaseModel):
     def ui_name(self) -> str:
         """Get display name for UI, defaulting to name if not set."""
         return self.display_name or self.name
-
-    @field_validator("positions")
-    @classmethod
-    def validate_positions(cls, v: list[Position]) -> list[Position]:
-        """Ensure at least one position exists."""
-        if not v:
-            raise ValueError("Portfolio must have at least one position")
-        return v
 
     @field_validator("initial_capital")
     @classmethod
@@ -142,7 +126,10 @@ class PortfoliosConfig(BaseModel):
     def set_portfolio_names(cls, v: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
         """Inject portfolio name from dictionary key."""
         for name, portfolio_data in v.items():
-            portfolio_data["name"] = name
+            if isinstance(portfolio_data, dict):
+                portfolio_data["name"] = name
+            # If it is already a Portfolio instance, name is set
+            # No need to do anything
         return v
 
     @property
