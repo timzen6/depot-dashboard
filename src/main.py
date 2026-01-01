@@ -30,8 +30,14 @@ def cmd_load_metadata(args: argparse.Namespace) -> None:
     config = load_config()
     metadata_storage = ParquetStorage(config.settings.metadata_dir)
     extractor = DataExtractor()
+
+    full_load = getattr(args, "full", False)
+    if full_load:
+        total_tickers = config.all_tickers
+    else:
+        total_tickers = config.portfolio_tickers
+
     # Run metadata updates for ALL tickers (universe + portfolios)
-    total_tickers = config.all_tickers
     try:
         existing_metadata = metadata_storage.read("asset_metadata")
         known_tickers = existing_metadata.select("ticker").to_series().to_list()

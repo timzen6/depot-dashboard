@@ -69,13 +69,19 @@ def render_factor_overview_chart(
 def render_sidebar_selection(
     portfolio_dict: dict[str, list[str]], all_sectors: list[str]
 ) -> tuple[list[str], list[str]]:
-    selection_defaults = {
-        "portfolio_filter": [
-            "Quality Core Holdings",
-            "Watchlist Level 1",
-        ],
-        "sector_filter": [],
-    }
+    if "Quality Core Holdings" in portfolio_dict:
+        selection_defaults = {
+            "portfolio_filter": [
+                "Quality Core Holdings",
+                "Watchlist Level 1",
+            ],
+            "sector_filter": [],
+        }
+    else:
+        selection_defaults = {
+            "portfolio_filter": [],
+            "sector_filter": [],
+        }
     for key, default in selection_defaults.items():
         if key not in st.session_state:
             st.session_state[key] = default

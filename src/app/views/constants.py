@@ -56,6 +56,16 @@ COUNTRY_FLAGS = {
     "Taiwan": "🇹🇼",
     "South Korea": "🇰🇷",
     # Add more countries as needed
+    "China": "🇨🇳",
+    "India": "🇮🇳",
+    "Brazil": "🇧🇷",
+    "Saudi Arabia": "🇸🇦",
+    "Ireland": "🇮🇪",
+    "Mexico": "🇲🇽",
+    "Hong Kong": "🇭🇰",
+    "Australia": "🇦🇺",
+    "Norway": "🇳🇴",
+    "Belgium": "🇧🇪",
 }
 
 # Selected companies get a custom emoji
