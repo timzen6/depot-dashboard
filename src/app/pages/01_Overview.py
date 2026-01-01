@@ -56,18 +56,7 @@ except Exception as e:
     logger.error(f"Data loading error: {e}", exc_info=True)
     raise e
 
-portfolios_config = loader.config.portfolios
-# Get available portfolios
-if portfolios_config is None:
-    render_empty_state("No portfolios configured. Please add portfolios to portfolios.yaml")
-    st.stop()
-assert portfolios_config is not None  # Type narrowing for mypy
-
-portfolios = portfolios_config.portfolios
-if portfolios is None:
-    st.error("No portfolios found in configuration")
-    st.stop()
-assert portfolios is not None  # Type narrowing for mypy
+portfolios = loader.load_portfolios()
 
 
 fx_engine = FXEngine(df_prices=df_prices, target_currency="EUR")

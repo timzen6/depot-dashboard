@@ -19,6 +19,7 @@ from src.core.file_manager import ParquetStorage
 from src.data_mgmt.archiver import DataArchiver
 from src.etl.extract import DataExtractor
 from src.etl.pipeline import ETLPipeline
+from src.etl.snapshot import make_snapshot
 
 
 def cmd_load_metadata(args: argparse.Namespace) -> None:
@@ -60,7 +61,7 @@ def cmd_update_metadata(args: argparse.Namespace) -> None:
     metadata_pipeline.run_metadata_update(total_tickers)
 
 
-def load_fundamentals(config: Config) -> None:
+def load_fundamentals(config: Config, full_load: bool = False) -> None:
     fundamentals_storage = ParquetStorage(
         config.settings.fundamentals_dir, subdirectories=["annual", "quarterly"]
     )
@@ -70,8 +71,7 @@ def load_fundamentals(config: Config) -> None:
 
     # Initialize extractor
     extractor = DataExtractor()
-    total_tickers = config.all_tickers
-
+    total_tickers = config.all_tickers if full_load else config.portfolio_tickers
     tickers_metadata = (
         metadata.filter(pl.col("ticker").is_in(total_tickers))
         .select(["ticker", "asset_type"])
@@ -104,7 +104,8 @@ def cmd_etl_fundamentals(args: argparse.Namespace) -> None:
 
     # Load configuration
     config = load_config()
-    load_fundamentals(config)
+    full_load = getattr(args, "full", False)
+    load_fundamentals(config, full_load=full_load)
 
     logger.success("✅ ETL Pipeline for fundamentals completed successfully")
 
@@ -126,8 +127,9 @@ def cmd_etl(args: argparse.Namespace) -> None:
 
     # Initialize extractor
     extractor = DataExtractor()
+    full_load = getattr(args, "full", False)
 
-    if getattr(args, "full", False):
+    if full_load:
         total_tickers = config.all_tickers
     else:
         total_tickers = config.portfolio_tickers
@@ -151,35 +153,17 @@ def cmd_etl(args: argparse.Namespace) -> None:
         tickers_metadata.select("ticker").to_series().to_list(), metadata
     )
 
-    load_fundamentals(config)
+    load_fundamentals(config, full_load=full_load)
     logger.success("✅ ETL Pipeline completed successfully")
     # In the future we might run also extra actions for e.g. ETF here
 
 
 def cmd_snapshot(args: argparse.Namespace) -> None:
     """Create compressed snapshots of price and fundamental data."""
-    logger.info("=== Creating Data Snapshots ===")
-
-    # Load configuration
-    config = load_config()
-
-    # Initialize archiver
-    archiver = DataArchiver(config.settings.base_dir, config.settings.archive_dir)
-
-    # Create snapshots for all data types
-    data_types = (
-        args.data_type
-        if args.data_type
-        else ["metadata", "prices", "fundamentals/annual", "fundamentals/quarterly"]
-    )
-
-    for data_type in data_types:
-        try:
-            snapshot_path = archiver.create_snapshot(data_type)
-            logger.success(f"Created {data_type} snapshot: {snapshot_path}")
-        except Exception as e:
-            logger.error(f"Failed to create {data_type} snapshot: {e}")
-            sys.exit(1)
+    try:
+        make_snapshot(args.data_type)
+    except Exception:
+        sys.exit(1)
 
 
 def cmd_restore(args: argparse.Namespace) -> None:
@@ -317,6 +301,14 @@ def main() -> None:
         "fundamentals", help="Run ETL pipeline for fundamentals only"
     )
     parser_fundamentals.set_defaults(func=cmd_etl_fundamentals)
+    parser_fundamentals.add_argument(
+        "-f",
+        "--full",
+        action="store_true",
+        help=(
+            "Run ETL for all tickers (full load). " "If not set, only portfolio tickers are loaded."
+        ),
+    )
 
     # ETL command
     parser_etl = subparsers.add_parser("etl", help="Run data extraction and storage pipeline")

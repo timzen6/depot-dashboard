@@ -1,48 +1,344 @@
 universe:
   stocks:
   # some extra stocks we want to import, but are not in any portfolio
-    - SAP.DE
-    - RHM.DE
-    - HO.PA
-    - WM
-    - AIR.PA
-    - TTE.PA
-    - INTU
-    - GOOG
-    - HEN3.DE
-    - BAYN.DE
-    - BAS.DE
-    - VNA.DE
-    - DTE.DE
-    - BMW.DE
-    - VOW3.DE
-    - IBE.MC
     - ORSTED.CO
     - SNOW
     - PLTR
     - CRWD
-    - NESN.SW
-    - RACE.MI
-    - SAP.DE
-    - IFX.DE
-    - ADYEN.AS
-    - SIE.DE
     - INGR
-    - DBK.DE
-    - ALV.DE
-    - JPM
-    - HSBA.L
-    - GS
-    - TSM
-    - INTC
     - NOKIA.HE
+    # ---------------------------------------------------------
+    # 🇺🇸 Top 100 US Stocks (S&P 500 / Nasdaq 100 Core)
+    # ---------------------------------------------------------
+    - AAPL
+    - NVDA
+    - MSFT
+    - AMZN
+    - GOOGL
+    - GOOG
+    - META
+    - TSLA
+    - BRK-B
+    - AVGO
+    - LLY
+    - JPM
+    - WMT
+    - XOM
+    - V
+    - UNH
     - MA
-    - MSCI
-    - SIE.DE
-    - AIR.PA
+    - PG
+    - JNJ
+    - COST
+    - HD
+    - ABBV
+    - ORCL
+    - MRK
+    - KO
+    - BAC
+    - CRM
+    - NFLX
+    - CVX
+    - AMD
+    - PEP
+    - TMO
+    - LIN
+    - WFC
+    - ADBE
+    - CSCO
+    - ACN
+    - MCD
+    - DIS
+    - ABT
+    - DHR
+    - INTC
+    - VZ
+    - CMCSA
+    - INTU
+    - IBM
+    - QCOM
+    - TXN
+    - NKE
+    - PFE
+    - AMGN
+    - PM
+    - UNP
+    - NOW
+    - SPGI
     - GE
-    - UTX
     - HON
+    - UBER
+    - COP
+    - RTX
+    - LOW
+    - AMAT
+    - CAT
+    - GS
+    - BKNG
+    - PLD
+    - SYK
+    - BLK
+    - ELV
+    - LMT
+    - T
+    - MS
+    - AXP
+    - DE
+    - ISRG
+    - TJX
+    - MDLZ
+    - GILD
+    - MMC
+    - ADP
+    - ADI
+    - VRTX
+    - LRCX
+    - C
+    - REGN
+    - ZTS
+    - PGR
+    - FI
+    - SLB
+    - SO
+    - EOG
+    - MO
+    - CVS
+    - CI
+    - BMY
+    - BSX
+    - DUK
+    - KLAC
+    - SCHW
+    - PANW
+
+    # ---------------------------------------------------------
+    # 🇪🇺 STOXX Europe 200+ (Major European Indices)
+    # ---------------------------------------------------------
+
+    # 🇩🇪 Germany (DAX 40 Selection)
+    - SAP.DE
+    - SIE.DE    # Siemens
+    - ALV.DE    # Allianz
+    - DTE.DE    # Deutsche Telekom
+    - AIR.DE    # Airbus (Xetra listing often preferred for DE users, or AIR.PA)
+    - MBG.DE    # Mercedes-Benz
+    - BMW.DE
+    - VOW3.DE   # VW Vorzüge
+    - BAS.DE    # BASF
+    - MUV2.DE   # Münchener Rück
+    - DHL.DE    # Deutsche Post
+    - IFX.DE    # Infineon
+    - BAYN.DE   # Bayer
+    - DB1.DE    # Deutsche Börse
+    - EOAN.DE   # Safer ticker for E.ON
+    - RWE.DE
+    - ADS.DE    # Adidas
+    - VNA.DE    # Vonovia
+    - HNR1.DE   # Hannover Rück
+    - SHL.DE    # Siemens Healthineers
+    - SY1.DE    # Symrise
+    - BEI.DE    # Beiersdorf
+    - HEN3.DE   # Henkel
+    - CBK.DE    # Commerzbank
+    - DBK.DE    # Deutsche Bank
+    - RHM.DE    # Rheinmetall
+    - ENR.DE    # Siemens Energy
+    - HEI.DE    # Heidelberg Materials
+    - CON.DE    # Continental
+    - P911.DE   # Porsche AG
+    - PAH3.DE   # Porsche SE
+    - ZAL.DE    # Zalando
+    - MTX.DE    # MTU Aero Engines
+
+    # 🇫🇷 France (CAC 40 Selection)
+    - MC.PA     # LVMH
+    - OR.PA     # L'Oréal
+    - RMS.PA    # Hermès
+    - TTE.PA    # TotalEnergies
+    - SAN.PA    # Sanofi
+    - SU.PA     # Schneider Electric
+    - AI.PA     # Air Liquide
+    - EL.PA     # EssilorLuxottica
+    - BNP.PA    # BNP Paribas
+    - CS.PA     # AXA
+    - DG.PA     # Vinci
+    - SAF.PA    # Safran
+    - KER.PA    # Kering
+    - DSY.PA    # Dassault Systèmes
+    - STLAP.PA  # Stellantis (Paris listing)
+    - BN.PA     # Danone
+    - SGO.PA    # Saint-Gobain
+    - CAP.PA    # Capgemini
+    - LR.PA     # Legrand
+    - HO.PA     # Thales
+    - ORA.PA    # Orange
+    - ML.PA     # Michelin
+    - VIE.PA    # Veolia
+    - ENGI.PA   # Engie
+    - ACA.PA    # Crédit Agricole
+    - GLE.PA    # Société Générale
+    - PUB.PA    # Publicis
+    - EDEN.PA   # Edenred
+    - CA.PA     # Carrefour
+
+    # 🇬🇧 UK (FTSE 100 Selection)
+    - SHEL.L    # Shell
+    - AZN.L     # AstraZeneca
+    - HSBA.L    # HSBC
+    - ULVR.L    # Unilever
+    - BP.L
+    - RIO.L     # Rio Tinto
+    - DGE.L     # Diageo
+    - REL.L     # RELX
+    - GSK.L
+    - BATS.L    # British American Tobacco
+    - GLEN.L    # Glencore
+    - LSEG.L    # London Stock Exchange Group
+    - NG.L      # National Grid
+    - CPG.L     # Compass Group
+    - BA.L      # BAE Systems
+    - LLOY.L    # Lloyds Banking Group
+    - RKT.L     # Reckitt Benckiser
+    - BARC.L    # Barclays
+    - VOD.L     # Vodafone
+    - TSCO.L    # Tesco
+    - AAL.L     # Anglo American
+    - STAN.L    # Standard Chartered
+    - NWG.L     # NatWest
+    - III.L     # 3i Group
+    - AHT.L     # Ashtead
+    - FLTR.L    # Flutter Entertainment
+    - RR.L      # Rolls-Royce
+
+    # 🇨🇭 Switzerland (SMI Selection)
+    - NESN.SW   # Nestlé
+    - ROG.SW    # Roche
+    - NOVN.SW   # Novartis
+    - CFR.SW    # Richemont
+    - UBSG.SW   # UBS
+    - ZURN.SW   # Zurich Insurance
+    - ABBN.SW   # ABB
+    - SIKA.SW   # Sika
+    - LONN.SW   # Lonza
+    - HOLN.SW   # Holcim
+    - SREN.SW   # Swiss Re
+    - GIVN.SW   # Givaudan
+    - ALC.SW    # Alcon
+    - SCMN.SW   # Swisscom
+    - KNIN.SW   # Kuehne + Nagel
+    - PGHN.SW   # Partners Group
+    - SOON.SW   # Sonova
+
+    # 🇳🇱 Netherlands (AEX Selection)
+    - ASML.AS
+    - PRX.AS    # Prosus
+    - ADYEN.AS
+    - INGA.AS   # ING
+    - AD.AS     # Ahold Delhaize
+    - HEIA.AS   # Heineken
+    - WKL.AS    # Wolters Kluwer
+    - ASM.AS    # ASM International
+    - UMG.AS    # Universal Music Group
+    - KPN.AS    # KPN
+
+    # 🇪🇸 Spain (IBEX 35 Selection)
+    - ITX.MC    # Inditex
+    - IBE.MC    # Iberdrola
+    - SAN.MC    # Banco Santander
+    - BBVA.MC   # BBVA
+    - AMS.MC    # Amadeus IT
+    - TEF.MC    # Telefonica
+    - CLNX.MC   # Cellnex
+
+    # 🇮🇹 Italy (FTSE MIB Selection)
+    - ENEL.MI
+    - ISP.MI    # Intesa Sanpaolo
+    - UCG.MI    # UniCredit
+    - RACE.MI   # Ferrari (Milan listing)
+    - ENI.MI
+    - G.MI      # Generali
+    - MONC.MI   # Moncler
+
+    # 🇩🇰 🇸🇪 🇫🇮 🇳🇴 Nordics
+    - NOVO-B.CO # Novo Nordisk
+    - ATCO-A.ST # Atlas Copco
+    - VOLV-B.ST # Volvo
+    - NDA-FI.HE # Nordea Bank
+    - EQNR.OL   # Equinor
+    - DSV.CO
+    - VWS.CO    # Vestas Wind
+    - INVE-B.ST # Investor AB
+    - KNEBV.HE  # Kone
+    - NOKIA.HE
+    - SAMPO.HE  # Sampo
+    - EVO.ST    # Evolution AB
+    - ASSA-B.ST # Assa Abloy
+    - SAND.ST   # Sandvik
+    - ESSITY-B.ST
+    - CARL-B.CO # Carlsberg
+
+    # 🇧🇪 Belgium & Others
+    - ABI.BR    # Anheuser-Busch InBev
+    - KBC.BR    # KBC Group
+    - UCB.BR
+
+    # ---------------------------------------------------------
+    # 🌏 Top 50 Ex-US & Ex-Europe (Asia, Canada, RoW)
+    # ---------------------------------------------------------
+    # Tech & Semi
+    - TSM
+    - 005930.KS
+    - TCEHY
+    - BABA
+    - 6758.T
+    - 8035.T
+    - INFY
+    # Financials
+    - RY
+    - TD
+    - HDB
+    - 8306.T
+    - 601398.SS
+    - 601939.SS
+    - CBA.AX
+    - BMO
+    - BNS
+    - AIA.HK
+    - NAB.AX
+    # Industrial & Auto
+    - 7203.T
+    - 6301.T
+    - 8058.T
+    - 8001.T
+    - 6501.T
+    - HMC
+    # Energy & Materials
+    - 2222.SR
+    - RELIANCE.NS
+    - BHP
+    - PBR
+    - VALE
+    - CNQ
+    - ENB
+    - PTR
+    # Consumer & Others
+    - SHOP
+    - MELI
+    - 9984.T
+    - 7974.T
+    - 6063.T
+    - JD
+    - PDD
+    - BIDU
+    - NTES
+    - AMX
+    - CSL.AX
+    - CP
+    - CNI
+    - TRI
+    - BAM
+    - WES.AX
+    - WOW.AX
 
   price_only:
     # Currencies & Crypto

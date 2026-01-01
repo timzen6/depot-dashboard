@@ -78,6 +78,17 @@ class AlertDefinition(BaseModel):
     comment: str | None = None
 
 
+class PriceAlarmDefinition(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    ticker: str
+    level_1: float
+    # Optionally set two levels
+    level_2: float | None = None
+    direction: Literal["above", "below"]
+    sentiment: Literal["negative", "neutral", "positive"] = "neutral"
+    price_type: Literal["close", "low", "high"] = "close"
+
+
 # --- ROOT CONFIG ---
 class LandingPageConfig(BaseModel):
     """
@@ -92,6 +103,7 @@ class LandingPageConfig(BaseModel):
 
     watchlist_tickers: list[str] = Field(default_factory=list)
     alerts: list[AlertDefinition] = Field(default_factory=list)
+    price_alarms: list[PriceAlarmDefinition] = Field(default_factory=list)
 
 
 def load_landing_page_config(

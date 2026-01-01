@@ -102,9 +102,8 @@ class ParquetStorage:
         if not target_path.exists():
             logger.warning(f"File not found: {target_path}")
             raise FileNotFoundError(f"No parquet file found: {filename}")
-
-        logger.debug(f"Reading {target_path}")
         data = pl.read_parquet(target_path)
+
         logger.info(f"Read {len(data)} rows from {filename}")
 
         return data

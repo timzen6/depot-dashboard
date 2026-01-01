@@ -4,6 +4,7 @@ from enum import StrEnum
 import polars as pl
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+from traitlets import Any
 
 # --- Constants & Schemas ---
 
@@ -211,6 +212,8 @@ class AssetMetadata(BaseModel):
     dividend_date: date | None = None
     earnings_date: date | None = None
 
+    last_updated: date | None = None
+
     def to_dict(self) -> dict[str, str | None]:
         """Convert AssetMetadata to a dictionary for easy serialization."""
         # just use the model dump
@@ -218,29 +221,13 @@ class AssetMetadata(BaseModel):
         return data
 
     @classmethod
-    def from_dict(cls, data: dict[str, str | None]) -> "AssetMetadata":
-        """Create AssetMetadata from a dictionary."""
-        ticker = data.get("ticker")
-        name = data.get("name")
-        asset_type_str = data.get("asset_type")
-        currency = data.get("currency")
-        sector_str = data.get("sector")
-
-        if not ticker or not name or not asset_type_str or not currency:
-            raise ValueError("Missing required fields for AssetMetadata")
-
-        return cls(
-            ticker=ticker,
-            name=name,
-            asset_type=AssetType(asset_type_str),
-            currency=currency,
-            short_name=data.get("short_name"),
-            exchange=data.get("exchange"),
-            sector_raw=data.get("sector_raw"),
-            sector=Sector(sector_str) if sector_str else None,
-            industry=data.get("industry"),
-            country=data.get("country"),
-        )
+    def from_dict(cls, data: dict[str, Any]) -> "AssetMetadata":
+        """Create AssetMetadata from a dictionary relying on Pydantic validation."""
+        try:
+            return cls.model_validate(data)
+        except Exception as e:
+            logger.error(f"Failed to parse AssetMetadata from dict: {e}")
+            raise e
 
 
 class AllocationItem(BaseModel):

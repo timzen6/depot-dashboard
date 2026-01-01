@@ -1,12 +1,6 @@
 import polars as pl
-import streamlit as st
-from loguru import logger
 
 from src.analysis.fx import FXEngine
-from src.app.logic.data_loader import DashboardData, GlobalDataLoader
-from src.app.views.common import (
-    render_empty_state,
-)
 
 
 def prepare_screener_snapshot(
@@ -89,25 +83,3 @@ def prepare_screener_snapshot(
         )
     )
     return df_prices_latest
-
-
-# we need the caching to stabilize the selection
-@st.cache_data(ttl=3600, show_spinner="Loading data...")  # type: ignore[misc]
-def load_all_stock_data() -> tuple[DashboardData, dict[str | None, list[str]]]:
-    # Load data
-    try:
-        loader = GlobalDataLoader()
-        dashboard_data = loader.load_data()
-    except Exception as e:
-        st.error(f"Failed to load data: {e}")
-        logger.error(f"Data loading error: {e}", exc_info=True)
-        raise e
-    # Get available tickers
-    if dashboard_data.prices.is_empty():
-        render_empty_state("No price data available")
-        st.stop()
-
-    portfolio_dict_raw = loader.config.portfolios.portfolios if loader.config.portfolios else {}
-    portfolio_dict = {p.display_name: p.tickers for p in portfolio_dict_raw.values()}
-
-    return dashboard_data, portfolio_dict

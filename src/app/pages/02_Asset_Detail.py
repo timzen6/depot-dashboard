@@ -10,9 +10,8 @@ import polars as pl
 import streamlit as st
 from loguru import logger
 
-from src.analysis.fx import FXEngine
 from src.app.logic.common import get_sorted_occurrences
-from src.app.logic.data_loader import GlobalDataLoader
+from src.app.logic.data_loader import GlobalDataLoader, load_all_stock_data
 from src.app.logic.stock_detail import (
     get_all_tickers,
 )
@@ -34,7 +33,6 @@ from src.app.views.stock_detail import (
     render_title_section,
     render_valuation_data,
 )
-from src.config.settings import load_config
 from src.core.domain_models import AssetType
 from src.core.etf_loader import ETFLoader
 from src.core.stock_data import StockData
@@ -49,17 +47,13 @@ st.set_page_config(
 
 # Sidebar
 render_sidebar_header("Stock Detail", "Deep dive into individual stocks")
-config = load_config()
+loader = GlobalDataLoader()
+config = loader.config
 
-# Load data
-try:
-    loader = GlobalDataLoader()
-    dashboard_data = loader.load_data()
-except Exception as e:
-    st.error(f"Failed to load data: {e}")
-    logger.error(f"Data loading error: {e}", exc_info=True)
-    raise e
-# Get available tickers
+portfolios = loader.load_portfolios()
+
+dashboard_data, _, fx_engine = load_all_stock_data()
+
 if dashboard_data.prices.is_empty():
     render_empty_state("No price data available")
     st.stop()
@@ -74,7 +68,7 @@ selection_mode = st.sidebar.pills(
 
 if selection_mode == "Portfolio":  # Portfolio mode
     selected_portfolio = portfolio_selection(
-        (list(loader.config.portfolios.portfolios.values()) if loader.config.portfolios else []),
+        (list(portfolios.values()) if portfolios else []),
         allow_none=True,
         on_sidebar=True,
     )
@@ -121,7 +115,6 @@ date_range = st.sidebar.date_input(
 try:
     # Load ticker data
     stock_data = StockData.from_dataset(selected_ticker, dashboard_data)
-    fx_engine = FXEngine(dashboard_data.prices, target_currency="EUR")
     strategy_engine = StrategyEngine()
     etf_loader = ETFLoader(config.settings.etf_config_dir)
 

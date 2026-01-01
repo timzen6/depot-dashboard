@@ -11,8 +11,11 @@ import polars as pl
 import streamlit as st
 from loguru import logger
 
+from src.analysis.fx import FXEngine
 from src.analysis.metrics import MetricsEngine
+from src.config.models import Portfolio
 from src.config.settings import load_config
+from src.core.admin_engine import AdminEngine
 
 
 @dataclass
@@ -41,6 +44,15 @@ class GlobalDataLoader:
         """
         self.config = load_config(config_path)
         self.metrics_engine = MetricsEngine()
+        self.admin_engine = AdminEngine()
+
+    def load_portfolios(self) -> dict[str, Portfolio]:
+        """Load portfolio configurations.
+
+        Returns:
+            Dictionary of portfolio name to Portfolio objects
+        """
+        return self.admin_engine.portfolio_manager.get_all_portfolios()
 
     def load_data(self) -> DashboardData:
         """Load and enrich price and fundamental data.
@@ -187,3 +199,25 @@ def _load_cached_raw_data(
         metadata=df_metadata,
         fundamentals_quarterly=df_quarterly,
     )
+
+
+# we need the caching to stabilize the selection
+@st.cache_data(ttl=3600, show_spinner="Loading data...")  # type: ignore[misc]
+def load_all_stock_data() -> tuple[DashboardData, dict[str | None, list[str]], FXEngine]:
+    # Load data
+    try:
+        loader = GlobalDataLoader()
+        dashboard_data = loader.load_data()
+    except Exception as e:
+        st.error(f"Failed to load data: {e}")
+        logger.error(f"Data loading error: {e}", exc_info=True)
+        raise e
+    # Get available tickers
+    if dashboard_data.prices.is_empty():
+        raise (Exception("No price data available"))
+
+    portfolio_dict_raw = loader.load_portfolios()
+    portfolio_dict = {p.display_name: p.tickers for p in portfolio_dict_raw.values()}
+    fx_engine = FXEngine(dashboard_data.prices, target_currency="EUR")
+
+    return dashboard_data, portfolio_dict, fx_engine

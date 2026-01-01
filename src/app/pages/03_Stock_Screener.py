@@ -1,10 +1,9 @@
 import polars as pl
 import streamlit as st
 
-from src.analysis.fx import FXEngine
 from src.app.logic.common import get_sorted_occurrences
-from src.app.logic.data_loader import DashboardData
-from src.app.logic.screener import load_all_stock_data, prepare_screener_snapshot
+from src.app.logic.data_loader import DashboardData, load_all_stock_data
+from src.app.logic.screener import prepare_screener_snapshot
 from src.app.views.constants import (
     assign_info_emojis,
 )
@@ -21,12 +20,13 @@ from src.core.strategy_engine import StrategyEngine
 # Page config
 st.set_page_config(
     page_title="Stock Detail",
-    page_icon="🔍",
+    # other emojo than details and admin page
+    page_icon="🚦",
     layout="wide",
 )
 
 
-dashboard_data, portfolio_dict = load_all_stock_data()
+dashboard_data, portfolio_dict, fx_engine = load_all_stock_data()
 
 all_stock_metadata = dashboard_data.metadata.filter(
     pl.col("asset_type") == AssetType.STOCK.value
@@ -34,7 +34,6 @@ all_stock_metadata = dashboard_data.metadata.filter(
 
 all_sectors = get_sorted_occurrences(all_stock_metadata, "sector")
 all_countries = get_sorted_occurrences(all_stock_metadata, "country")
-fx_engine = FXEngine(dashboard_data.prices, target_currency="EUR")
 strategy_engine = StrategyEngine()
 
 
@@ -59,7 +58,7 @@ def render_dashboard_content(
     dashboard_data: DashboardData,
     strategy_engine: StrategyEngine,
 ) -> None:
-    st.title("🔍 Stock Screener")
+    st.title("🚦 Stock Screener")
     col1, col2 = st.columns([3, 2])
     with col1:
         selected_tickers = render_info_table(filtered_metadata)

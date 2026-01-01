@@ -10,7 +10,7 @@ import polars as pl
 from loguru import logger
 from tqdm import tqdm
 
-from src.core.domain_models import AssetMetadata, ReportType
+from src.core.domain_models import ReportType
 from src.core.file_manager import ParquetStorage
 from src.core.mapper import (
     map_fundamentals_to_domain,
@@ -70,9 +70,23 @@ class ETLPipeline:
         logger.info(f"Starting metadata update for {len(tickers)} tickers")
 
         all_metadata = []
+        try:
+            old_metadata_df = self.storage.read("asset_metadata")
+        except FileNotFoundError:
+            old_metadata_df = pl.DataFrame()
 
         for ticker in tqdm(tickers):
             try:
+                if not old_metadata_df.is_empty() and ticker in old_metadata_df["ticker"].to_list():
+                    if "last_updated" in old_metadata_df.columns:
+                        last_update = (
+                            old_metadata_df.filter(pl.col("ticker") == ticker)
+                            .select("last_updated")
+                            .item()
+                        )
+                        if last_update == date.today():
+                            logger.info(f"[{ticker}] Metadata is up-to-date, skipping")
+                            continue
                 # Fetch full ticker info from yfinance
                 info = self.extractor.get_full_ticker_info(ticker)
                 try:
@@ -83,11 +97,10 @@ class ETLPipeline:
 
                 # Transform to domain model
                 asset_metadata = map_ticker_info_to_asset_metadata(info, calendar)
-                # Correct currency if needed
+                updates: dict[str, str | date] = {"last_updated": date.today()}
                 if ticker in self.CURRENCY_OVERRIDE:
-                    tmp_dict = asset_metadata.to_dict()
-                    tmp_dict["currency"] = self.CURRENCY_OVERRIDE[ticker]
-                    asset_metadata = AssetMetadata.from_dict(tmp_dict)
+                    updates["currency"] = self.CURRENCY_OVERRIDE[ticker]
+                asset_metadata = asset_metadata.model_copy(update=updates)
 
                 all_metadata.append(asset_metadata)
                 logger.success(f"[{ticker}] Metadata update complete")
@@ -123,6 +136,9 @@ class ETLPipeline:
                 # Gap Detection: Check if we already have data for this ticker
                 filename = f"prices_{ticker}"
                 start_date = self._detect_price_gap(filename)
+                if start_date > date.today():
+                    logger.info(f"[{ticker}] No new data to fetch (up-to-date)")
+                    continue
 
                 # Fetch new data from yfinance
                 raw_pdf = self.extractor.get_prices(ticker, start_date)
