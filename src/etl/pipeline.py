@@ -77,7 +77,7 @@ class ETLPipeline:
 
         for ticker in tqdm(tickers):
             try:
-                if ticker in old_metadata_df["ticker"].to_list():
+                if not old_metadata_df.is_empty() and ticker in old_metadata_df["ticker"].to_list():
                     if "last_updated" in old_metadata_df.columns:
                         last_update = (
                             old_metadata_df.filter(pl.col("ticker") == ticker)

@@ -1,5 +1,3 @@
-from time import sleep
-
 import polars as pl
 import streamlit as st
 
@@ -185,8 +183,7 @@ with meta_col1:
                     changes += 1
 
             if changes > 0:
-                st.success(f"Saved {changes} changes.")
-                sleep(0.5)
+                st.toast(f"Saved {changes} changes.", icon="✅")
                 custom_rerun()
             else:
                 st.info("No changes detected.")
@@ -273,7 +270,10 @@ with meta_col2:
                             f"Ticker {new_ticker_input} available! Please select it in the table."
                         )
                         st.cache_data.clear()
-                        sleep(1)
+                        st.toast(
+                            "Ticker onboarded. Please select it in the table.",
+                            icon="✅",
+                        )
                         custom_rerun()
                     except Exception as e:
                         st.error(f"Failed: {e}")
