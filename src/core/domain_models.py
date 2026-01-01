@@ -1,10 +1,10 @@
 from datetime import date
 from enum import StrEnum
+from typing import Any
 
 import polars as pl
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-from traitlets import Any
 
 # --- Constants & Schemas ---
 

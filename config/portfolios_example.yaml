@@ -1,0 +1,35 @@
+# Portfolio definition examples -> to be in use copy this file to config/portfolios.yaml
+
+portfolios:
+  mixed_etf_reference:
+    display_name: "Mixed ETF Reference"
+    type: absolute
+    positions:
+      - ticker: EUNL.DE
+        shares: 3500
+      - ticker: AEEM.PA
+        shares: 18000
+      - ticker: IUSN.DE
+        shares: 6500
+
+
+  tech_basket:
+    display_name: "Tech Giants Basket"
+    type: weighted
+    start_date: "2023-01-01"
+    initial_capital: 10000.0
+    positions:
+      - ticker: AAPL
+        weight: 1
+      - ticker: MSFT
+        weight: 1
+      - ticker: GOOG
+        weight: 1
+      - ticker: AMZN
+        weight: 1
+      - ticker: NVDA
+        weight: 1
+      - ticker: META
+        weight: 1
+      - ticker: TSLA
+        weight: 1

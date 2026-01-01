@@ -1,0 +1,105 @@
+# --- STRATEGIC FRAMEWORK CONFIGURATION ---
+# The Operating System for the Portfolio.
+
+# --- 1. THE 4-FACTOR QUALITY FRAMEWORK ---
+factors:
+  Stab:
+    title: "Stability & Resilience (Oxygen)"
+    icon: "🛡️"
+    badge_color: "blue"
+    description: |
+      Represents the non-negotiable base of the economy. Revenue flows regardless of GDP or crisis.
+    test_question: "If the economy crashes by 5% next year, is this invoice still getting paid?"
+    indicators: "📉 Churn rate near 0% • Beta < 0.8 • Regulatory mandates • Non-discretionary demand."
+    examples: "Waste Management, Munich Re, National Grid."
+
+  Real:
+    title: "Physical Moats (Atoms)"
+    icon: "⚙️"
+    badge_color: "grey"
+    description: |
+      Competitive advantage anchored in the physical world. Uncopiable infrastructure.
+      Protects against digital disruption.
+    test_question: "Could a Silicon Valley startup disrupt this business with just a laptop?"
+    indicators: "🏗️ High Capex barrier • Irreplicable Real Estate • Rail Networks • Pipelines."
+    examples: "Union Pacific, Heidelberg Materials, Vonovia."
+
+  Tech:
+    title: "IP & Innovation (The Edge)"
+    icon: "🔬"
+    badge_color: "purple"
+    description: |
+      Pricing power derived from IP, proprietary data, or technological superiority.
+      **Note:** Not limited to Software. Includes Biotech patents, Data monopolies, and Industrial R&D.
+    test_question: "Is the product protected by patents or complexity so high that copying is impossible?"
+    indicators: "🔒 High R&D intensity • Patent walls • Data Monopolies • High Switching Costs."
+    examples: "ASML, Novo Nordisk, S&P Global, Microsoft."
+
+  Price:
+    title: "Brand & Desire (The Myth)"
+    icon: "👜"
+    badge_color: "gold"
+    description: |
+      Pricing power derived purely from psychological value and status.
+    test_question: "Would the customer buy if it were 50% cheaper but missing the logo?"
+    indicators: "💎 High Gross Margins • Marketing > R&D • Veblen Good status."
+    examples: "Ferrari, Hermès, L'Oréal."
+
+# --- 2. PORTFOLIO ARCHITECTURE ---
+strategy:
+  foundation:
+    name: "🌐 The Global Foundation"
+    allocation_target: "???"
+    description: |
+      Some description here.
+    components:
+      - name: "Component 1"
+        detail: "Some detail here."
+
+  quality_core:
+    name: "💎 The Quality Core"
+    allocation_target: "???"
+    description: |
+      Other description here.
+    pillars:
+      - name: "Pillar 1"
+        detail: "Some detail here."
+execution:
+  - title: "😴 The Sleep Test"
+    text: "Some description here."
+
+# --- 4. DATA CONFIG (Watchlist & Alerts) ---
+watchlist_tickers:
+  # QC Base
+  - MSFT
+  - V
+  - AAPL
+  - AMZN
+  - MA
+  - TSM
+  - OR.PA
+  - ASML.AS
+  - ROG.SW
+  - NOVO-B.CO
+
+price_alarms:
+  - ticker: NOVO-B.CO
+    level_1: 38
+    level_2: 35
+    direction: below
+    sentiment: negative
+    price_type: low
+
+
+
+alerts:
+  - ticker: ASML.AS
+    action: buy
+    metric: pe_ratio
+    fair_threshold: 37
+    good_threshold: 33
+  - ticker: MSFT
+    action: buy
+    metric: fcf_yield
+    fair_threshold: 2.2
+    good_threshold: 2.5
