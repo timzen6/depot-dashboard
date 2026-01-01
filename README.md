@@ -1,6 +1,6 @@
 # Quality Core 🚀
 
-**Quality Core** is an advanced Portfolio Management and Analytics Dashboard designed quality and esg focused investing.
+**Quality Core** is an advanced Portfolio Management and Analytics Dashboard designed for quality and esg focused investing.
 There is also functionality on customizable **factor investing** for monitoring nuanced data-inspired investment strategies.
 
 It combines a robust, local-first ETL pipeline for financial data ingestion with a clean, interactive Streamlit frontend for investment decision-making.
@@ -96,7 +96,7 @@ uv run qc etl
 uv run qc --help
 ```
 
-or preferably use **make** to setup your local database:
+or preferably use **make** to set up your local database:
 Use
 ```bash
 make etl
