@@ -1,93 +1,154 @@
-# Quality Core
+# Quality Core 🚀
 
-A modern data engineering pipeline with an interactive Streamlit dashboard.
+**Quality Core** is an advanced Portfolio Management and Analytics Dashboard designed quality and esg focused investing.
+There is also functionality on customizable **factor investing** for monitoring nuanced data-inspired investment strategies.
 
-## Tech Stack
+It combines a robust, local-first ETL pipeline for financial data ingestion with a clean, interactive Streamlit frontend for investment decision-making.
 
-- **Python**: 3.11+
-- **Package Manager**: uv
-- **Data Processing**: Polars (method chaining, lazy evaluation)
-- **Validation**: Pydantic V2 (strict typing)
-- **Visualization**: Plotly, Streamlit
-- **Data Source**: yfinance
-- **Code Quality**: Ruff, mypy, pre-commit
+---
 
-## Project Structure
+## 🏗 Tech Stack
 
-```
-quality-core/
-├── .github/
-│   └── copilot-instructions.md
-├── src/
-│   ├── core/           # Domain models and configuration
-│   ├── etl/            # Pipeline logic and transformations
-│   └── app/            # Streamlit dashboard
-│       └── views/      # UI components
-├── data/
-│   ├── raw/            # Raw data (gitignored)
-│   ├── staging/        # Intermediate data (gitignored)
-│   └── production/     # Final data (gitignored)
-├── tests/              # Test suite
-└── pyproject.toml
-```
+* **Language:** Python 3.11+
+* **Dependency Management:** [`uv`](https://github.com/astral-sh/uv) (Modern, fast pip replacement)
+* **Frontend:** Streamlit (MVC Pattern)
+* **Data Processing:** Polars, Pandas (Method Chaining), NumPy
+* **Data Source:** `yfinance` (ETL pipeline), OpenBB (optional)
+* **Storage:** Local Parquet Data Lake (Atomic writes)
+* **Quality Assurance:** Ruff, MyPy, Pre-commit
 
-## Setup
+---
 
-### 1. Install uv (if not already installed)
+## ✨ Key Features
 
+### 📊 Dashboard (Streamlit)
+* **Portfolio Overview:** Track performance, dividends, and asset allocation.
+* **Asset Details:** Deep dive into specific stocks with fundamental analysis.
+* **Screener:** Filter stocks based on custom factors (e.g., ROCE, FCF Yield, Margins).
+* **Factor Analysis:** Visualizing "Quality," "Stability," "Real Assets," and "Price" scores.
+
+### ⚙️ ETL Engine & CLI
+* **Incremental Updates:** Smart fetching of missing price data (Gap Detection).
+* **Snapshotting:** Historical archiving of fundamental data.
+* **Data Lake:** Structured storage in `data/prod/`.
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+* **Python 3.11+**
+* **uv** (Recommended installer)
+* **Make** (Optional, for simplified commands)
+
+**Install uv:**
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-### 2. Create virtual environment and install dependencies
+### Installation
 
+1. **Clone the repository:**
 ```bash
-# Create a virtual environment with Python 3.11+
-uv venv --python 3.11
-
-# Activate the virtual environment
-source .venv/bin/activate  # macOS/Linux
-
-# Install dependencies
-uv sync --all-extras
+git clone https://github.com/yourusername/quality-core.git
+cd quality-core
 ```
 
-### 3. Setup pre-commit hooks
+2. **Setup Environment:** The project uses `uv` to manage the virtual environment automatically.
 
+Optional: Run sync manually to initialize the environment for your IDE (e.g., VS Code IntelliSense):
 ```bash
-pre-commit install
+uv sync
 ```
 
-## Usage
-
-### Run the Dashboard
-
+3. **Configuration:** Copy the example environment file and adjust settings if necessary.
 ```bash
-streamlit run src/app/main.py
+cp .env.example .env
 ```
 
-### Code Quality
+---
 
+## 🖥 Usage
+
+The project includes a Makefile to streamline common tasks.
+
+### 1. Run the Dashboard
+
+Starts the Streamlit application. Dependencies are handled automatically.
 ```bash
-# Format and lint
-ruff check . --fix
-ruff format .
-
-# Type checking
-mypy src/
-
-# Run tests
-pytest
+make app
 ```
 
-## Development Guidelines
+(Alternative: `uv run streamlit run src/app/00_Startpage.py`)
 
-- Use **Polars method chaining** for data transformations
-- Apply **Pydantic V2** for data validation with strict typing
-- Follow **mypy strict mode** (all functions must be typed)
-- Keep line length to **100 characters**
-- Use **pre-commit hooks** before committing
+### 2. Run the ETL Pipeline (qc)
 
-## License
+The project includes a CLI tool named `qc` (Quality Core) to manage data operations.
 
-MIT
+
+**Update Prices & Fundamentals:**
+```bash
+uv run qc etl
+```
+
+**Show all available commands:**
+```bash
+uv run qc --help
+```
+
+or preferably use **make** to setup your local database:
+Use
+```bash
+make etl
+```
+to load or update all relevant data in user defined portfolios.
+To make a full update to also load all preconfigured tickers run:
+```bash
+make etl-full
+```
+This update may take some time. Data updates can also be triggered within
+the UI on the Admin page.
+
+
+
+---
+
+## 📂 Project Structure
+
+```
+.
+├── config/                 # YAML configs (ETFs, Factors, General settings)
+├── data/                   # Data storage (prod/staging) - .gitignored
+├── docs/                   # Documentation & Architecture Decisions
+├── src/
+│   ├── analysis/           # Financial math & metric calculations
+│   ├── app/                # Streamlit Application (MVC Pattern)
+│   │   ├── 00_Startpage.py # << APP ENTRY POINT
+│   │   ├── logic/          # Controllers/Business Logic
+│   │   ├── pages/          # Streamlit Pages
+│   │   └── views/          # UI Components
+│   ├── core/               # Domain Models, Strategy Engine
+│   ├── etl/                # Extract-Transform-Load pipelines
+│   └── main.py             # << CLI ENTRY POINT
+├── Makefile                # Command shortcuts
+├── pyproject.toml          # Project configuration & Dependencies
+└── uv.lock                 # Dependency Lockfile
+```
+
+---
+
+## 🛠 Development
+
+We adhere to strict coding standards using `ruff` (linting/formatting) and `mypy` (static type checking).
+
+**Run Quality Checks (Lint, Format, Type Check):**
+```bash
+make qc
+```
+
+---
+
+
+## 📝 License
+
+Distributed under the MIT License. See `LICENSE` for more information.

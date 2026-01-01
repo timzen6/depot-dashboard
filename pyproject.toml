@@ -1,8 +1,12 @@
 [project]
 name = "quality-core"
-version = "0.1.0"
+version = "0.2.0"
 description = "Quality Core - Data Engineering Pipeline with Streamlit Dashboard"
 readme = "README.md"
+authors = [
+    { name = "Tim Lenzen", email = "timzen@gmx.de" },
+]
+license = { text = "MIT" }
 requires-python = ">=3.11"
 dependencies = [
     "polars>=0.20.0",
