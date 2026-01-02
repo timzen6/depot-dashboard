@@ -1,6 +1,8 @@
 import polars as pl
 from dateutil.relativedelta import relativedelta
 
+TRADING_DAYS_PER_YEAR = 252
+
 
 def calculate_volatility_metrics(
     df_prices: pl.DataFrame,
@@ -32,7 +34,7 @@ def calculate_volatility_metrics(
             # Annualized Volatility %
             (
                 (pl.col("daily_return").rolling_std(window_size=200).over("ticker"))
-                * (252**0.5)
+                * (TRADING_DAYS_PER_YEAR**0.5)
                 * 100
             ).alias("vola_annual_pct"),
         )
@@ -55,6 +57,60 @@ def calculate_volatility_metrics(
 
 
 def calculate_ticker_status(
+    df_data: pl.DataFrame,
+    selected_tickers: list[str],
+) -> tuple[pl.DataFrame, dict[str, tuple[float | None, float | None]]]:
+    date_3y_ago = df_data.select(pl.col("date").max()).item() - relativedelta(years=3)
+
+    # Ensure data is sorted by ticker and date
+    df_window = df_data.filter(
+        pl.col("ticker").is_in(selected_tickers) & (pl.col("date") >= date_3y_ago)
+    ).sort(["ticker", "date"])
+
+    df_result = df_window.group_by("ticker").agg(
+        [
+            # Current Values
+            pl.col("z_score").last().alias("z_score"),
+            pl.col("dist_200_pct").last().alias("trend_dist"),
+            pl.col("vola_annual_pct").last().alias("vola_annual_pct"),
+            pl.col("close").last().alias("price"),
+            pl.col("currency").last().alias("currency"),
+            # Historical Context
+            pl.col("dist_200_pct").quantile(0.10).alias("p10_dist"),
+            pl.col("dist_200_pct").quantile(0.90).alias("p90_dist"),
+            pl.count().alias("data_points"),
+            # Percentile Rank Calculation
+            (
+                (pl.col("dist_200_pct") < pl.last("dist_200_pct").last())
+                .mean()
+                .alias("valuation_rank")
+            ),
+        ]
+    )
+    df_final = df_result.with_columns(
+        pl.when(pl.col("data_points") >= 100)
+        .then(pl.col("valuation_rank"))
+        .otherwise(None)
+        .alias("valuation_rank"),
+        pl.format("{} {}", pl.col("price"), pl.col("currency")).alias("price"),
+    )
+    corridor_rows = (
+        df_final.filter(pl.col("data_points") > 100)
+        .select("ticker", "p10_dist", "p90_dist")
+        .to_dicts()
+    )
+
+    ticker_corridors = {row["ticker"]: (row["p10_dist"], row["p90_dist"]) for row in corridor_rows}
+
+    # Fill missing tickers with (None, None) to match original contract
+    for t in selected_tickers:
+        if t not in ticker_corridors:
+            ticker_corridors[t] = (None, None)
+
+    return df_final, ticker_corridors
+
+
+def calculate_ticker_status_old(
     df_data: pl.DataFrame,
     selected_tickers: list[str],
 ) -> tuple[pl.DataFrame, dict[str, tuple[float | None, float | None]]]:
@@ -153,9 +209,13 @@ def calculate_limit_recommendation_data(
         curr_row = df_latest.filter(pl.col("ticker") == ticker)
         if show_in_eur:
             base_price = curr_row["close_EUR"].item()
+            sma_50 = curr_row["sma_50_EUR"].item()
+            sma_200 = curr_row["sma_200_EUR"].item()
             currency_sym = "EUR"
         else:
             base_price = curr_row["close"].item()
+            sma_50 = curr_row["sma_50"].item()
+            sma_200 = curr_row["sma_200"].item()
             currency_sym = curr_row["currency"].item()
 
         curr_rank = curr_row["valuation_rank"].item()  # für Coloring
@@ -164,9 +224,11 @@ def calculate_limit_recommendation_data(
         limit_data.append(
             {
                 "ticker": ticker,
-                "valuation_rank": curr_rank,
-                "z_score": curr_zscore,
                 "current": f"{base_price:.2f} {currency_sym}",
+                "valuation_rank": curr_rank,
+                "sma_200": f"{sma_200:.2f} {currency_sym}",
+                "z_score": curr_zscore,
+                "sma_50": f"{sma_50:.2f} {currency_sym}",
                 "safe": format_limit(base_price, pct_safe, currency_sym),
                 "balanced": format_limit(base_price, pct_balanced, currency_sym),
                 "aggressive": format_limit(base_price, pct_aggressive, currency_sym),

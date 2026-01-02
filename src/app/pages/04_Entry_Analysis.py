@@ -33,7 +33,11 @@ selected_price_data = logic.calculate_volatility_metrics(
     df_prices=dashboard_data.prices,
     window_days=window_days,
     selected_tickers=selected_tickers,
-).pipe(fx_engine.convert_to_target, "close", source_currency_col="currency")
+).pipe(
+    fx_engine.convert_multiple_to_target,
+    amount_cols=["close", "sma_200", "sma_50"],
+    source_currency_col="currency",
+)
 
 df_status, ticker_corridors = logic.calculate_ticker_status(
     df_data=selected_price_data,
@@ -73,7 +77,7 @@ with st.expander("ℹ️ How to read these recommendations?", expanded=True):
             *Use this if you want to ensure entry.*
         * ⚖️ **Balanced (50% Prob):** The median discount. A "coin flip" chance of getting filled.
         * 💰 **Aggressive (25% Prob):** A larger discount that only happens in volatile weeks.
-            *Use this for speculative "stink bids" or if Valuation Rank is very high.*
+            *Use this for speculative bids or if Valuation Rank is very high.*
         """
     )
 
@@ -99,7 +103,9 @@ if not df_limits.is_empty():
                 "Valuation Rank", format="%.2f", min_value=0, max_value=1
             ),
             "z_score": st.column_config.NumberColumn("Tactical Z", format="%.1f"),
+            "sma_50": st.column_config.TextColumn("SMA 50"),
             "current": st.column_config.TextColumn("Current Price"),
+            "sma_200": st.column_config.TextColumn("SMA 200"),
             "safe": st.column_config.TextColumn("🛡️ Safe (90%)"),
             "balanced": st.column_config.TextColumn("⚖️ Balanced (50%)"),
             "aggressive": st.column_config.TextColumn("💰 Aggressive (25%)"),
