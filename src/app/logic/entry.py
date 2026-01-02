@@ -81,7 +81,7 @@ def calculate_ticker_status(
             pl.count().alias("data_points"),
             # Percentile Rank Calculation
             (
-                (pl.col("dist_200_pct") < pl.last("dist_200_pct").last())
+                (pl.col("dist_200_pct") < pl.col("dist_200_pct").last())
                 .mean()
                 .alias("valuation_rank")
             ),
@@ -108,69 +108,6 @@ def calculate_ticker_status(
             ticker_corridors[t] = (None, None)
 
     return df_final, ticker_corridors
-
-
-def calculate_ticker_status_old(
-    df_data: pl.DataFrame,
-    selected_tickers: list[str],
-) -> tuple[pl.DataFrame, dict[str, tuple[float | None, float | None]]]:
-    ticker_corridors = {}
-    status_data = []
-    date_3y_ago = df_data.select(pl.col("date").max()).item() - relativedelta(years=3)
-
-    # Ensure data is sorted by ticker and date
-    df_data = df_data.sort(["ticker", "date"])
-
-    for ticker in selected_tickers:
-        curr_row = df_data.filter(pl.col("ticker") == ticker).tail(1)
-        if curr_row.is_empty():
-            continue
-
-        curr_z = curr_row["z_score"].item()
-        curr_dist = curr_row["dist_200_pct"].item()
-        curr_vola = curr_row["vola_annual_pct"].item()
-        curr_price = curr_row["close"].item()
-        curr_sym = curr_row["currency"].item()
-
-        # --- PERCENTILE & CORRIDOR CALCULATION ---
-        # We look at the last 3 years (or all available data)
-        history_df = df_data.filter(
-            (pl.col("ticker") == ticker)
-            & (pl.col("date") >= date_3y_ago)
-            & (pl.col("dist_200_pct").is_not_null())
-        )
-
-        if history_df.height > 100:
-            # Array of all historical distances
-            hist_dists = history_df["dist_200_pct"]
-
-            # 1. Percentile Rank (Current Status)
-            percentile = (hist_dists < curr_dist).mean()
-
-            # 2. Corridor Levels (for chart visualization)
-            p10_dist = hist_dists.quantile(0.10)  # 10% Quantile (Cheap)
-            # add maybe
-            p90_dist = hist_dists.quantile(0.90)  # 90% Quantile (Expensive)
-            ticker_corridors[ticker] = (p10_dist, p90_dist)
-
-        else:
-            # Fallback for new IPOs or too little data
-            percentile = None
-            ticker_corridors[ticker] = (None, None)
-
-        status_data.append(
-            {
-                "ticker": ticker,
-                "price": f"{curr_price:.2f} {curr_sym}",
-                "z_score": curr_z,
-                "trend_dist": curr_dist if curr_dist else None,
-                "valuation_rank": percentile,
-                "vola_annual_pct": curr_vola,
-            }
-        )
-
-    df_status = pl.DataFrame(status_data)
-    return df_status, ticker_corridors
 
 
 def format_limit(price: float, pct: float, currency_sym: str) -> str:
