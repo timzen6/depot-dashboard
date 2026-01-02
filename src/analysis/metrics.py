@@ -427,7 +427,10 @@ class MetricsEngine:
             )
             .with_columns(
                 # implied growth
-                (pl.col("forward_eps") / pl.col("trailing_eps") - 1).alias("implied_eps_growth")
+                pl.when(pl.col("trailing_eps").gt(0))
+                .then(pl.col("forward_eps") / pl.col("trailing_eps") - 1)
+                .otherwise(None)
+                .alias("implied_eps_growth")
             )
             .with_columns(
                 # peg ratio

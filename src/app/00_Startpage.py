@@ -59,8 +59,12 @@ strategy_engine = StrategyEngine()
 
 try:
     tnx_data = data.prices.filter(pl.col("ticker") == "^TNX").sort("date").tail(1)
-    treasury_yield = tnx_data.select(pl.col("close")).item()
-except Exception:
+    if tnx_data.is_empty():
+        treasury_yield = None
+    else:
+        treasury_yield = tnx_data.select(pl.col("close")).item()
+except Exception as e:
+    logger.error(f"Error fetching treasury yield: {e}", exc_info=True)
     treasury_yield = None
 
 if portfolios_config is None:

@@ -106,7 +106,7 @@ def render_recent_reports_section(data: DashboardData, selected_ticker: list[str
             },
         )
     tmp_recent_earnings = tmp.filter(
-        pl.col("last_annual_earning") >= today - timedelta(days=60)
+        pl.col("last_annual_earning") >= today - timedelta(days=90)
     ).sort(["last_annual_earning", "ticker"], descending=True)
     if tmp_recent_earnings.is_empty():
         st.info("No recent earnings reports.")
