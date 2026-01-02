@@ -209,6 +209,18 @@ class AssetMetadata(BaseModel):
     forward_pe: float | None = None
     forward_eps: float | None = None
 
+    number_of_analyst_opinions: int | None = None
+
+    # yfinance caclulated metrics for comparison
+    trailing_pe: float | None = None
+    trailing_eps: float | None = None
+    trailing_peg_ratio: float | None = None
+
+    ebitda_margin: float | None = None
+
+    earnings_growth: float | None = None
+    revenue_growth: float | None = None
+
     dividend_date: date | None = None
     earnings_date: date | None = None
 

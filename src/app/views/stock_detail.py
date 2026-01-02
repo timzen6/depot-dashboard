@@ -139,6 +139,14 @@ def render_title_section(
                 delta_color="inverse",
                 delta_arrow="off",
             )
+            next_earnings_date = metadata.get("earnings_date", None)
+            if next_earnings_date:
+                st.metric(
+                    value=str(next_earnings_date),
+                    label="Next Earnings Date 📅",
+                    delta_color="inverse",
+                    delta_arrow="off",
+                )
         with subcol2:
             st.metric(
                 value=data_lag_days,
@@ -148,6 +156,14 @@ def render_title_section(
                 delta="  ⚠️ Warning: Data Lag  " if data_lag_days > 180 else None,
                 delta_arrow="off",
             )
+            next_dividend_date = metadata.get("dividend_date", None)
+            if next_dividend_date:
+                st.metric(
+                    value=str(next_dividend_date),
+                    label="Next Dividend Date 💰",
+                    delta_color="inverse",
+                    delta_arrow="off",
+                )
     with col2:
         render_factor_profile_chart(metadata, strategy_engine)
 
@@ -661,6 +677,7 @@ def render_valuation_data(stock_data: StockData, fx_engine: FXEngine) -> None:
 
     df_price = stock_data.prices
     latest_price_metrics = df_price.tail(1)
+
     latest_price_metrics = latest_price_metrics.pipe(
         fx_engine.convert_multiple_to_target,
         amount_cols=["rolling_dividend_sum", "fair_value"],
@@ -724,6 +741,7 @@ def render_valuation_data(stock_data: StockData, fx_engine: FXEngine) -> None:
                 "Current Dividend (Rolling 12M)",
                 f"{latest_price_metrics.select('rolling_dividend_sum_EUR').item():.2f} €",
             )
+
     with col2:
         tab1, tab2, tab3, tab4 = st.tabs(["P/E Ratio", "Yield", "Dilution", "Dividends"])
         tmp_metrics = (
@@ -799,6 +817,108 @@ def render_valuation_data(stock_data: StockData, fx_engine: FXEngine) -> None:
                 color_discrete_sequence=COLOR_SCALE_CONTRAST,
             )
             st.plotly_chart(fig, use_container_width=True)
+
+
+def render_analyst_metrics(stock_data: StockData) -> None:
+    df_price = stock_data.prices
+    latest_price_metrics = df_price.tail(1)
+    st.subheader("📊 Analyst Estimates: Forward Looking")
+    cols = st.columns(6)
+    with cols[0]:
+        st.metric(
+            "Number of Analyst Estimates",
+            f"{stock_data.metadata.get('number_of_analyst_opinions', 0)}",
+        )
+        fwd_pe = latest_price_metrics.select("forward_pe").item()
+        trailing_pe = latest_price_metrics.select("pe_ratio").item()
+        delta_pe = fwd_pe - trailing_pe
+        st.metric(
+            "Estimated Forward P/E Ratio",
+            f"{fwd_pe:.2f}",
+            delta=f"{delta_pe:.2f}",
+            delta_color="inverse",
+        )
+        st.metric(
+            "Trailing P/E Ratio",
+            f"{trailing_pe:.2f}",
+        )
+    with cols[1]:
+        st.metric(
+            "Implied EPS Growth",
+            f"{latest_price_metrics.select('implied_eps_growth').item() * 100:.1f}%",
+        )
+        peg_ratio = latest_price_metrics.select("peg_ratio").item()
+        peg_label = None
+        if peg_ratio < 1.0:
+            peg_label = "🟢🟢🟢"
+        if peg_ratio >= 2.5:
+            peg_label = "🔴🔴🔴"
+        if not peg_ratio or peg_ratio <= 0:
+            st.metric(
+                "PEG Ratio",
+                "N/A",
+            )
+        else:
+            st.metric(
+                "PEG Ratio",
+                f"{latest_price_metrics.select('peg_ratio').item():.2f}",
+                delta=peg_label,
+                delta_color="off",
+                delta_arrow="off",
+            )
+        pegy = latest_price_metrics.select("pegy_ratio").item()
+        pegy_label = None
+        if pegy < 1.2:
+            pegy_label = "🟢🟢🟢"
+        if pegy >= 2.5:
+            pegy_label = "🔴🔴🔴"
+        if not pegy or pegy <= 0:
+            st.metric(
+                "PEGY Ratio",
+                "N/A",
+            )
+        else:
+            st.metric(
+                "PEGY Ratio",
+                f"{pegy:.2f}",
+                # show status < 1.2 as good (green) and above 2.5 as bad (red)
+                delta=pegy_label,
+                delta_color="off",
+                delta_arrow="off",
+            )
+    with cols[2]:
+        ebitda_margin = stock_data.metadata.get("ebitda_margin", None)
+        revenue_growth = stock_data.metadata.get("revenue_growth", None)
+        if ebitda_margin is not None and revenue_growth is not None:
+            ebitda_margin_pct = float(ebitda_margin) * 100.0
+            revenue_growth_pct = float(revenue_growth) * 100.0
+            st.metric(
+                "EBITDA Margin",
+                f"{ebitda_margin_pct:.2f}%",
+            )
+            st.metric(
+                "Revenue Growth",
+                f"{revenue_growth_pct:.2f}%",
+            )
+            rule_of_40 = ebitda_margin_pct + revenue_growth_pct
+            rule40_label = None
+            if rule_of_40 >= 40:
+                rule40_label = "🟢🟢🟢"
+            elif rule_of_40 > 30:
+                rule40_label = "🟢🟢"
+            elif rule_of_40 > 25:
+                rule40_label = "🟢"
+            elif rule_of_40 > 15:
+                rule40_label = "🟡"
+            else:
+                rule40_label = "🔴"
+            st.metric(
+                "Rule of 40",
+                f"{ebitda_margin + revenue_growth:.2f}%",
+                delta=rule40_label,
+                delta_color="off",
+                delta_arrow="off",
+            )
 
 
 def render_quality_data(stock_data: StockData, fx_engine: FXEngine) -> None:

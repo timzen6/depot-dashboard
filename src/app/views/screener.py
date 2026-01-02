@@ -125,11 +125,16 @@ def color_pe_rank(val: float) -> str:
     return f"background-color: {color}; color: white"
 
 
-def color_peg_warning(val: float) -> str:
-    """Calm colors for PEG ratio only warn if over 2.0"""
-    return (
-        "" if pd.isna(val) or val <= 2.5 else f"background-color: {Colors.light_red}; color: white"
-    )
+def color_pegy_warning(val: float) -> str:
+    """Calm colors for PEGY ratio only warn if over 2.0"""
+    if pd.isna(val):
+        return ""
+    if val <= 1.2:
+        return f"background-color: {Colors.light_green}; color: black"
+    if val <= 2.5:
+        return ""
+    else:
+        return f"background-color: {Colors.light_red}; color: white"
 
 
 def color_debt_to_ebit_warning(val: float) -> str:
@@ -208,8 +213,8 @@ def render_stats_table(df_prices_latest: pl.DataFrame) -> list[str]:
             subset=["pe_ratio"],
         )
         .apply(
-            lambda _: df_prices_pandas["peg_ratio"].map(color_peg_warning),
-            subset=["peg_ratio"],
+            lambda _: df_prices_pandas["pegy_ratio"].map(color_pegy_warning),
+            subset=["pegy_ratio"],
         )
         .apply(
             lambda _: df_prices_pandas["net_debt_to_ebit"].map(color_debt_to_ebit_warning),
@@ -235,6 +240,7 @@ def render_stats_table(df_prices_latest: pl.DataFrame) -> list[str]:
             "pe_ratio",
             "forward_pe",
             "pe_ratio_median",
+            "pegy_ratio",
             "fcf_yield",
             # We can put this in optionally later
             # "peg_ratio",
@@ -276,6 +282,7 @@ def render_stats_table(df_prices_latest: pl.DataFrame) -> list[str]:
             "fcf_yield": st.column_config.NumberColumn("💰 FCF Yield", format="%.1f%%"),
             "net_debt_to_ebit": st.column_config.NumberColumn("🏥 Net Debt to EBIT", format="%.1f"),
             "pe_ratio": st.column_config.NumberColumn("💰 P/E Ratio", format="%.1f"),
+            "pegy_ratio": st.column_config.NumberColumn("💰 PEGY Ratio", format="%.1f"),
             "forward_pe": st.column_config.NumberColumn("💰 Fwd P/E", format="%.1f"),
             "peg_ratio": st.column_config.NumberColumn("💰 PEG Ratio", format="%.1f"),
             "pe_ratio_median": st.column_config.NumberColumn("📊 P/E Median", format="%.1f"),

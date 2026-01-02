@@ -200,6 +200,7 @@ class MetricsEngine:
 
     def calculate_valuation_metrics(
         self,
+        metadata: pl.DataFrame,
         df_prices: pl.DataFrame,
         df_annual: pl.DataFrame,
         df_quarterly: pl.DataFrame | None = None,
@@ -402,6 +403,48 @@ class MetricsEngine:
                 pl.lit(0).alias("rolling_dividend_sum"),
                 pl.lit(0).alias("dividend_yield"),
             )
+
+        # Calculate forward-looking metrics using metadata (yfinance estimates)
+        df_enriched = (
+            df_enriched.join(
+                metadata.select(
+                    [
+                        "ticker",
+                        "forward_pe",
+                        "forward_eps",
+                        "trailing_eps",
+                        "trailing_peg_ratio",
+                        "revenue_growth",
+                    ]
+                ),
+                on="ticker",
+                how="left",
+            )
+            .rename({"revenue_growth": "revenue_growth_meta"})
+            .with_columns(
+                # trailing eps
+                pl.coalesce("trailing_eps", eps_expr).alias("trailing_eps"),
+            )
+            .with_columns(
+                # implied growth
+                (pl.col("forward_eps") / pl.col("trailing_eps") - 1).alias("implied_eps_growth")
+            )
+            .with_columns(
+                # peg ratio
+                pl.when(pl.col("implied_eps_growth") > 0)
+                .then(pl.col("forward_pe") / (pl.col("implied_eps_growth") * 100))
+                .otherwise(None)
+                .alias("peg_ratio"),
+                # pegy ratio
+                pl.when(pl.col("implied_eps_growth") + pl.col("dividend_yield") > 0)
+                .then(
+                    pl.col("forward_pe")
+                    / (100 * (pl.col("implied_eps_growth") + pl.col("dividend_yield")))
+                )
+                .otherwise(None)
+                .alias("pegy_ratio"),
+            )
+        )
 
         return df_enriched
 

@@ -70,6 +70,7 @@ class GlobalDataLoader:
         )
 
         prices, fundamentals = _calculate_metrics(
+            metadata=raw_data.metadata,
             prices=raw_data.prices,
             fundamentals=raw_data.fundamentals,
             fundamentals_quarterly=raw_data.fundamentals_quarterly,
@@ -85,6 +86,7 @@ class GlobalDataLoader:
 
 
 def _calculate_metrics(
+    metadata: pl.DataFrame,
     prices: pl.DataFrame,
     fundamentals: pl.DataFrame,
     fundamentals_quarterly: pl.DataFrame | None,
@@ -115,6 +117,7 @@ def _calculate_metrics(
     # Enrich prices with valuation metrics if we have both datasets
     if not prices.is_empty() and not fundamentals.is_empty():
         prices = metrics_engine.calculate_valuation_metrics(
+            metadata,
             prices,
             fundamentals,
             fundamentals_quarterly,
