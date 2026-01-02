@@ -88,10 +88,7 @@ def render_recent_reports_section(data: DashboardData, selected_ticker: list[str
     # (quarterly reports are not always available and less relevant in general)
     today = date.today()
     end_lookup = today + timedelta(days=30)
-    tmp_next_earnings = tmp.filter(
-        (pl.col("est_next_annual_earning") >= today)
-        & (pl.col("est_next_annual_earning") <= end_lookup)
-    )
+    tmp_next_earnings = tmp.filter(pl.col("est_next_annual_earning") <= end_lookup)
     if tmp_next_earnings.is_empty():
         st.info("No upcoming earnings dates in the next 30 days.")
     else:

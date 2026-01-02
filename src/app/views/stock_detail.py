@@ -914,7 +914,7 @@ def render_analyst_metrics(stock_data: StockData) -> None:
                 rule40_label = "🔴"
             st.metric(
                 "Rule of 40",
-                f"{ebitda_margin + revenue_growth:.2f}%",
+                f"{rule_of_40:.2f}%",
                 delta=rule40_label,
                 delta_color="off",
                 delta_arrow="off",

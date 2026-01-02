@@ -56,6 +56,13 @@ landing_config = load_landing_page_config()
 portfolio_engine = PortfolioEngine()
 strategy_engine = StrategyEngine()
 
+
+try:
+    tnx_data = data.prices.filter(pl.col("ticker") == "^TNX").sort("date").tail(1)
+    treasury_yield = tnx_data.select(pl.col("close")).item()
+except Exception:
+    treasury_yield = None
+
 if portfolios_config is None:
     relevant_portfolios = {}
 else:
@@ -77,7 +84,12 @@ selected_ticker = landing_config.watchlist_tickers
 
 col1, col2 = st.columns([5, 2])
 with col1:
-    st.header("📁 Portfolio Overview")
+    subcol1, subcol2 = st.columns([3, 1])
+    with subcol1:
+        st.header("📁 Portfolio Overview")
+    with subcol2:
+        st.metric(label="📊 Current 10Y Treasury Yield", value=f"{treasury_yield:.1f}%")
+
     # leave some vertical space
     st.subheader("")
     render_portfolio_overview_table(df_portfolio)
