@@ -349,6 +349,9 @@ universe:
     - EURDKK=X
     - EURSEK=X
     - EURCAD=X
+    # Bond Yields
+    - ^TNX      # US 10 Year Treasury
+    - ^FVX      # US 5 Year Treasury
 
     # ETFs (via Xetra in EUR)
     - EUNL.DE  # iShares Core MSCI World

@@ -159,6 +159,13 @@ def map_ticker_info_to_asset_metadata(
         # important metrics for quick analysis, we cannot get them in the fundamentals
         forward_pe=_get_float(info, ["forwardPE"]),
         forward_eps=_get_float(info, ["forwardEps"]),
+        number_of_analyst_opinions=_get_int(info, ["numberOfAnalystOpinions"]),
+        trailing_pe=_get_float(info, ["trailingPE"]),
+        trailing_eps=_get_float(info, ["trailingEps"]),
+        trailing_peg_ratio=_get_float(info, ["trailingPegRatio"]),
+        earnings_growth=_get_float(info, ["earningsGrowth"]),
+        revenue_growth=_get_float(info, ["revenueGrowth"]),
+        ebitda_margin=_get_float(info, ["ebitdaMargins"]),
         display_name=_safe_str(info, ["displayName"]),
         dividend_date=dividend_date,
         earnings_date=earnings_date,
@@ -438,6 +445,19 @@ def _get_float(data: dict[str, Any], keys: list[str]) -> float | None:
                 if isinstance(value, str):
                     return float(value.replace(",", ""))
                 return float(value)
+            except (ValueError, TypeError):
+                continue
+    return None
+
+
+def _get_int(data: dict[str, Any], keys: list[str]) -> int | None:
+    for key in keys:
+        value = data.get(key, None)
+        if pd.notna(value):
+            try:
+                if isinstance(value, str):
+                    return int(value.replace(",", ""))
+                return int(value)
             except (ValueError, TypeError):
                 continue
     return None

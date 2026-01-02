@@ -61,6 +61,8 @@ def prepare_screener_snapshot(
             pl.col("pe_ratio").quantile(0.75).alias("pe_ratio_p75"),
             # take last 30 days of closes and put to a list
             pl.tail("close_EUR", 30).alias("close_30d"),
+            pl.last("peg_ratio").alias("peg_ratio"),
+            pl.last("pegy_ratio").alias("pegy_ratio"),
         )
         .join(
             df_fundamentals_latest,
@@ -70,11 +72,6 @@ def prepare_screener_snapshot(
         .with_columns(
             # upside
             ((pl.col("fair_value") / pl.col("close")) - 1.0).alias("upside"),
-            # PEG ratio
-            pl.when(pl.col("revenue_growth") > 0.05)
-            .then(pl.col("pe_ratio") / (100 * pl.col("revenue_growth")))
-            .otherwise(None)
-            .alias("peg_ratio"),
         )
         .join(
             df_metadata.select(["ticker", "name", "info", "forward_pe"]),

@@ -10,6 +10,7 @@ import polars as pl
 import streamlit as st
 from loguru import logger
 
+import src.app.views.stock_detail as view
 from src.app.logic.common import get_sorted_occurrences
 from src.app.logic.data_loader import GlobalDataLoader, load_all_stock_data
 from src.app.logic.stock_detail import (
@@ -19,19 +20,6 @@ from src.app.views.common import (
     portfolio_selection,
     render_empty_state,
     render_sidebar_header,
-)
-from src.app.views.stock_detail import (
-    render_etf_composition_charts,
-    render_fcf_yield_chart,
-    render_fundamentals_reference,
-    render_growth_data,
-    render_health_data,
-    render_latest_price_info,
-    render_pe_ratio_chart,
-    render_price_chart,
-    render_quality_data,
-    render_title_section,
-    render_valuation_data,
 )
 from src.core.domain_models import AssetType
 from src.core.etf_loader import ETFLoader
@@ -130,7 +118,7 @@ try:
     valuation_source = data_source_info.select("valuation_source").item()
     data_lag_days = data_source_info.select("data_lag_days").item()
 
-    render_title_section(
+    view.render_title_section(
         selected_ticker,
         stock_data.metadata,
         strategy_engine,
@@ -144,7 +132,7 @@ try:
 
     # Create tabs for different analyses
     st.subheader("📈 Price History")
-    render_latest_price_info(filtered_stock_data.prices, fx_engine)
+    view.render_latest_price_info(filtered_stock_data.prices, fx_engine)
 
     time_delta_selection = st.pills(
         "Select Time Displayed",
@@ -176,7 +164,7 @@ try:
     else:
         start_date = now - timedelta(days=time_delta * 31)
     with tab1:
-        render_price_chart(
+        view.render_price_chart(
             filtered_stock_data.prices,
             selected_ticker,
             simple_display_mode=True,
@@ -185,7 +173,7 @@ try:
             start_date=start_date,
         )
     with tab2:
-        render_price_chart(
+        view.render_price_chart(
             filtered_stock_data.prices,
             selected_ticker,
             simple_display_mode=True,
@@ -195,13 +183,13 @@ try:
         )
 
     with tab3:
-        render_pe_ratio_chart(
+        view.render_pe_ratio_chart(
             filtered_stock_data.prices,
             selected_ticker,
             start_date=start_date,
         )
     with tab4:
-        render_fcf_yield_chart(
+        view.render_fcf_yield_chart(
             filtered_stock_data.prices,
             selected_ticker,
             fx_engine,
@@ -209,7 +197,7 @@ try:
             use_log=True,
         )
     with tab5:
-        render_price_chart(
+        view.render_price_chart(
             filtered_stock_data.prices,
             selected_ticker,
             simple_display_mode=False,
@@ -220,21 +208,31 @@ try:
     asset_type = stock_data.metadata.get("asset_type")
     etf_data = etf_loader.get(selected_ticker)
     if asset_type == AssetType.ETF and etf_data is not None:
-        render_etf_composition_charts(etf_data, strategy_engine)
+        view.render_etf_composition_charts(etf_data, strategy_engine)
 
     if filtered_stock_data.fundamentals.is_empty():
         st.info("No fundamental data available for this ticker")
         st.stop()
-    high_tabs = st.tabs(["💰 Valuation", "💎 Quality", "🚀 Growth", "🏥 Health"])
+    high_tabs = st.tabs(
+        [
+            "💰 Valuation",
+            "💎 Quality",
+            "🚀 Growth",
+            "🏥 Health",
+            "📊 Analyst Metrics",
+        ]
+    )
     with high_tabs[0]:
-        render_valuation_data(stock_data, fx_engine)
+        view.render_valuation_data(stock_data, fx_engine)
     with high_tabs[1]:
-        render_quality_data(stock_data, fx_engine)
+        view.render_quality_data(stock_data, fx_engine)
     with high_tabs[2]:
-        render_growth_data(stock_data)
+        view.render_growth_data(stock_data)
     with high_tabs[3]:
-        render_health_data(stock_data)
-    render_fundamentals_reference(stock_data.fundamentals)
+        view.render_health_data(stock_data)
+    with high_tabs[4]:
+        view.render_analyst_metrics(stock_data)
+    view.render_fundamentals_reference(stock_data.fundamentals)
 except Exception as e:
     st.exception(e)
     logger.error(f"Stock detail error: {e}", exc_info=True)
