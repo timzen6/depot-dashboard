@@ -92,7 +92,7 @@ def calculate_ticker_status(
         .then(pl.col("valuation_rank"))
         .otherwise(None)
         .alias("valuation_rank"),
-        pl.format("{} {}", pl.col("price"), pl.col("currency")).alias("price"),
+        pl.format("{} {}", pl.col("price").round(2), pl.col("currency")).alias("price"),
     )
     corridor_rows = (
         df_final.filter(pl.col("data_points") > 100)

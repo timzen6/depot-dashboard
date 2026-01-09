@@ -1,152 +1,115 @@
-# Quality Core 🚀
+# 🛡️ Quality Core Portfolio X-Ray
 
-**Quality Core** is an advanced Portfolio Management and Analytics Dashboard designed for quality and esg focused investing.
-There is also functionality on customizable **factor investing** for monitoring nuanced data-inspired investment strategies.
+![Python](https://img.shields.io/badge/Python-3.11%2B-blue)
+![Style](https://img.shields.io/badge/Code%20Style-Ruff-black)
+![Type Checker](https://img.shields.io/badge/Type%20Checker-MyPy-green)
 
-It combines a robust, local-first ETL pipeline for financial data ingestion with a clean, interactive Streamlit frontend for investment decision-making.
+> **"From Stock Tickers to Sensors."**
+> An industrial-grade data analytics platform simulating high-frequency time-series processing, robust ETL pipelines, and factor-based decision support.
+
+**Quality Core** goes beyond standard portfolio tracking. It serves as a sandbox to demonstrate **Resilient Data Science** principles: Strict schema validation, local-first architecture (Edge computing simulation), and handling data sparsity in time-series (TTM Coalescing).
 
 ---
 
-## 🏗 Tech Stack
+## 📸 The Dashboard
+
+![Dashboard Overview Screenshot](docs/assets/overview_charts.png)
+
+![Dashboard Stock Screener Screenshot](docs/assets/stock_screener_2.png)
+*(Note: Please insert a screenshot or GIF of your Streamlit Admin/Overview here)*
+
+---
+
+## 💡 Engineering Deep Dive (Key Challenges)
+
+This project was built to solve complex data engineering problems common in both Finance and Industrial IoT.
+
+### 1. Robust TTM Coalescing Engine 📉
+Dealing with mixed-frequency data (Quarterly Reports vs. Annual Reports vs. Daily Prices) is non-trivial.
+* **The Challenge:** Calculating "Trailing Twelve Months" (TTM) metrics when data is sparse or reporting periods shift.
+* **The Solution:** Implemented a **Coalescing Logic** in Polars that intelligently merges annual and quarterly data.
+* **Observability:** To prevent decisions on stale data, the engine calculates and visualizes **"Data Age"**. Just like checking a sensor's heartbeat, the system flags if fundamental data is older than expected (e.g., >100 days).
+
+### 2. Strict Schema Validation (The Gatekeeper) 🛡️
+Financial APIs (`yfinance`) are notoriously unstable—fields disappear or change types.
+* **Strategy:** Using **Pydantic** models as a strict anti-corruption layer.
+* **Impact:** Data is validated *at ingestion*. Invalid data is rejected with clear logs before it can pollute the analytics layer (Parquet Data Lake). This mimics "Input Validation" in safety-critical industrial controls.
+
+### 3. Custom Factor Strategy Engine 🧠
+Instead of relying on black-box metrics, the core logic implements a customizable scoring system.
+* **Implementation:** Flexible implementation for strategy factors for highly customizable data-inspired investment approaches.
+* **Architecture:** Business logic is strictly separated from the UI logic, allowing factors to be recalculated efficiently.
+* **Knowledge Base:** Knowledge about investment approaches can be easily configured and displayed on the start page to always keep the personal "investment north star" at sight.
+
+---
+
+## 🏗 Tech Stack & Architecture
 
 * **Language:** Python 3.11+
-* **Dependency Management:** [`uv`](https://github.com/astral-sh/uv) (Modern, fast pip replacement)
-* **Frontend:** Streamlit (MVC Pattern)
-* **Data Processing:** Polars, Pandas (Method Chaining), NumPy
-* **Data Source:** `yfinance` (ETL pipeline), OpenBB (optional)
-* **Storage:** Local Parquet Data Lake (Atomic writes)
-* **Quality Assurance:** Ruff, MyPy, Pre-commit
+* **Package Manager:** [`uv`](https://github.com/astral-sh/uv) (For deterministic builds)
+* **Core Engine:** **Polars** (High-performance Dataframes)
+* **Validation:** **Pydantic** (Domain Modeling)
+* **Frontend:** **Streamlit** (MVC Pattern implementation)
+* **Storage:** Local Parquet Data Lake (Atomic writes, "Edge-ready")
 
----
+### 📂 Project Structure
 
-## ✨ Key Features
+A focus on Separation of Concerns (SoC) and modularity:
 
-### 📊 Dashboard (Streamlit)
-* **Portfolio Overview:** Track performance, dividends, and asset allocation.
-* **Asset Details:** Deep dive into specific stocks with fundamental analysis.
-* **Screener:** Filter stocks based on custom factors (e.g., ROCE, FCF Yield, Margins).
-* **Factor Analysis:** Visualizing "Quality," "Stability," "Real Assets," and "Price" scores.
-
-### ⚙️ ETL Engine & CLI
-* **Incremental Updates:** Smart fetching of missing price data (Gap Detection).
-* **Snapshotting:** Historical archiving of fundamental data.
-* **Data Lake:** Structured storage in `data/prod/`.
-
----
-
-## 🚀 Getting Started
-
-### Prerequisites
-* **Python 3.11+**
-* **uv** (Recommended installer)
-* **Make** (Optional, for simplified commands)
-
-**Install uv:**
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-
-### Installation
-
-1. **Clone the repository:**
-```bash
-git clone https://github.com/timzen6/quality-core.git
-cd quality-core
-```
-
-2. **Setup Environment:** The project uses `uv` to manage the virtual environment automatically.
-
-Optional: Run sync manually to initialize the environment for your IDE (e.g., VS Code IntelliSense):
-```bash
-uv sync
-```
-
-3. **Configuration:** Copy the example environment file and adjust settings if necessary.
-```bash
-cp .env.example .env
-```
-
----
-
-## 🖥 Usage
-
-The project includes a Makefile to streamline common tasks.
-
-### 1. Run the Dashboard
-
-Starts the Streamlit application. Dependencies are handled automatically.
-```bash
-make app
-```
-
-(Alternative: `uv run streamlit run src/app/00_Startpage.py`)
-
-### 2. Run the ETL Pipeline (qc)
-
-The project includes a CLI tool named `qc` (Quality Core) to manage data operations.
-
-
-**Update Prices & Fundamentals:**
-```bash
-uv run qc etl
-```
-
-**Show all available commands:**
-```bash
-uv run qc --help
-```
-
-or preferably use **make** to set up your local database:
-Use
-```bash
-make etl
-```
-to load or update all relevant data in user defined portfolios.
-To make a full update to also load all preconfigured tickers run:
-```bash
-make etl-full
-```
-This update may take some time. Data updates can also be triggered within
-the UI on the Admin page.
-
-
-
----
-
-## 📂 Project Structure
-
-```
+```text
 .
-├── config/                 # YAML configs (ETFs, Factors, General settings)
-├── data/                   # Data storage (prod/staging) - .gitignored
-├── docs/                   # Documentation & Architecture Decisions
+├── config/                 # YAML configs (Declarative Strategy Definitions)
+├── data/                   # Local Data Lake (prod/staging)
 ├── src/
-│   ├── analysis/           # Financial math & metric calculations
-│   ├── app/                # Streamlit Application (MVC Pattern)
-│   │   ├── 00_Startpage.py # << APP ENTRY POINT
-│   │   ├── logic/          # Controllers/Business Logic
-│   │   ├── pages/          # Streamlit Pages
-│   │   └── views/          # UI Components
-│   ├── core/               # Domain Models, Strategy Engine
-│   ├── etl/                # Extract-Transform-Load pipelines
-│   └── main.py             # << CLI ENTRY POINT
-├── Makefile                # Command shortcuts
-├── pyproject.toml          # Project configuration & Dependencies
-└── uv.lock                 # Dependency Lockfile
-```
+│   ├── analysis/           # Financial Math & Metrics (Pure Functions)
+│   ├── app/                # Streamlit UI (View Layer)
+│   │   ├── logic/          # Controllers (Bridging UI and Core)
+│   │   └── views/          # Reusable UI Components
+│   ├── core/               # Domain Models (The Source of Truth)
+│   ├── etl/                # Pipeline Logic (Extract -> Validate -> Load)
+│   └── main.py             # CLI Entry Point
+├── Makefile                # DevOps / Automation
+└── pyproject.toml          # Dependency Specification
 
----
+🚀 Getting Started
 
-## 🛠 Development
+This project uses uv for blazing fast dependency management.
+Prerequisites
 
-We adhere to strict coding standards using `ruff` (linting/formatting) and `mypy` (static type checking).
+    Python 3.11+
 
-**Run Quality Checks (Lint, Format, Type Check):**
-```bash
-make qc
-```
+    uv (Recommended) or pip
 
----
+    Make
+
+Installation
+
+    Clone & Sync:
+
+Bash
+
+git clone [https://github.com/timzen6/quality-core.git](https://github.com/timzen6/quality-core.git)
+cd quality-core
+uv sync  # Installs virtual env and dependencies
+
+    Run the ETL (Hydrate Data):
+
+Bash
+
+make etl-full  # Fetches data, runs validation pipelines, updates Parquet lake
+
+    Launch Dashboard:
+
+Bash
+
+make app
+
+🛠 Quality Assurance
+
+The codebase enforces strict standards to ensure maintainability (simulating a long-term industrial project lifecycle).
+Bash
+
+make qc  # Runs ruff (linting), black (formatting), and mypy (strict type checking)
 
 
 ## 📝 License

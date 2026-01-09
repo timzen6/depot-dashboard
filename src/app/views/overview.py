@@ -91,6 +91,7 @@ def render_portfolio_chart(
                 "Luxury": COLOR_SCALE_CONTRAST[4],
                 "ETF": COLOR_SCALE_CONTRAST[0],
                 "STOCK": COLOR_SCALE_CONTRAST[1],
+                "N/A": COLOR_SCALE_CONTRAST[5],
             },
         )
         fig.update_layout(legend_title_text="")
@@ -150,6 +151,7 @@ def render_positions_table(df_latest: pl.DataFrame, portfolio_name: str) -> None
             "ticker",
             "asset_type",
             "group",
+            "shares",
             "position_value",
             "currency",
             "weight_pct",
@@ -162,6 +164,7 @@ def render_positions_table(df_latest: pl.DataFrame, portfolio_name: str) -> None
             "short_name": "Name",
             "asset_type": "Asset Type",
             "group": "Custom Group",
+            "shares": st.column_config.NumberColumn("Shares", format="%.0f", width="small"),
             "position_value": st.column_config.NumberColumn(
                 "Value (Original Currency)",
                 format="%.0f",
@@ -202,6 +205,10 @@ def render_stock_composition_chart(
         pl.col("group").fill_null(pl.col("sector")).alias("color_category"),
     ).sort("position_value_EUR", descending=True)
 
+    if df_latest.height < 2:
+        st.info("Please add more than one stock to the portfolio to see composition charts.")
+        return
+
     tab_names = [
         "Strategy Factors",
         "Ticker Breakdown",
@@ -224,6 +231,7 @@ def render_stock_composition_chart(
                 "Industrial": COLOR_SCALE_CONTRAST[2],
                 "Finance": COLOR_SCALE_CONTRAST[3],
                 "Luxury": COLOR_SCALE_CONTRAST[4],
+                "N/A": COLOR_SCALE_CONTRAST[5],
             },
         )
 
@@ -378,7 +386,6 @@ def render_portfolio_composition_chart(
             fig_factor = make_sunburst_chart(
                 factors,
                 path=["asset_type", "factor_short"],
-                title="Strategy Factor Exposure by Asset Class",
                 value="proportion",
             )
             st.plotly_chart(fig_factor, use_container_width=True)
