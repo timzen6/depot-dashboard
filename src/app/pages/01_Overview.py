@@ -136,12 +136,17 @@ try:
             render_portfolio_chart(df_history, key="portfolio_chart_all", group_column="asset_type")
 
         with col2:
-            render_portfolio_composition_chart(
-                df_latest,
-                etf_sectors,
-                etf_countries,
-                strategy_engine,
-            )
+            try:
+                render_portfolio_composition_chart(
+                    df_latest,
+                    etf_sectors,
+                    etf_countries,
+                    strategy_engine,
+                )
+            except Exception as e:
+                st.error(f"Error rendering composition chart: {e}")
+                logger.error(f"Composition chart error: {e}", exc_info=True)
+                raise e
     with tab2:
         df_history_stock = df_history.filter(pl.col("asset_type") == AssetType.STOCK)
         df_latest_stock = df_latest.filter(pl.col("asset_type") == AssetType.STOCK)

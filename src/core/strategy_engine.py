@@ -7,6 +7,12 @@ from loguru import logger
 from src.core.strategy_models import StrategyFactors
 
 
+def safe_column_expr(df: pl.DataFrame, col_name: str) -> pl.Expr:
+    if col_name in df.columns:
+        return pl.col(col_name)
+    return pl.lit(0).alias(col_name)
+
+
 class StrategyEngine:
     def __init__(self, config_path: Path = Path("config/factors.yaml")) -> None:
         self.config_path = config_path
@@ -106,13 +112,13 @@ class StrategyEngine:
         sector_column: str = "sector",
     ) -> pl.DataFrame:
         df_joined = self.join_factor_profiles(df_positions, sector_column=sector_column)
+        col_expr = [
+            safe_column_expr(df_joined, fac).fill_null(0) * pl.col(value_column)
+            for fac in self.factor_mapping.keys()
+        ]
+
         value_sums = (
-            df_joined.with_columns(
-                (pl.col("tech").fill_null(0) * pl.col(value_column)).alias("tech_value"),
-                (pl.col("stab").fill_null(0) * pl.col(value_column)).alias("stab_value"),
-                (pl.col("real").fill_null(0) * pl.col(value_column)).alias("real_value"),
-                (pl.col("price").fill_null(0) * pl.col(value_column)).alias("price_value"),
-            )
+            df_joined.with_columns(col_expr)
             .select([value_column, "tech_value", "stab_value", "real_value", "price_value"])
             .sum()
         )
