@@ -21,7 +21,7 @@ from src.app.views.constants import (
     assign_info_emojis,
 )
 from src.core.domain_models import AssetType
-from src.core.strategy_engine import StrategyEngine
+from src.core.strategy_engine import StrategyEngine, safe_column_expr
 
 
 def render_portfolio_chart(
@@ -204,10 +204,6 @@ def render_stock_composition_chart(
         .str.slice(0, 25),
         pl.col("group").fill_null(pl.col("sector")).alias("color_category"),
     ).sort("position_value_EUR", descending=True)
-
-    if df_latest.height < 2:
-        st.info("Please add more than one stock to the portfolio to see composition charts.")
-        return
 
     tab_names = [
         "Strategy Factors",
@@ -582,17 +578,18 @@ def render_strategy_factor_table(
         st.warning("No market fundamentals data to display")
         return
     df_snapshot = df_snapshot.pipe(assign_info_emojis, "sector", "country", "asset_type", "name")
-    df_profile = (
+    df_profile_raw = (
         df_snapshot.select("ticker", "name", "sector", "info")
         .pipe(strategy_engine.join_factor_profiles)
+        # ensure all factor columns exist
         .fill_null(0.0)
-        .with_columns(
+    )
+    df_profile = df_profile_raw.with_columns(
+        [
             # Multiply factors by 10 for better readability
-            (pl.col("tech") * 10).alias("tech"),
-            (pl.col("stab") * 10).alias("stab"),
-            (pl.col("real") * 10).alias("real"),
-            (pl.col("price") * 10).alias("price"),
-        )
+            (safe_column_expr(df_profile_raw, fac).fill_null(0) * 10).alias(fac)
+            for fac in strategy_engine.factor_mapping.keys()
+        ]
     )
 
     st.subheader("📊 Strategy Factor Profiles")

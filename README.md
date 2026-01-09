@@ -16,7 +16,6 @@
 ![Dashboard Overview Screenshot](docs/assets/overview_charts.png)
 
 ![Dashboard Stock Screener Screenshot](docs/assets/stock_screener_2.png)
-*(Note: Please insert a screenshot or GIF of your Streamlit Admin/Overview here)*
 
 ---
 

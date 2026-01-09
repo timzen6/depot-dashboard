@@ -113,7 +113,9 @@ class StrategyEngine:
     ) -> pl.DataFrame:
         df_joined = self.join_factor_profiles(df_positions, sector_column=sector_column)
         col_expr = [
-            safe_column_expr(df_joined, fac).fill_null(0) * pl.col(value_column)
+            (safe_column_expr(df_joined, fac).fill_null(0) * pl.col(value_column)).alias(
+                f"{fac}_value"
+            )
             for fac in self.factor_mapping.keys()
         ]
 
