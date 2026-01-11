@@ -19,6 +19,7 @@ cutoff_date, window_days, portfolio_tickers = view.render_sidebar_selection(
     dashboard_data, portfolio_dict
 )
 
+st.subheader("1️⃣ Select Tickers")
 selected_tickers = view.render_stock_selection(
     dashboard_data,
     portfolio_tickers,

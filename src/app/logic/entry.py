@@ -67,32 +67,41 @@ def calculate_ticker_status(
         pl.col("ticker").is_in(selected_tickers) & (pl.col("date") >= date_3y_ago)
     ).sort(["ticker", "date"])
 
-    df_result = df_window.group_by("ticker").agg(
-        [
-            # Current Values
-            pl.col("z_score").last().alias("z_score"),
-            pl.col("dist_200_pct").last().alias("trend_dist"),
-            pl.col("vola_annual_pct").last().alias("vola_annual_pct"),
-            pl.col("close").last().alias("price"),
-            pl.col("currency").last().alias("currency"),
-            # Historical Context
-            pl.col("dist_200_pct").quantile(0.10).alias("p10_dist"),
-            pl.col("dist_200_pct").quantile(0.90).alias("p90_dist"),
-            pl.count().alias("data_points"),
-            # Percentile Rank Calculation
-            (
-                (pl.col("dist_200_pct") < pl.col("dist_200_pct").last())
-                .mean()
-                .alias("valuation_rank")
-            ),
-        ]
+    df_result = (
+        df_window.group_by("ticker")
+        .agg(
+            [
+                # Current Values
+                pl.col("z_score").last().alias("z_score"),
+                pl.col("dist_200_pct").last().alias("trend_dist"),
+                pl.col("vola_annual_pct").last().alias("vola_annual_pct"),
+                pl.col("close").last().alias("price"),
+                pl.col("currency").last().alias("currency"),
+                # Historical Context
+                pl.col("dist_200_pct").quantile(0.10).alias("p10_dist"),
+                pl.col("dist_200_pct").quantile(0.90).alias("p90_dist"),
+                pl.count().alias("data_points"),
+                # Percentile Rank Calculation
+                (
+                    (pl.col("dist_200_pct") < pl.col("dist_200_pct").last())
+                    .mean()
+                    .alias("valuation_rank")
+                ),
+                pl.col("close").max().alias("all_time_high"),
+            ]
+        )
+        .with_columns(
+            ((pl.col("all_time_high") - pl.col("price")) / pl.col("all_time_high") * 100).alias(
+                "draw_down_pct"
+            )
+        )
     )
     df_final = df_result.with_columns(
         pl.when(pl.col("data_points") >= 100)
         .then(pl.col("valuation_rank"))
         .otherwise(None)
         .alias("valuation_rank"),
-        pl.format("{} {}", pl.col("price"), pl.col("currency")).alias("price"),
+        pl.format("{} {}", pl.col("price").round(2), pl.col("currency")).alias("price"),
     )
     corridor_rows = (
         df_final.filter(pl.col("data_points") > 100)

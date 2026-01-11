@@ -21,7 +21,7 @@ from src.app.views.constants import (
     assign_info_emojis,
 )
 from src.core.domain_models import AssetType
-from src.core.strategy_engine import StrategyEngine
+from src.core.strategy_engine import StrategyEngine, safe_column_expr
 
 
 def render_portfolio_chart(
@@ -91,6 +91,7 @@ def render_portfolio_chart(
                 "Luxury": COLOR_SCALE_CONTRAST[4],
                 "ETF": COLOR_SCALE_CONTRAST[0],
                 "STOCK": COLOR_SCALE_CONTRAST[1],
+                "N/A": COLOR_SCALE_CONTRAST[5],
             },
         )
         fig.update_layout(legend_title_text="")
@@ -150,6 +151,7 @@ def render_positions_table(df_latest: pl.DataFrame, portfolio_name: str) -> None
             "ticker",
             "asset_type",
             "group",
+            "shares",
             "position_value",
             "currency",
             "weight_pct",
@@ -162,6 +164,7 @@ def render_positions_table(df_latest: pl.DataFrame, portfolio_name: str) -> None
             "short_name": "Name",
             "asset_type": "Asset Type",
             "group": "Custom Group",
+            "shares": st.column_config.NumberColumn("Shares", format="%.0f", width="small"),
             "position_value": st.column_config.NumberColumn(
                 "Value (Original Currency)",
                 format="%.0f",
@@ -224,6 +227,7 @@ def render_stock_composition_chart(
                 "Industrial": COLOR_SCALE_CONTRAST[2],
                 "Finance": COLOR_SCALE_CONTRAST[3],
                 "Luxury": COLOR_SCALE_CONTRAST[4],
+                "N/A": COLOR_SCALE_CONTRAST[5],
             },
         )
 
@@ -378,7 +382,6 @@ def render_portfolio_composition_chart(
             fig_factor = make_sunburst_chart(
                 factors,
                 path=["asset_type", "factor_short"],
-                title="Strategy Factor Exposure by Asset Class",
                 value="proportion",
             )
             st.plotly_chart(fig_factor, use_container_width=True)
@@ -575,17 +578,18 @@ def render_strategy_factor_table(
         st.warning("No market fundamentals data to display")
         return
     df_snapshot = df_snapshot.pipe(assign_info_emojis, "sector", "country", "asset_type", "name")
-    df_profile = (
+    df_profile_raw = (
         df_snapshot.select("ticker", "name", "sector", "info")
         .pipe(strategy_engine.join_factor_profiles)
+        # ensure all factor columns exist
         .fill_null(0.0)
-        .with_columns(
+    )
+    df_profile = df_profile_raw.with_columns(
+        [
             # Multiply factors by 10 for better readability
-            (pl.col("tech") * 10).alias("tech"),
-            (pl.col("stab") * 10).alias("stab"),
-            (pl.col("real") * 10).alias("real"),
-            (pl.col("price") * 10).alias("price"),
-        )
+            (safe_column_expr(df_profile_raw, fac).fill_null(0) * 10).alias(fac)
+            for fac in strategy_engine.factor_mapping.keys()
+        ]
     )
 
     st.subheader("📊 Strategy Factor Profiles")

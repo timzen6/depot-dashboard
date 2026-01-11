@@ -249,9 +249,11 @@ def render_stats_table(df_prices_latest: pl.DataFrame) -> list[str]:
             "net_debt_to_ebit",
             "revenue_growth",
             "close_30d",
+            "ticker",
         ],
         column_config={
             "name": st.column_config.TextColumn("Name", width="medium"),
+            "ticker": st.column_config.TextColumn("Ticker", width="small"),
             "close_30d": st.column_config.LineChartColumn(
                 "📈 30d Price Chart", width="medium", color="auto"
             ),
