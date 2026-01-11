@@ -51,6 +51,10 @@ Instead of relying on black-box metrics, the core logic implements a customizabl
 * **Frontend:** **Streamlit** (MVC Pattern implementation)
 * **Storage:** Local Parquet Data Lake (Atomic writes, "Edge-ready")
 
+## Architecture Diagram
+
+![Architecture Diagram](docs/assets/qc_structure.png)
+
 ### 📂 Project Structure
 
 A focus on Separation of Concerns (SoC) and modularity:

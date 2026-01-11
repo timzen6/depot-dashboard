@@ -161,7 +161,6 @@ def render_stock_selection(
         )
     ).select(["ticker", "name", "info", "country", "forward_pe"])
 
-    st.subheader("1️⃣ Select Tickers")
     st.dataframe(
         stock_metadata,
         selection_mode="multi-row",
@@ -169,6 +168,13 @@ def render_stock_selection(
         on_select="rerun",
         use_container_width=True,
         height=300,
+        column_order=["ticker", "name", "info", "forward_pe"],
+        column_config={
+            "ticker": st.column_config.TextColumn("Ticker"),
+            "name": st.column_config.TextColumn("Name"),
+            "info": st.column_config.TextColumn("Info"),
+            "forward_pe": st.column_config.NumberColumn("Forward P/E", format="%.1f"),
+        },
     )
 
     selected_tickers = key_to_selected_tickers(
@@ -309,6 +315,7 @@ def render_tactic_strategic_overview_table(
         column_order=[
             "ticker",
             "price",
+            "draw_down_pct",
             "trend_dist",
             "valuation_rank",
             "valuation_classification",
@@ -320,6 +327,7 @@ def render_tactic_strategic_overview_table(
         column_config={
             "ticker": st.column_config.TextColumn("Ticker"),
             "price": st.column_config.NumberColumn("Price", format="%.2f"),
+            "draw_down_pct": st.column_config.NumberColumn("Drawdown from ATH", format="%.1f%%"),
             # 1. TACTICAL (Kurzfristig)
             "z_score": st.column_config.NumberColumn(
                 "Tactical Z-Score(50d)",

@@ -181,6 +181,8 @@ def render_latest_price_info(
         st.warning("No price data to display latest info")
         return
 
+    ath = df_price.select(pl.col("close").max()).item()
+
     latest = df_price.tail(1).to_dicts()[0]
 
     currency = latest.get("currency", "USD")
@@ -194,8 +196,14 @@ def render_latest_price_info(
             amount=latest_val,
             source_currency=currency,
         )
+        ath_eur = fx_engine.convert_amount(
+            date=latest["date"],
+            amount=ath,
+            source_currency=currency,
+        )
     else:
         lastest_val_eur = None
+        ath_eur = None
 
     cols = st.columns(5)
 
@@ -205,21 +213,29 @@ def render_latest_price_info(
             value=f"{latest['close']:,.2f} {symbol}",
         )
         if lastest_val_eur:
-            st.metric(
-                label="Latest Close (€)",
-                value=f"{lastest_val_eur:,.2f} €",
-            )
+            st.caption(f"Latest Close (€): {lastest_val_eur:,.2f} €")
 
     with cols[1]:
         st.metric(
             label="Open",
             value=f"{latest['open']:,.2f} {symbol}",
         )
+        st.metric(
+            label="All-Time High",
+            value=f"{ath:,.2f} {symbol}",
+        )
+        if ath_eur:
+            st.caption(f"All-Time High (€): {ath_eur:,.2f} €")
 
     with cols[2]:
         st.metric(
             label="High",
             value=f"{latest['high']:,.2f} {symbol}",
+        )
+        draw_down = ((ath - latest["close"]) / ath) * 100
+        st.metric(
+            label="Drawdown from ATH",
+            value=f"{draw_down:.1f} %",
         )
 
     with cols[3]:
