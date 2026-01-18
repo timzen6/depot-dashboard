@@ -948,7 +948,9 @@ def render_quality_data(stock_data: StockData, fx_engine: FXEngine) -> None:
         MetricDisplayInfo("ebit_margin", 100, "%", "EBIT Margin"),
         MetricDisplayInfo("cash_conversion_ratio", 100, "%", "Cash Conversion Ratio"),
     ]
-    df_fund = stock_data.fundamentals.pipe(
+    df_fund = stock_data.fundamentals.with_columns(
+        # pl.lit("GBP").alias("currency")
+    ).pipe(
         fx_engine.convert_multiple_to_target,
         amount_cols=["free_cash_flow"],
         source_currency_col="currency",

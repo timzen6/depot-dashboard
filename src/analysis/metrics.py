@@ -236,7 +236,7 @@ class MetricsEngine:
         if "currency" in df_prices.columns:
             df_prices = df_prices.pipe(
                 self._pound_fix,
-                value_cols=["open", "high", "low", "close", "adj_close"],
+                value_cols=["open", "high", "low", "close", "adj_close", "dividend"],
             )
 
         # A. Annual Data
