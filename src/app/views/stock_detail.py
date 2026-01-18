@@ -1114,6 +1114,10 @@ def render_health_data(stock_data: StockData) -> None:
             "Latest Net Debt to EBIT",
             f"{latest_fund.select('net_debt_to_ebit').item():.2f}",
         )
+        st.metric(
+            "Latest Net Debt to EBITDA",
+            f"{latest_fund.select('net_debt_to_ebitda').item():.2f}",
+        )
     with col2:
         tab1, tab2 = st.tabs(["Net Debt", "Net Debt to EBIT"])
         with tab1:
@@ -1131,16 +1135,33 @@ def render_health_data(stock_data: StockData) -> None:
             )
             st.plotly_chart(fig_net_debt, use_container_width=True)
         with tab2:
+            df_fund_tmp = (
+                df_fund.select("date", "net_debt_to_ebit", "net_debt_to_ebitda")
+                .rename(
+                    {
+                        "net_debt_to_ebit": "Net Debt to EBIT",
+                        "net_debt_to_ebitda": "Net Debt to EBITDA",
+                    }
+                )
+                .unpivot(
+                    index="date",
+                    variable_name="metric",
+                    value_name="value",
+                )
+            )
             fig_net_debt_ebit = px.bar(
-                df_fund.drop_nulls("net_debt_to_ebit"),
+                df_fund_tmp,
                 x="date",
-                y="net_debt_to_ebit",
-                labels={"net_debt_to_ebit": "Net Debt to EBIT", "date": "Date"},
-                title=f"{ticker} Net Debt to EBIT Over Time",
-                color_discrete_sequence=[Colors.blue],
+                y="value",
+                color="metric",
+                barmode="group",
+                labels={"value": "Debt Ratio", "date": "Date", "metric": "Metric"},
+                title=f"{ticker} Net Debt to EBIT(DA) Over Time",
+                color_discrete_sequence=[Colors.blue, Colors.orange],
             )
             fig_net_debt_ebit.update_layout(
                 template="plotly_white",
+                legend_title_text="",
                 height=400,
             )
             st.plotly_chart(fig_net_debt_ebit, use_container_width=True)
