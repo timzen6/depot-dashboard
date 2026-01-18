@@ -205,6 +205,17 @@ class AdminEngine:
             logger.error(f"Error updating tickers {tickers}: {e}")
             raise e
 
+    def _update_basic_tickers(self) -> None:
+        """Updates, exchange rates, bonds yields and commodity prices."""
+        tickers = self.config.exchange_rate_tickers + [
+            "^TNX",
+            "^FVX",  # US 10Y and 5Y Treasury yields
+            "GC=F",  # Gold
+            "SI=F",  # Silver
+        ]
+
+        self._update_tickers(tickers=tickers)
+
     def get_known_tickers(self) -> list[str]:
         """Get all known tickers from metadata storage."""
         df_meta = self.metadata_storage.read("asset_metadata")
@@ -239,6 +250,7 @@ class AdminEngine:
         portfolio = portfolios[portfolio_name]
         tickers = portfolio.tickers
         logger.info(f"Updating data for portfolio '{portfolio_name}' with tickers: {tickers}")
+        self._update_basic_tickers()
         self._update_tickers(tickers=tickers)
         logger.info(f"Data update for portfolio '{portfolio_name}' completed.")
 

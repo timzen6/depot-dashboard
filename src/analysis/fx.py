@@ -120,7 +120,7 @@ class FXEngine:
                 converted_chunks.append(df_converted)
 
         # Handle unsupported currencies: keep original values
-        unsupported_currencies = [c for c in foreign_currencies if c not in self.fx_rates]
+        unsupported_currencies = [c for c in foreign_currencies if c.upper() not in self.fx_rates]
         if unsupported_currencies:
             df_unsupported = df_foreign.filter(
                 pl.col(source_currency_col).is_in(unsupported_currencies)

@@ -67,8 +67,6 @@ class MetricsEngine:
             logger.warning("Fundamentals DataFrame is empty, skipping fundamental metrics")
             return df_fund
         logger.info(f"Calculating fundamental metrics for {df_fund.height} records")
-        if "currency" in df_fund.columns:
-            df_fund = df_fund.pipe(self._pound_fix, value_cols=["cash_dividends_paid"])
 
         required_cols = [
             # fmt: off
@@ -158,6 +156,12 @@ class MetricsEngine:
         )
         # Net Debt to EBIT
         exprs.append((debt_expr / pl.col("ebit")).alias("net_debt_to_ebit"))
+
+        proxy_ebitda_expr = pl.col("ebit") - pl.col("net_income") + pl.col("operating_cash_flow")
+        exprs.append(proxy_ebitda_expr.alias("proxy_ebitda"))
+        # Net Debt to EBITDA
+        exprs.append((debt_expr / proxy_ebitda_expr).alias("net_debt_to_ebitda"))
+
         # Interest Coverage
         exprs.append((pl.col("ebit") / pl.col("interest_expense").abs()).alias("interest_coverage"))
         # Margins
@@ -232,7 +236,7 @@ class MetricsEngine:
         if "currency" in df_prices.columns:
             df_prices = df_prices.pipe(
                 self._pound_fix,
-                value_cols=["open", "high", "low", "close", "adj_close"],
+                value_cols=["open", "high", "low", "close", "adj_close", "dividend"],
             )
 
         # A. Annual Data

@@ -36,6 +36,7 @@ CURRENCY_SYMBOLS = {
     "USD": "$",
     "EUR": "€",
     "GBP": "£",
+    "GBp": "£",
     "JPY": "¥",
 }
 
