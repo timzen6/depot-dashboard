@@ -157,10 +157,10 @@ class MetricsEngine:
         # Net Debt to EBIT
         exprs.append((debt_expr / pl.col("ebit")).alias("net_debt_to_ebit"))
 
-        ebitda_expr = pl.col("ebit") - pl.col("net_income") + pl.col("operating_cash_flow")
-        exprs.append(ebitda_expr.alias("ebitda"))
+        proxy_ebitda_expr = pl.col("ebit") - pl.col("net_income") + pl.col("operating_cash_flow")
+        exprs.append(proxy_ebitda_expr.alias("proxy_ebitda"))
         # Net Debt to EBITDA
-        exprs.append((debt_expr / ebitda_expr).alias("net_debt_to_ebitda"))
+        exprs.append((debt_expr / proxy_ebitda_expr).alias("net_debt_to_ebitda"))
 
         # Interest Coverage
         exprs.append((pl.col("ebit") / pl.col("interest_expense").abs()).alias("interest_coverage"))
