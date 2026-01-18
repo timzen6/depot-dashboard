@@ -76,6 +76,17 @@ class Config(BaseModel):
         return sorted(list(tickers))
 
     @property
+    def exchange_rate_tickers(self) -> list[str]:
+        """Return all exchange rate tickers defined in universe only."""
+        rates = [ticker for ticker in self.universe.price_only if ticker.endswith("=X")]
+        return sorted(rates)
+
+    @property
+    def price_only_tickers(self) -> list[str]:
+        """Return all price-only tickers defined in universe only."""
+        return sorted(self.universe.price_only)
+
+    @property
     def portfolio_tickers(self) -> list[str]:
         """Return all tickers defined in portfolios only."""
         if not self.portfolios:

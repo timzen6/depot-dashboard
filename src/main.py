@@ -138,7 +138,7 @@ def cmd_etl(args: argparse.Namespace) -> None:
     if full_load:
         total_tickers = config.all_tickers
     else:
-        total_tickers = config.portfolio_tickers
+        total_tickers = list(set(config.portfolio_tickers + config.price_only_tickers))
 
     tickers_metadata = (
         metadata.filter(pl.col("ticker").is_in(total_tickers))
