@@ -4,9 +4,7 @@ import streamlit as st
 from src.app.logic.common import get_sorted_occurrences
 from src.app.logic.data_loader import DashboardData, load_all_stock_data
 from src.app.logic.screener import prepare_screener_snapshot
-from src.app.views.constants import (
-    assign_info_emojis,
-)
+from src.app.views.constants import assign_info_emojis
 from src.app.views.screener import (
     render_factor_overview_chart,
     render_in_depth_performance_charts,
