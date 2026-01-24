@@ -69,25 +69,24 @@ selected_stock_tickers = (
     .to_list()
 )
 
-export_metadata = context_builder.get_metadata(selected_stock_tickers)
-export_prices = context_builder.get_price_history(selected_stock_tickers)
-export_valuations = context_builder.get_valuations(selected_stock_tickers)
-export_fundamentals = context_builder.get_fundamentals(selected_stock_tickers)
-export_timing = context_builder.get_timing(selected_stock_tickers)
-
 data_dict = {}
 for info_type in selected_info:
     if info_type == "Strategy Context":
         data_dict["strategy_context"] = context_builder.get_strategy_context()
     if info_type == "Metadata":
+        export_metadata = context_builder.get_metadata(selected_stock_tickers)
         data_dict["metadata"] = export_metadata
     elif info_type == "Price History":
+        export_prices = context_builder.get_price_history(selected_stock_tickers)
         data_dict["price_history"] = export_prices
     elif info_type == "Valuations":
+        export_valuations = context_builder.get_valuations(selected_stock_tickers)
         data_dict["valuations"] = export_valuations
     elif info_type == "Fundamentals":
+        export_fundamentals = context_builder.get_fundamentals(selected_stock_tickers)
         data_dict["fundamentals"] = export_fundamentals
     elif info_type == "Timing Data":
+        export_timing = context_builder.get_timing(selected_stock_tickers)
         data_dict["timing_data"] = export_timing
 
 st.subheader("3️⃣ Export Data as JSON")

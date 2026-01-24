@@ -97,7 +97,7 @@ class ContextBuilder:
             raw_prices.sort(["ticker", "date"])
             .with_columns(
                 # dummy index
-                (pl.arange(0, pl.count()).over("ticker") % 28).alias("day_mod_28")
+                (pl.int_range(0, pl.len()).over("ticker") % 28).alias("day_mod_28")
             )
             .filter(pl.col("day_mod_28") == 0)
             .drop("day_mod_28")
