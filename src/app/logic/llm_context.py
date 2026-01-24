@@ -91,20 +91,21 @@ class ContextBuilder:
             "ticker", "date", "low", "close", "volume"
         )
 
+        # hint: this is not super exact, but reasonable for the LLM Input
         last_30_day_prices = raw_prices.sort(["ticker", "date"]).group_by("ticker").tail(30)
 
-        every_28_day_prices = (
+        every_20_day_prices = (
             raw_prices.sort(["ticker", "date"])
             .with_columns(
                 # dummy index
-                (pl.int_range(0, pl.len()).over("ticker") % 28).alias("day_mod_28")
+                (pl.int_range(0, pl.len()).over("ticker") % 20).alias("day_mod_20")
             )
-            .filter(pl.col("day_mod_28") == 0)
-            .drop("day_mod_28")
+            .filter(pl.col("day_mod_20") == 0)
+            .drop("day_mod_20")
         )
 
         export_prices = (
-            pl.concat([last_30_day_prices, every_28_day_prices])
+            pl.concat([last_30_day_prices, every_20_day_prices])
             .unique()
             .sort(["ticker", "date"])
             .pipe(self._sanitize)
