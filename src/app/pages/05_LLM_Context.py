@@ -42,6 +42,7 @@ else:
 
 st.subheader("2️⃣ Select Info to Include")
 info_options = [
+    "Strategy Context",
     "Metadata",
     "Price History",
     "Valuations",
@@ -76,6 +77,8 @@ export_timing = context_builder.get_timing(selected_stock_tickers)
 
 data_dict = {}
 for info_type in selected_info:
+    if info_type == "Strategy Context":
+        data_dict["strategy_context"] = context_builder.get_strategy_context()
     if info_type == "Metadata":
         data_dict["metadata"] = export_metadata
     elif info_type == "Price History":
