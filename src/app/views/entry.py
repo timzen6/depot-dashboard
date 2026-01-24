@@ -168,7 +168,7 @@ def render_stock_selection(
         on_select="rerun",
         use_container_width=True,
         height=300,
-        column_order=["ticker", "name", "info", "forward_pe"],
+        column_order=["ticker", "name", "info"],
         column_config={
             "ticker": st.column_config.TextColumn("Ticker"),
             "name": st.column_config.TextColumn("Name"),

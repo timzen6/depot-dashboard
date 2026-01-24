@@ -190,6 +190,29 @@ def render_positions_table(df_latest: pl.DataFrame, portfolio_name: str) -> None
         hide_index=True,
         use_container_width=True,
     )
+    with st.expander("JSON Export Allocation"):
+        st.json(
+            df_display.select(
+                ["ticker", "short_name", "asset_type", "group", "weight_pct"]
+            ).to_dicts()
+        )
+    with st.expander("JSON Export Details"):
+        st.json(
+            df_display.select(
+                [
+                    "ticker",
+                    "short_name",
+                    "asset_type",
+                    "group",
+                    "shares",
+                    "position_value",
+                    "currency",
+                    "weight_pct",
+                    "position_value_EUR",
+                    "position_dividend_yoy_EUR",
+                ]
+            ).to_dicts()
+        )
 
 
 def render_stock_composition_chart(
