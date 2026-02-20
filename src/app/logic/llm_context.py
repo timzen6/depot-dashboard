@@ -133,14 +133,18 @@ class ContextBuilder:
                 "fair_value",
                 "fair_value_EUR",
                 "pe_ratio",
-                "ps_ratio",
+                "median_pe",
                 "fcf_yield",
                 "dividend_yield",
                 "forward_pe",
-                "median_pe",
-                "peg_ratio",
             )
             .pipe(self._sanitize)
+            .rename(
+                {
+                    "pe_ratio": "pe_ratio_ttm",
+                    "median_pe": "median_pe_ttm",
+                }
+            )
             .pipe(self._to_split_json)
         )
         export_valuations["metric_descriptions"] = METRIC_DESCRIPTIONS.get("valuations", {})
@@ -198,12 +202,8 @@ class ContextBuilder:
                 "date",
                 "close",
                 "close_EUR",
-                "sma_50",
                 "sma_50_EUR",
-                "std_50",
-                "sma_200",
                 "sma_200_EUR",
-                "std_200",
                 "z_score",
                 "dist_200_pct",
                 "vola_annual_pct",
@@ -240,7 +240,11 @@ class ContextBuilder:
             },
             "selection_criteria": {
                 "moat": "Required. Must have a credible 10-Year Scenario (No Melting Ice Cubes).",
-                "geography": "Europe Core (Values/Hidden Champs) + Global Select (US Monopolies).",
+                "geography": (
+                    "Europe Core (Values/Hidden Champs) "
+                    "+ Global Select (US Monopolies "
+                    "+ Japan Diversification)."
+                ),
                 "analysis_model": "4-Factor Model (Earnings Drivers) > GICS Sectors.",
             },
             "execution_rules": {
@@ -250,10 +254,6 @@ class ContextBuilder:
                 "sleep_test": (
                     "Volatility is acceptable; ",
                     "sell ONLY on thesis breach (Governance fraud, Moat erosion).",
-                ),
-                "entry_strategy": (
-                    "Fair Value = Lump Sum. ",
-                    "Expensive/Unsure = Savings Plan/Watchlist.",
                 ),
                 "cash_rule": r"Invested > Timing. Max 5-10% dry powder.",
             },
