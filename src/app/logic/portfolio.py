@@ -60,7 +60,7 @@ def get_portfolio_performance(
             # calculate daily return close_today - close_yesterday - cashflow
             (
                 pl.col("position_value_EUR")
-                - pl.col("position_value_EUR").shift(1)
+                - pl.col("position_value_EUR").shift(1).fill_null(0)
                 - pl.col("cashflow_EUR").fill_null(0)
                 + pl.col("position_dividend_EUR").fill_null(0)
             )

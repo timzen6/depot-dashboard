@@ -436,7 +436,7 @@ class Transaction(BaseModel):
     price: float | None = Field(
         default=None,
         gt=0,
-        description="Execution price per share in base currency",
+        description="Execution price per share in Euro",
     )
     # This really is optional
-    fee: float = Field(default=0.0, ge=0, description="Broker fees in base currency")
+    fee: float = Field(default=0.0, ge=0, description="Broker fees in Euro")

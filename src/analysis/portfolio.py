@@ -147,10 +147,9 @@ class PortfolioEngine:
             .with_columns((pl.col("price") * pl.col("delta")).alias("cashflow_EUR"))
             .group_by(["ticker", "date"])
             .agg(pl.col("delta").sum(), pl.col("cashflow_EUR").sum())
-            .with_columns((pl.col("cashflow_EUR") / pl.col("delta")).alias("price"))
             .sort(["ticker", "date"])
             .with_columns(pl.col("delta").cum_sum().over("ticker").alias("shares"))
-            .select(["date", "ticker", "shares", "delta", "price", "cashflow_EUR"])
+            .select(["date", "ticker", "shares", "delta", "cashflow_EUR"])
         )
 
         # sanity check: negative shares are not supported and will be clipped to 0
