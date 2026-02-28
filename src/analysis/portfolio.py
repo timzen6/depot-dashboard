@@ -138,19 +138,19 @@ class PortfolioEngine:
             .drop("mapped_date")
             .sort(["ticker", "date"])
             .join_asof(
-                df_prices.select(["date", "ticker", "close"]).sort(["ticker", "date"]),
+                df_prices.select(["date", "ticker", "close_EUR"]).sort(["ticker", "date"]),
                 on="date",
                 by="ticker",
                 strategy="backward",
             )
-            .with_columns(pl.coalesce([pl.col("price"), pl.col("close")]).alias("price"))
-            .with_columns((pl.col("price") * pl.col("delta")).alias("cashflow"))
+            .with_columns(pl.coalesce([pl.col("price"), pl.col("close_EUR")]).alias("price"))
+            .with_columns((pl.col("price") * pl.col("delta")).alias("cashflow_EUR"))
             .group_by(["ticker", "date"])
-            .agg(pl.col("delta").sum(), pl.col("cashflow").sum())
-            .with_columns((pl.col("cashflow") / pl.col("delta")).alias("price"))
+            .agg(pl.col("delta").sum(), pl.col("cashflow_EUR").sum())
+            .with_columns((pl.col("cashflow_EUR") / pl.col("delta")).alias("price"))
             .sort(["ticker", "date"])
             .with_columns(pl.col("delta").cum_sum().over("ticker").alias("shares"))
-            .select(["date", "ticker", "shares", "delta", "price", "cashflow"])
+            .select(["date", "ticker", "shares", "delta", "price", "cashflow_EUR"])
         )
 
         # sanity check: negative shares are not supported and will be clipped to 0
@@ -178,13 +178,13 @@ class PortfolioEngine:
                 strategy="backward",
             )
             .join(
-                df_shares.select(["date", "ticker", "cashflow"]).sort(["date", "ticker"]),
+                df_shares.select(["date", "ticker", "cashflow_EUR"]).sort(["date", "ticker"]),
                 on=["date", "ticker"],
                 how="left",
             )
             .with_columns(
                 pl.col("shares").fill_null(0.0).alias("shares"),
-                pl.col("cashflow").fill_null(0.0).alias("cashflow"),
+                pl.col("cashflow_EUR").fill_null(0.0).alias("cashflow_EUR"),
             )
         )
 
@@ -200,7 +200,7 @@ class PortfolioEngine:
                 "position_dividend",
                 "currency",
                 "shares",
-                "cashflow",
+                "cashflow_EUR",
             ]
         )
 
@@ -213,6 +213,15 @@ class PortfolioEngine:
 
     def _calculate_watchlist(self, df_prices: pl.DataFrame) -> pl.DataFrame:
         """Watchlist: just return raw price data for tracking."""
-        return df_prices.select(
-            ["date", "ticker", "close", "currency", "rolling_dividend_sum"]
-        ).rename({"close": "position_value", "rolling_dividend_sum": "position_dividend_yoy"})
+        return (
+            df_prices.select(["date", "ticker", "close", "currency", "rolling_dividend_sum"])
+            .with_columns(
+                pl.lit(1.0).alias("shares"),
+            )
+            .rename(
+                {
+                    "close": "position_value",
+                    "rolling_dividend_sum": "position_dividend_yoy",
+                }
+            )
+        )

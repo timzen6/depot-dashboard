@@ -18,7 +18,14 @@ def get_portfolio_performance(
 
     logger.info(f"Calculating performance for portfolio '{portfolio.name}'")
 
-    df_history_raw = portfolio_engine.calculate_portfolio_history(portfolio, df_prices)
+    df_history_raw = portfolio_engine.calculate_portfolio_history(
+        portfolio,
+        df_prices.pipe(
+            lambda df: fx_engine.convert_to_target(
+                df, amount_col="close", source_currency_col="currency"
+            )
+        ),
+    )
 
     df_history_target_currency = fx_engine.convert_to_target(
         df_history_raw,
@@ -42,6 +49,11 @@ def get_portfolio_performance(
             pl.lit(0.0).alias("position_dividend_EUR"),
         )
 
+    if "cashflow_EUR" not in df_history_target_currency.columns:
+        df_history_target_currency = df_history_target_currency.with_columns(
+            pl.lit(0.0).alias("cashflow_EUR"),
+        )
+
     df_history_target_currency = (
         df_history_target_currency.sort(["ticker", "date"])
         .with_columns(
@@ -49,7 +61,7 @@ def get_portfolio_performance(
             (
                 pl.col("position_value_EUR")
                 - pl.col("position_value_EUR").shift(1)
-                - pl.col("cashflow")
+                - pl.col("cashflow_EUR").fill_null(0)
                 + pl.col("position_dividend_EUR").fill_null(0)
             )
             .over("ticker")
