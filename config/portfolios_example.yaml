@@ -15,21 +15,19 @@ portfolios:
 
   tech_basket:
     display_name: "Tech Giants Basket"
-    type: weighted
-    start_date: "2023-01-01"
-    initial_capital: 10000.0
+    type: absolute
     positions:
       - ticker: AAPL
-        weight: 1
+        shares: 1
       - ticker: MSFT
-        weight: 1
+        shares: 1
       - ticker: GOOG
-        weight: 1
+        shares: 1
       - ticker: AMZN
-        weight: 1
+        shares: 1
       - ticker: NVDA
-        weight: 1
+        shares: 1
       - ticker: META
-        weight: 1
+        shares: 1
       - ticker: TSLA
-        weight: 1
+        shares: 1

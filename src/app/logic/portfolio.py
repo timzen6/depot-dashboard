@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from datetime import timedelta
 
 import polars as pl
 from loguru import logger
@@ -19,7 +18,7 @@ def get_portfolio_performance(
 
     logger.info(f"Calculating performance for portfolio '{portfolio.name}'")
 
-    df_history_raw = portfolio_engine.calculate_portfolio_history(portfolio, df_prices, fx_engine)
+    df_history_raw = portfolio_engine.calculate_portfolio_history(portfolio, df_prices)
 
     df_history_target_currency = fx_engine.convert_to_target(
         df_history_raw,
@@ -32,43 +31,56 @@ def get_portfolio_performance(
             amount_col="position_dividend_yoy",
             source_currency_col="currency",
         )
-    q = (
-        df_history_target_currency.select("position_value_EUR", "date", "ticker")
-        .with_columns(pl.col("date").dt.offset_by("1y").alias("matching_date"))
-        .sort(["ticker", "matching_date"])
-    )
+    if "position_dividend" in df_history_target_currency.columns:
+        df_history_target_currency = fx_engine.convert_to_target(
+            df_history_target_currency,
+            amount_col="position_dividend",
+            source_currency_col="currency",
+        )
+    else:
+        df_history_target_currency = df_history_target_currency.with_columns(
+            pl.lit(0.0).alias("position_dividend_EUR"),
+        )
 
     df_history_target_currency = (
         df_history_target_currency.sort(["ticker", "date"])
-        .join_asof(
-            q,
-            left_on="date",
-            right_on="matching_date",
-            by="ticker",
-            strategy="backward",
-            suffix="_yoy",
+        .with_columns(
+            # calculate daily return close_today - close_yesterday - cashflow
+            (
+                pl.col("position_value_EUR")
+                - pl.col("position_value_EUR").shift(1)
+                - pl.col("cashflow")
+                + pl.col("position_dividend_EUR").fill_null(0)
+            )
+            .over("ticker")
+            .fill_null(0)
+            .alias("daily_absolute_pnl_EUR"),
+        )
+        .sort(["ticker", "date"])
+        .with_columns(
+            pl.col("position_dividend_EUR")
+            .rolling_sum_by("date", window_size="1y")
+            .over("ticker")
+            .alias("position_dividend_yoy_EUR"),
+            pl.col("daily_absolute_pnl_EUR")
+            .rolling_sum_by("date", window_size="1y")
+            .over("ticker")
+            .alias("yoy_absolute_pnl_EUR"),
+            pl.col("daily_absolute_pnl_EUR")
+            .cum_sum()
+            .over("ticker")
+            .alias("total_absolute_pnl_EUR"),
         )
         .with_columns(
-            # yoy return
-            (
-                (pl.col("position_value_EUR") - pl.col("position_value_EUR_yoy"))
-                / pl.col("position_value_EUR_yoy")
-                * 100
-            ).alias("yoy_return_pct"),
-            # yoy total return including dividends
+            # calculate yoy pct
             (
                 (
-                    (
-                        pl.col("position_value_EUR")
-                        + pl.col("position_dividend_yoy_EUR").fill_null(0)
-                    )
-                    - pl.col("position_value_EUR_yoy")
+                    pl.col("yoy_absolute_pnl_EUR")
+                    / (pl.col("position_value_EUR") - pl.col("yoy_absolute_pnl_EUR"))
                 )
-                / pl.col("position_value_EUR_yoy")
                 * 100
-            ).alias("yoy_total_return_pct"),
+            ).alias("yoy_return_pct")
         )
-        .drop("matching_date", "position_value_EUR_yoy")
     )
 
     return df_history_target_currency
@@ -139,6 +151,8 @@ def get_portfolio_kpis(df_history: pl.DataFrame) -> PortfolioKPIs:
         .agg(
             pl.sum("position_value_EUR").alias("total_value"),
             pl.sum("position_dividend_yoy_EUR").alias("total_dividend_yoy_EUR"),
+            pl.sum("total_absolute_pnl_EUR").alias("total_absolute_pnl_EUR"),
+            pl.sum("yoy_absolute_pnl_EUR").alias("yoy_absolute_pnl_EUR"),
         )
         .sort("date")
     )
@@ -149,26 +163,16 @@ def get_portfolio_kpis(df_history: pl.DataFrame) -> PortfolioKPIs:
         current_yoy_dividend_value = df_daily.select(pl.last("total_dividend_yoy_EUR")).item()
     else:
         current_yoy_dividend_value = 0
-    start_value = df_daily.select(pl.first("total_value")).item()
+
+    total_pnl = df_daily.select(pl.last("total_absolute_pnl_EUR")).item()
+    total_return_pct = (total_pnl / (current_value - total_pnl) * 100) if current_value else 0.0
+
+    yoy_return = df_daily.select(pl.last("yoy_absolute_pnl_EUR")).item()
+    yoy_return_pct = (yoy_return / (current_value - yoy_return) * 100) if current_value else 0.0
+
     start_date = df_daily.select(pl.first("date")).item()
     latest_date = df_daily.select(pl.last("date")).item()
-
-    # Total return this is not entirely correct if there are dividends
-    total_return_pct = ((current_value - start_value) / start_value * 100) if start_value else 0.0
-
-    # Year-over-year return (last 365 days)
-    one_year_ago = latest_date - timedelta(days=365) or latest_date
-
-    df_yoy = df_daily.filter(pl.col("date") >= one_year_ago).sort("date")
-    if df_yoy.height > 0:
-        yoy_start = df_yoy.select(pl.first("total_value")).item()
-        yoy_return_pct = (
-            ((current_value - yoy_start + current_yoy_dividend_value) / yoy_start * 100)
-            if yoy_start
-            else 0.0
-        )
-    else:
-        yoy_return_pct = total_return_pct
+    start_value = df_daily.select(pl.first("total_value")).item()
 
     return PortfolioKPIs(
         current_value=float(current_value),

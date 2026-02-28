@@ -413,3 +413,30 @@ class ETFComposition(BaseModel):
                 for holding in self.top_holdings
             ]
         )
+
+
+class TransactionType(StrEnum):
+    """Type of portfolio transaction."""
+
+    BUY = "buy"
+    SELL = "sell"
+
+
+class Transaction(BaseModel):
+    """
+    Represents a single execution (buy/sell) in the ledger.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    date: date
+    ticker: str
+    type: TransactionType
+    shares: float = Field(..., gt=0, description="Amount of shares (must be positive)")
+    price: float | None = Field(
+        default=None,
+        gt=0,
+        description="Execution price per share in base currency",
+    )
+    # This really is optional
+    fee: float = Field(default=0.0, ge=0, description="Broker fees in base currency")

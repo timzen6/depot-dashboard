@@ -5,8 +5,8 @@ from datetime import date
 import polars as pl
 from loguru import logger
 
-from src.analysis.fx import FXEngine
 from src.config.models import Portfolio, PortfolioType
+from src.core.domain_models import TransactionType
 
 
 class PortfolioEngine:
@@ -16,7 +16,6 @@ class PortfolioEngine:
         self,
         portfolio: Portfolio,
         df_prices: pl.DataFrame,
-        fx_engine: FXEngine | None = None,
     ) -> pl.DataFrame:
         """Calculate daily portfolio values using specified strategy.
 
@@ -26,11 +25,9 @@ class PortfolioEngine:
 
         Returns:
             DataFrame with columns [date, ticker, position_value, currency]
-            For aggregated strategies (weighted), also includes total_value column
 
         Strategy implementations:
         - ABSOLUTE: position_value = shares * close
-        - WEIGHTED: Simulate buy-and-hold from start_date with initial capital allocation
         - WATCHLIST: Return raw price data for tracking
         """
         logger.info(
@@ -46,17 +43,24 @@ class PortfolioEngine:
             logger.warning(f"No price data found for portfolio '{portfolio.name}'")
             return pl.DataFrame()
 
+        present_tickers = set(df_portfolio["ticker"].unique().to_list())
+        missing_tickers = set(portfolio.tickers) - present_tickers
+        if missing_tickers:
+            logger.warning(
+                f"Portfolio '{portfolio.name}': no price data for tickers:"
+                f" {sorted(missing_tickers)}"
+            )
+
         # Apply start_date filter if provided
         if portfolio.start_date:
             start_date = date.fromisoformat(portfolio.start_date)
             df_portfolio = df_portfolio.filter(pl.col("date") >= start_date)
-            logger.debug(f"Filtered to dates >= {start_date}")
 
         # Route to strategy-specific calculation
         if portfolio.type == PortfolioType.ABSOLUTE:
             history = self._calculate_absolute(portfolio, df_portfolio)
-        elif portfolio.type == PortfolioType.WEIGHTED:
-            history = self._calculate_weighted(portfolio, df_portfolio, fx_engine)
+        elif portfolio.type == PortfolioType.TRANSACTIONAL:
+            history = self._calculate_transactional(portfolio, df_portfolio)
         else:  # WATCHLIST
             history = self._calculate_watchlist(df_portfolio)
 
@@ -67,141 +71,148 @@ class PortfolioEngine:
             .alias("group")
         )
 
+    def _calculate_transactional(
+        self,
+        portfolio: Portfolio,
+        df_prices: pl.DataFrame,
+    ) -> pl.DataFrame:
+        transactions = portfolio.transactions
+        transaction_events = []
+        # start date: either portfolio start_date or earliest transaction date, whichever is earlier
+        start_date = None
+        if portfolio.start_date:
+            start_date = date.fromisoformat(portfolio.start_date)
+        if transactions:
+            earliest_tx_date = min(tx.date for tx in transactions)
+            if start_date is None:
+                start_date = earliest_tx_date
+            else:
+                start_date = min(start_date, earliest_tx_date)
+
+        if start_date is None:
+            raise ValueError(
+                "Cannot calculate transactional portfolio: no start_date and no transactions found."
+            )
+
+        # initial portfolio
+        for pos in portfolio.positions:
+            transaction_events.append(
+                dict(
+                    date=start_date,
+                    ticker=pos.ticker,
+                    delta=pos.shares,
+                    price=None,
+                )
+            )
+        if transactions:
+            for tx in transactions:
+                transaction_events.append(
+                    dict(
+                        date=tx.date,
+                        ticker=tx.ticker,
+                        delta=(tx.shares if tx.type == TransactionType.BUY else -tx.shares),
+                        price=tx.price,
+                    )
+                )
+        trading_days = (
+            df_prices.select(pl.col("date").alias("mapped_date")).unique().sort("mapped_date")
+        )
+        df_shares = (
+            pl.DataFrame(
+                transaction_events,
+                schema={
+                    "date": pl.Date,
+                    "ticker": pl.Utf8,
+                    "delta": pl.Float64,
+                    "price": pl.Float64,
+                },
+            )
+            .sort("date")
+            .join_asof(
+                trading_days,
+                left_on="date",
+                right_on="mapped_date",
+                strategy="forward",
+            )
+            .with_columns(pl.col("mapped_date").alias("date"))
+            .drop("mapped_date")
+            .sort(["ticker", "date"])
+            .join_asof(
+                df_prices.select(["date", "ticker", "close"]).sort(["ticker", "date"]),
+                on="date",
+                by="ticker",
+                strategy="backward",
+            )
+            .with_columns(pl.coalesce([pl.col("price"), pl.col("close")]).alias("price"))
+            .with_columns((pl.col("price") * pl.col("delta")).alias("cashflow"))
+            .group_by(["ticker", "date"])
+            .agg(pl.col("delta").sum(), pl.col("cashflow").sum())
+            .with_columns((pl.col("cashflow") / pl.col("delta")).alias("price"))
+            .sort(["ticker", "date"])
+            .with_columns(pl.col("delta").cum_sum().over("ticker").alias("shares"))
+            .select(["date", "ticker", "shares", "delta", "price", "cashflow"])
+        )
+
+        # sanity check: negative shares are not supported and will be clipped to 0
+        if (df_shares.get_column("shares").lt(0)).any():
+            logger.warning("Negative shares found in transactional strategy, clipping to 0")
+            df_shares = df_shares.with_columns(pl.col("shares").clip(lower_bound=0))
+
+        unique_tickers = df_shares["ticker"].unique().to_list()
+        missing_tickers = set(unique_tickers) - set(df_prices["ticker"].unique().to_list())
+        if missing_tickers:
+            logger.warning(
+                f"Transactional portfolio '{portfolio.name}': no price data for tickers:"
+                f" {sorted(missing_tickers)}"
+            )
+
+        result = (
+            df_prices.filter(
+                (pl.col("date") >= start_date) & (pl.col("ticker").is_in(unique_tickers))
+            )
+            .sort(["date", "ticker"])
+            .join_asof(
+                df_shares.select(["date", "ticker", "shares"]).sort(["date", "ticker"]),
+                on="date",
+                by="ticker",
+                strategy="backward",
+            )
+            .join(
+                df_shares.select(["date", "ticker", "cashflow"]).sort(["date", "ticker"]),
+                on=["date", "ticker"],
+                how="left",
+            )
+            .with_columns(
+                pl.col("shares").fill_null(0.0).alias("shares"),
+                pl.col("cashflow").fill_null(0.0).alias("cashflow"),
+            )
+        )
+
+        return result.with_columns(
+            # Later we could calculate the actual dividends correctly
+            (pl.col("shares") * pl.col("close")).alias("position_value"),
+            (pl.col("shares") * pl.col("dividend")).alias("position_dividend"),
+        ).select(
+            [
+                "date",
+                "ticker",
+                "position_value",
+                "position_dividend",
+                "currency",
+                "shares",
+                "cashflow",
+            ]
+        )
+
     def _calculate_absolute(self, portfolio: Portfolio, df_prices: pl.DataFrame) -> pl.DataFrame:
         """Calculate absolute portfolio: fixed share counts.
 
         position_value = shares * close
         """
-        logger.debug(f"Calculating absolute strategy with {len(portfolio.positions)} positions")
-
-        # Create mapping of ticker -> shares
-        shares_map = {pos.ticker: pos.shares for pos in portfolio.positions}
-
-        # Add shares column via mapping
-        result = df_prices.with_columns(
-            pl.col("ticker")
-            .map_elements(lambda t: shares_map.get(t, 0.0), return_dtype=pl.Float64)
-            .alias("shares")
-        ).with_columns(
-            (pl.col("shares") * pl.col("close")).alias("position_value"),
-            (pl.col("shares") * pl.col("rolling_dividend_sum")).alias("position_dividend_yoy"),
-        )
-
-        logger.success(f"Calculated absolute portfolio: {result.height} records")
-        return result.select(
-            [
-                "date",
-                "ticker",
-                "position_value",
-                "position_dividend_yoy",
-                "currency",
-                "shares",
-            ]
-        )
-
-    def _calculate_weighted(
-        self,
-        portfolio: Portfolio,
-        df_prices: pl.DataFrame,
-        fx_engine: FXEngine | None = None,
-    ) -> pl.DataFrame:
-        """Calculate weighted portfolio: buy-and-hold simulation.
-
-        Steps:
-        1. Get prices at start_date for each ticker
-        2. Calculate implied shares: (initial_capital * weight) / start_price
-        3. Project forward: position_value = implied_shares * daily_close
-        """
-        logger.debug(f"Calculating weighted strategy (capital: {portfolio.initial_capital})")
-
-        if portfolio.start_date is None:
-            raise ValueError("Portfolio start_date is required for weighted strategy")
-        start_date = date.fromisoformat(portfolio.start_date)
-
-        # Get start prices for each ticker
-        df_start = (
-            df_prices.filter(pl.col("date") >= start_date)
-            # get first available price on or after start_date
-            # in case of missing data or start_date on non-trading day
-            .sort("date")
-            .group_by("ticker")
-            # take first record per ticker (all data)
-            .agg(pl.all().first())
-            .select(["ticker", "close", "currency", "date"])
-            .rename({"close": "start_price"})
-        )
-
-        if df_start.is_empty():
-            logger.warning(f"No price data found for start_date {start_date}")
-            return pl.DataFrame()
-
-        # Convert start prices to target currency if FX engine provided
-        if fx_engine is not None:
-            df_start = fx_engine.convert_to_target(
-                df_start, amount_col="start_price", source_currency_col="currency"
-            ).rename({f"start_price_{fx_engine.target_currency}": "start_price_adjusted"})
-        else:
-            df_start = df_start.with_columns(pl.col("start_price").alias("start_price_adjusted"))
-
-        # Create positions DataFrame with weights
-        capital = portfolio.initial_capital or 0.0
-        positions_data = [
-            {
-                "ticker": pos.ticker,
-                "weight": pos.weight or 0.0,
-            }
-            for pos in portfolio.positions
-        ]
-        df_positions = (
-            pl.DataFrame(positions_data)
-            .with_columns(
-                # here we normalize weights to sum to 1.0, so that we can use
-                # ratios when defining allocations, thats much easier to read
-                (pl.col("weight") / pl.col("weight").sum()).alias("weight"),
-            )
-            .with_columns(
-                (pl.col("weight") * capital).alias("allocation"),
-            )
-        )
-
-        # Calculate implied shares at start
-        df_shares = (
-            df_positions.join(df_start, on="ticker", how="left")
-            .with_columns(
-                (pl.col("allocation") / pl.col("start_price_adjusted")).alias("implied_shares")
-            )
-            .select(["ticker", "implied_shares", "weight"])
-        )
-
-        # Join with full price history and calculate position values
-        result = (
-            df_prices.join(df_shares, on="ticker", how="left")
-            .with_columns(
-                (pl.col("implied_shares") * pl.col("close")).alias("position_value"),
-                (pl.col("implied_shares") * pl.col("rolling_dividend_sum")).alias(
-                    "position_dividend_yoy"
-                ),
-            )
-            .select(
-                [
-                    "date",
-                    "ticker",
-                    "position_value",
-                    "currency",
-                    "implied_shares",
-                    "weight",
-                    "position_dividend_yoy",
-                ]
-            )
-        )
-
-        logger.success(f"Calculated weighted portfolio: {result.height} records")
-        return result
+        return self._calculate_transactional(portfolio, df_prices)
 
     def _calculate_watchlist(self, df_prices: pl.DataFrame) -> pl.DataFrame:
         """Watchlist: just return raw price data for tracking."""
-        logger.debug(f"Watchlist mode: returning {df_prices.height} price records")
-
         return df_prices.select(
             ["date", "ticker", "close", "currency", "rolling_dividend_sum"]
         ).rename({"close": "position_value", "rolling_dividend_sum": "position_dividend_yoy"})

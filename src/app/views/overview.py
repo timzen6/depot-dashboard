@@ -11,8 +11,6 @@ from views.colors import COLOR_SCALE_CONTRAST, STRATEGY_FACTOR_COLOR_MAP, Colors
 from src.app.logic.common import COUNTRY_REGION_MAP
 from src.app.logic.portfolio import filter_days_with_incomplete_tickers
 from src.app.views.common import (
-    GLOBAL_FONT,
-    GLOBAL_MARGINS,
     make_pie_chart,
     make_sunburst_chart,
     style_pie_chart,
@@ -157,7 +155,7 @@ def render_positions_table(df_latest: pl.DataFrame, portfolio_name: str) -> None
             "weight_pct",
             "position_value_EUR",
             "position_dividend_yoy_EUR",
-            "yoy_total_return_pct",
+            "yoy_return_pct",
         ],
         column_config={
             "ticker": "Ticker",
@@ -181,7 +179,7 @@ def render_positions_table(df_latest: pl.DataFrame, portfolio_name: str) -> None
                 "Weight",
                 format="%.1f %%",
             ),
-            "yoy_total_return_pct": st.column_config.NumberColumn(
+            "yoy_return_pct": st.column_config.NumberColumn(
                 "YoY Total Return",
                 format="%.1f %%",
             ),
@@ -192,9 +190,9 @@ def render_positions_table(df_latest: pl.DataFrame, portfolio_name: str) -> None
     )
     with st.expander("JSON Export Allocation"):
         st.json(
-            df_display.select(
-                ["ticker", "short_name", "asset_type", "group", "weight_pct"]
-            ).to_dicts()
+            df_display.select(["ticker", "short_name", "asset_type", "group", "weight_pct"])
+            .with_columns(pl.col("weight_pct").round(2))
+            .to_dicts()
         )
     with st.expander("JSON Export Details"):
         st.json(
@@ -211,7 +209,14 @@ def render_positions_table(df_latest: pl.DataFrame, portfolio_name: str) -> None
                     "position_value_EUR",
                     "position_dividend_yoy_EUR",
                 ]
-            ).to_dicts()
+            )
+            .with_columns(
+                pl.col("weight_pct").round(2),
+                pl.col("position_value").round(2),
+                pl.col("position_value_EUR").round(2),
+                pl.col("position_dividend_yoy_EUR").round(2),
+            )
+            .to_dicts()
         )
 
 
@@ -239,34 +244,11 @@ def render_stock_composition_chart(
 
     tabs = st.tabs(tab_names)
     with tabs[1]:
-        fig_ticker = px.pie(
+        fig_ticker = make_sunburst_chart(
             df_latest,
-            names="short_name",
-            values="position_value_EUR",
-            color="color_category",
-            color_discrete_map={
-                "Defensive": COLOR_SCALE_CONTRAST[0],
-                "Tech": COLOR_SCALE_CONTRAST[1],
-                "Industrial": COLOR_SCALE_CONTRAST[2],
-                "Finance": COLOR_SCALE_CONTRAST[3],
-                "Luxury": COLOR_SCALE_CONTRAST[4],
-                "N/A": COLOR_SCALE_CONTRAST[5],
-            },
-        )
-
-        fig_ticker.update_layout(
+            path=["color_category", "short_name"],
             title="Portfolio Composition by Ticker",
-            template="plotly_white",
-            height=400,
-            margin=GLOBAL_MARGINS,
-            font=GLOBAL_FONT,
         )
-        fig_ticker.update_traces(
-            textposition="inside",
-            textinfo="percent",
-            marker=dict(line=dict(color="#FFFFFF", width=2.0)),
-        )
-
         st.plotly_chart(fig_ticker, use_container_width=True)
     with tabs[2]:
         fig_sector = make_sunburst_chart(
