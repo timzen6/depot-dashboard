@@ -295,7 +295,7 @@ class ETLPipeline:
             # Stack old and new data vertically
             merged = (
                 pl.concat([existing_df, new_df])
-                .unique(subset=["date"], maintain_order=False)
+                .unique(subset=["date"], maintain_order=False, keep="last")
                 .sort("date")
             )
 

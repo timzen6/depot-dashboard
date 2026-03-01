@@ -115,56 +115,46 @@ class PortfolioEngine:
             logger.info(splits_df.to_pandas().to_markdown())
         return relevant_splits
 
-    def _simulate_share_balance(
-        self,
-        transactions: list[dict[str, Any]],
-    ) -> pl.DataFrame:
-        """
-        Simulate share balance over time based on transactions.
-        Only consider the days where transactions occur.
-        """
-        df_balance = (
-            pl.DataFrame(
-                transactions,
-                schema={
-                    "date": pl.Date,
-                    "ticker": pl.Utf8,
-                    "delta": pl.Float64,
-                    "price": pl.Float64,
-                },
-            )
-            .sort(["ticker", "date"])
-            .with_columns(pl.col("delta").cum_sum().over("ticker").alias("shares"))
-        )
-        return df_balance
-
     def _add_fractional_share_sales(
         self,
         transactions: list[dict[str, Any]],
         stock_splits: dict[str, list[dict[str, Any]]],
     ) -> list[dict[str, Any]]:
-        thresh = 0.0001
-        new_transactions = transactions.copy()
+        """Simulate fractional share sell-offs that brokers execute after a split."""
+        fractional_sells = []
+
         for ticker, splits in stock_splits.items():
-            for split in splits:
-                split_date = split["date"]
-                df_balance = (
-                    self._simulate_share_balance(new_transactions)
-                    .filter((pl.col("ticker") == ticker) & (pl.col("date") <= split_date))
-                    .tail(1)
-                )
-                shares = df_balance["shares"].item()
-                fraction = round(shares - int(shares), 6)  # Round to avoid floating point issues
-                if fraction > thresh:
-                    new_transactions.append(
-                        dict(
-                            date=split_date,
-                            ticker=ticker,
-                            delta=-fraction,
-                            price=None,
+            ticker_txs = [tx for tx in transactions if tx["ticker"] == ticker]
+
+            # Merge trades and splits into one timeline. Splits sort before trades on
+            # the same day ("split" < "trade") which mirrors pre-market split execution.
+            timeline = [
+                {"date": tx["date"], "type": "trade", "val": tx["delta"]} for tx in ticker_txs
+            ]
+            timeline.extend(
+                {"date": s["date"], "type": "split", "val": s["stock_splits"]} for s in splits
+            )
+            timeline.sort(key=lambda x: (x["date"], x["type"]))
+
+            current_shares = 0.0
+            for event in timeline:
+                if event["type"] == "trade":
+                    current_shares += event["val"]
+                elif event["type"] == "split":
+                    current_shares = round(current_shares * event["val"], 6)
+                    fraction = round(current_shares % 1.0, 6)
+                    if fraction > 0.0001:
+                        fractional_sells.append(
+                            dict(
+                                date=event["date"],
+                                ticker=ticker,
+                                delta=-fraction,
+                                price=None,
+                            )
                         )
-                    )
-        return new_transactions
+                        current_shares -= fraction
+
+        return transactions + fractional_sells
 
     def _calculate_transactional(
         self,
@@ -211,11 +201,11 @@ class PortfolioEngine:
                         price=tx.price,
                     )
                 )
-        transaction_events = self._apply_splits(transaction_events, relevant_splits)
         transaction_events = self._add_fractional_share_sales(
             transaction_events,
             relevant_splits,
         )
+        transaction_events = self._apply_splits(transaction_events, relevant_splits)
 
         trading_days = (
             df_prices.select(pl.col("date").alias("mapped_date")).unique().sort("mapped_date")
