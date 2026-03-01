@@ -138,9 +138,20 @@ def render_positions_table(df_latest: pl.DataFrame, portfolio_name: str) -> None
     # Calculate weights
     total_value = df_latest.select(pl.sum("position_value_EUR")).item()
 
-    df_display = df_latest.with_columns(
-        (pl.col("position_value_EUR") / total_value * 100).alias("weight_pct")
-    ).sort("position_value_EUR", descending=True)
+    df_display = (
+        df_latest.with_columns(
+            (pl.col("position_value_EUR") / total_value * 100).alias("weight_pct")
+        )
+        .sort("position_value_EUR", descending=True)
+        .filter((pl.col("position_value_EUR") > 100) & (pl.col("shares") > 0))
+        .with_columns(
+            (
+                pl.col("total_absolute_pnl_EUR").fill_null(0.0)
+                / (pl.col("position_value_EUR") - pl.col("total_absolute_pnl_EUR").fill_null(0.0))
+                * 100
+            ).alias("total_return_pct")
+        )
+    )
 
     st.dataframe(
         df_display,
@@ -156,6 +167,7 @@ def render_positions_table(df_latest: pl.DataFrame, portfolio_name: str) -> None
             "position_value_EUR",
             "position_dividend_yoy_EUR",
             "yoy_return_pct",
+            "total_return_pct",
         ],
         column_config={
             "ticker": "Ticker",
@@ -181,6 +193,10 @@ def render_positions_table(df_latest: pl.DataFrame, portfolio_name: str) -> None
             ),
             "yoy_return_pct": st.column_config.NumberColumn(
                 "YoY Total Return",
+                format="%.1f %%",
+            ),
+            "total_return_pct": st.column_config.NumberColumn(
+                "Total Return",
                 format="%.1f %%",
             ),
             "currency": "Currency",
