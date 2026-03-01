@@ -1,6 +1,6 @@
 """Portfolio valuation engine for historical performance tracking."""
 
-from datetime import date
+from datetime import date, timedelta
 from typing import Any
 
 import polars as pl
@@ -134,7 +134,7 @@ class PortfolioEngine:
             timeline.extend(
                 {"date": s["date"], "type": "split", "val": s["stock_splits"]} for s in splits
             )
-            timeline.sort(key=lambda x: (x["date"], x["type"]))
+            timeline.sort(key=lambda x: (x["date"], x["type"] == "split"))
 
             current_shares = 0.0
             for event in timeline:
@@ -146,7 +146,8 @@ class PortfolioEngine:
                     if fraction > 0.0001:
                         fractional_sells.append(
                             dict(
-                                date=event["date"],
+                                date=event["date"]
+                                + timedelta(days=1),  # ensure sell happens after split
                                 ticker=ticker,
                                 delta=-fraction,
                                 price=None,
@@ -154,7 +155,7 @@ class PortfolioEngine:
                         )
                         current_shares -= fraction
 
-        return transactions + fractional_sells
+        return fractional_sells
 
     def _calculate_transactional(
         self,
@@ -201,10 +202,11 @@ class PortfolioEngine:
                         price=tx.price,
                     )
                 )
-        transaction_events = self._add_fractional_share_sales(
+        fractional_sells = self._add_fractional_share_sales(
             transaction_events,
             relevant_splits,
         )
+        transaction_events.extend(fractional_sells)
         transaction_events = self._apply_splits(transaction_events, relevant_splits)
 
         trading_days = (
