@@ -207,6 +207,14 @@ def map_prices_to_df(pdf: pd.DataFrame, ticker: str, currency: str) -> pl.DataFr
         prices = prices.with_columns(pl.lit(0.0).alias("dividend"))
     prices = prices.with_columns(pl.col("dividend").fill_null(0.0))
 
+    if "stock splits" in prices.columns:
+        prices = prices.rename({"stock splits": "stock_splits"})
+    elif "Stock Splits" in prices.columns:
+        prices = prices.rename({"Stock Splits": "stock_splits"})
+    else:
+        prices = prices.with_columns(pl.lit(0.0).alias("stock_splits"))
+    prices = prices.with_columns(pl.col("stock_splits").fill_null(0.0))
+
     # Ensure Date column exists (might be named differently)
     if "date" not in prices.columns and "index" in prices.columns:
         prices = prices.rename({"index": "date"})

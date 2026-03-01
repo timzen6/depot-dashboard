@@ -142,13 +142,29 @@ class ETLPipeline:
 
                 # Fetch new data from yfinance
                 raw_pdf = self.extractor.get_prices(ticker, start_date)
+
+                # check if stock splits happened
+                has_stock_splits = (raw_pdf["Stock Splits"] != 0).to_numpy().any()
+                if has_stock_splits:
+                    logger.warning(
+                        f"""
+                        [{ticker}] Stock splits detected
+                        — reloading full history for adjusted prices.
+                        """
+                    )
+                    raw_pdf = self.extractor.get_prices(ticker, self.INITIAL_START_DATE)
+
                 currency = self.get_currency(ticker, metadata)
 
                 # Transform to domain model
                 new_df = map_prices_to_df(raw_pdf, ticker, currency)
 
                 # Merge with existing data if available
-                merged_df = self._merge_price_data(filename, new_df)
+                merged_df = self._merge_price_data(
+                    filename,
+                    new_df,
+                    has_stock_splits,
+                )
 
                 # Atomic write back to storage
                 self.storage.atomic_write(merged_df, filename)
@@ -252,7 +268,9 @@ class ETLPipeline:
             logger.info(f"[{filename}] New ticker: fetching from {self.INITIAL_START_DATE}")
             return self.INITIAL_START_DATE
 
-    def _merge_price_data(self, filename: str, new_df: pl.DataFrame) -> pl.DataFrame:
+    def _merge_price_data(
+        self, filename: str, new_df: pl.DataFrame, flag_old_data: bool = False
+    ) -> pl.DataFrame:
         """
         Merge new price data with existing data, removing duplicates.
 
@@ -263,12 +281,16 @@ class ETLPipeline:
         Args:
             filename: Parquet filename (without .parquet extension)
             new_df: New price data to merge
+            flag_old_data: If True, mark old data as outdated (optional)
 
         Returns:
             Merged and deduplicated DataFrame
         """
         try:
-            existing_df = self.storage.read(filename)
+            existing_df = self.storage.read(filename).with_columns(
+                pl.lit(flag_old_data).alias("is_outdated")
+            )
+            new_df = new_df.with_columns(pl.lit(False).alias("is_outdated"))
 
             # Stack old and new data vertically
             merged = (

@@ -1,6 +1,7 @@
 """Portfolio valuation engine for historical performance tracking."""
 
 from datetime import date
+from typing import Any
 
 import polars as pl
 from loguru import logger
@@ -71,6 +72,100 @@ class PortfolioEngine:
             .alias("group")
         )
 
+    def _apply_splits(
+        self,
+        transactions: list[dict[str, Any]],
+        relevant_splits: dict[str, list[dict[str, Any]]],
+    ) -> list[dict[str, Any]]:
+        # go through all transactions and apply splits:
+        # if there is a split for a ticker on a date,
+        # all transactions for that ticker on that date or later are adjusted by the split factor
+        for i, transaction in enumerate(transactions):
+            ticker_splits = relevant_splits.get(transaction["ticker"], [])
+            applicable_splits = [s for s in ticker_splits if s["date"] > transaction["date"]]
+            if not applicable_splits:
+                continue
+            factor = 1.0
+            for s in applicable_splits:
+                factor *= s["stock_splits"]
+            transactions[i]["delta"] *= factor
+            if transaction["price"] is not None:
+                transactions[i]["price"] /= factor
+        return transactions
+
+    def _get_relevant_splits(
+        self, df_prices: pl.DataFrame, portfolio: Portfolio, start_date: date
+    ) -> dict[str, list[dict[str, Any]]]:
+        splits_df = (
+            df_prices.filter(
+                (pl.col("date") >= start_date)
+                & (pl.col("ticker").is_in(portfolio.tickers))
+                & (pl.col("stock_splits").is_not_null())
+                & (pl.col("stock_splits") > 0)
+            )
+            .select(["date", "ticker", "stock_splits"])
+            .sort(["ticker", "date"])
+        )
+        relevant_splits: dict[str, list[dict[str, Any]]] = {
+            ticker: group.select(["date", "stock_splits"]).to_dicts()
+            for (ticker,), group in splits_df.group_by("ticker")
+        }
+        if relevant_splits:
+            logger.info(f"Found the following splits for portfolio '{portfolio.name}':")
+            logger.info(splits_df.to_pandas().to_markdown())
+        return relevant_splits
+
+    def _simulate_share_balance(
+        self,
+        transactions: list[dict[str, Any]],
+    ) -> pl.DataFrame:
+        """
+        Simulate share balance over time based on transactions.
+        Only consider the days where transactions occur.
+        """
+        df_balance = (
+            pl.DataFrame(
+                transactions,
+                schema={
+                    "date": pl.Date,
+                    "ticker": pl.Utf8,
+                    "delta": pl.Float64,
+                    "price": pl.Float64,
+                },
+            )
+            .sort(["ticker", "date"])
+            .with_columns(pl.col("delta").cum_sum().over("ticker").alias("shares"))
+        )
+        return df_balance
+
+    def _add_fractional_share_sales(
+        self,
+        transactions: list[dict[str, Any]],
+        stock_splits: dict[str, list[dict[str, Any]]],
+    ) -> list[dict[str, Any]]:
+        thresh = 0.0001
+        new_transactions = transactions.copy()
+        for ticker, splits in stock_splits.items():
+            for split in splits:
+                split_date = split["date"]
+                df_balance = (
+                    self._simulate_share_balance(new_transactions)
+                    .filter((pl.col("ticker") == ticker) & (pl.col("date") <= split_date))
+                    .tail(1)
+                )
+                shares = df_balance["shares"].item()
+                fraction = round(shares - int(shares), 6)  # Round to avoid floating point issues
+                if fraction > thresh:
+                    new_transactions.append(
+                        dict(
+                            date=split_date,
+                            ticker=ticker,
+                            delta=-fraction,
+                            price=None,
+                        )
+                    )
+        return new_transactions
+
     def _calculate_transactional(
         self,
         portfolio: Portfolio,
@@ -94,6 +189,8 @@ class PortfolioEngine:
                 "Cannot calculate transactional portfolio: no start_date and no transactions found."
             )
 
+        relevant_splits = self._get_relevant_splits(df_prices, portfolio, start_date)
+
         # initial portfolio
         for pos in portfolio.positions:
             transaction_events.append(
@@ -114,6 +211,12 @@ class PortfolioEngine:
                         price=tx.price,
                     )
                 )
+        transaction_events = self._apply_splits(transaction_events, relevant_splits)
+        transaction_events = self._add_fractional_share_sales(
+            transaction_events,
+            relevant_splits,
+        )
+
         trading_days = (
             df_prices.select(pl.col("date").alias("mapped_date")).unique().sort("mapped_date")
         )
