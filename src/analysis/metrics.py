@@ -104,6 +104,19 @@ class MetricsEngine:
 
         # Base metrics
         exprs = []
+
+        # EPS expressions -> sometimes eps is missing,
+        # we need a fallback where we calculate it from net income and shares
+        eps_expr = pl.coalesce(
+            pl.col("basic_eps"), pl.col("net_income") / pl.col("basic_average_shares")
+        )
+        exprs.append(eps_expr.alias("basic_eps"))
+        diluted_eps_expr = pl.coalesce(
+            pl.col("diluted_eps"),
+            pl.col("net_income") / pl.col("diluted_average_shares"),
+        )
+        exprs.append(diluted_eps_expr.alias("diluted_eps"))
+
         # Debt
         debt_expr = pl.coalesce(
             pl.col("total_debt"),

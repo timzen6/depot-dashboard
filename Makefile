@@ -1,7 +1,8 @@
 BASE_BRANCH ?= origin/main
 EXCLUDES := ':!uv.lock' ':!*.pyc' ':!data/*' ':!llm_inputs/*'
+CONTEXT_DOCS := README.md docs/STRUCTURE.md docs/ARCH_DECISIONS.md
 
-.PHONY: pc etl snapshot restore test app help
+.PHONY: pc etl snapshot restore test app get-context help
 
 help:
 	@echo "Available commands:"
@@ -9,7 +10,8 @@ help:
 	@echo "  make etl        - Run ETL pipeline"
 	@echo "  make snapshot   - Create data snapshots"
 	@echo "  make test       - Run tests"
-	@echo "  make app        - Launch Streamlit dashboard"
+	@echo "  make app         - Launch Streamlit dashboard"
+	@echo "  make get-context - Copy project context (README, STRUCTURE, ARCH_DECISIONS) to clipboard"
 
 pc:
 	uv run --extra dev pre-commit run --all-files
@@ -36,6 +38,18 @@ test:
 
 app:
 	uv run streamlit run src/app/00_Startpage.py
+
+get-context:
+	@{ \
+		echo "# Project Context"; \
+		echo "Generated on: $$(date)"; \
+		for f in $(CONTEXT_DOCS); do \
+			echo ""; \
+			echo "## $$f"; \
+			cat $$f; \
+		done; \
+	} | pbcopy
+	@echo "✅ Project context ($(CONTEXT_DOCS)) copied to clipboard."
 
 project-export:
 	@gh project item-list 1 --owner timzen6 --format json > llm_inputs/project_items.json
