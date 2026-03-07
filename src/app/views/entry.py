@@ -139,6 +139,7 @@ def render_sidebar_selection(
 def render_stock_selection(
     dashboard_data: DashboardData,
     selected_tickers: list[str] | None,
+    multi_select: bool = True,
 ) -> list[str]:
     """Render stock selection control and return filtered metadata."""
     filtered_stock_metadata = dashboard_data.metadata.filter(
@@ -163,7 +164,7 @@ def render_stock_selection(
 
     st.dataframe(
         stock_metadata,
-        selection_mode="multi-row",
+        selection_mode="multi-row" if multi_select else "single-row",
         key="entry_analysis_selection",
         on_select="rerun",
         use_container_width=True,

@@ -1,3 +1,5 @@
+from datetime import date
+
 import polars as pl
 import streamlit as st
 
@@ -69,11 +71,19 @@ def show_delete_dialog(portfolio_name: str) -> None:
 def show_create_dialog() -> None:
     name = st.text_input("Name (ID):")
     display = st.text_input("Display Name:")
+    start_date = st.date_input(
+        "Start Date",
+        value=date(2024, 1, 1),
+        min_value=date(2021, 1, 1),
+    )
+    start_date_str = start_date.isoformat() if start_date else None
     if st.button("Create"):
         if name in engine.portfolio_manager.get_all_portfolios():
             st.error("Exists already.")
         else:
-            engine.portfolio_manager.create_portfolio(name, display or None)
+            engine.portfolio_manager.create_portfolio(
+                name, display or None, start_date=start_date_str
+            )
             st.success("Created!")
             custom_rerun()
 
@@ -107,7 +117,9 @@ meta_col1, meta_col2 = st.columns([3, 2])
 # --- LEFT: Portfolio Editor ---
 with meta_col1:
     name_display = selected_portfolio.display_name or selected_portfolio.name
+    start_date_display = selected_portfolio.start_date or "N/A"
     st.subheader(f"Positions: {name_display}")
+    st.text(f"Start Date: {start_date_display}")
 
     meta = dashboard_data.metadata.select(["ticker", "short_name", "display_name"]).with_columns(
         pl.coalesce(pl.col("display_name"), pl.col("short_name"), pl.col("ticker")).alias("name")

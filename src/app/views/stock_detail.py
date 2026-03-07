@@ -590,6 +590,7 @@ def render_quality_chart(df_fund: pl.DataFrame) -> None:
             (pl.col("rotce") * 100).alias("ROTCE %"),
             (pl.col("ebit_margin") * 100).alias("ebit_margin%"),
             (pl.col("gross_margin") * 100).alias("gross_margin%"),
+            (pl.col("net_profit_margin") * 100).alias("net_profit_margin%"),
         )
     )
 
@@ -618,8 +619,14 @@ def render_quality_chart(df_fund: pl.DataFrame) -> None:
             st.info("ROCE data not available")
     with tab2:
         df_tmp = (
-            df_fund.select(["date", "gross_margin%", "ebit_margin%"])
-            .rename({"gross_margin%": "Gross Margin", "ebit_margin%": "EBIT Margin"})
+            df_fund.select(["date", "gross_margin%", "ebit_margin%", "net_profit_margin%"])
+            .rename(
+                {
+                    "gross_margin%": "Gross Margin",
+                    "ebit_margin%": "EBIT Margin",
+                    "net_profit_margin%": "Net Profit Margin",
+                }
+            )
             .unpivot(
                 index="date",
                 variable_name="margin_type",

@@ -77,7 +77,15 @@ class TTMEngine:
 
         # 1. Prepare Data
         # Ensure strict sorting for rolling window functions
-        df_raw = df_clean.sort(["ticker", "report_date"])
+        df_raw = df_clean.sort(["ticker", "report_date"]).with_columns(
+            # sometimes eps is missing, we need to calculate it
+            # before the rolling sum
+            pl.coalesce(
+                pl.col("diluted_eps"),
+                pl.col("net_income") / pl.col("diluted_average_shares"),
+                pl.col("net_income") / pl.col("basic_average_shares"),
+            ).alias("diluted_eps")
+        )
 
         # 2. Define Aggregations
         # We process tickers in parallel using over("ticker")

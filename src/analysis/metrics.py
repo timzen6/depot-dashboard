@@ -303,23 +303,32 @@ class MetricsEngine:
                 ],
             )
             ttm_tmp = self.ttm_engine.calculate_ttm_history(df_quarterly)
-            q_ttm = ttm_tmp.select(
-                [
-                    pl.col("ticker"),
-                    pl.col("report_date"),
-                    # Rename to avoid collision
-                    pl.col("net_income_ttm").alias("net_income_ttm"),
-                    pl.col("diluted_eps_ttm").alias("eps_ttm"),
-                    pl.col("revenue_ttm"),
-                    pl.col("free_cash_flow_ttm").alias("fcf_ttm"),
-                    # Prefer diluted TTM
+            q_ttm = (
+                ttm_tmp.select(
+                    [
+                        pl.col("ticker"),
+                        pl.col("report_date"),
+                        # Rename to avoid collision
+                        pl.col("net_income_ttm").alias("net_income_ttm"),
+                        pl.col("diluted_eps_ttm").alias("eps_ttm"),
+                        pl.col("revenue_ttm"),
+                        pl.col("free_cash_flow_ttm").alias("fcf_ttm"),
+                        # Prefer diluted TTM
+                        pl.coalesce(
+                            pl.col("share_issued_ttm"),
+                            pl.col("diluted_average_shares_ttm"),
+                            pl.col("basic_average_shares_ttm"),
+                        ).alias("shares_ttm"),
+                    ]
+                )
+                .with_columns(
                     pl.coalesce(
-                        pl.col("share_issued_ttm"),
-                        pl.col("diluted_average_shares_ttm"),
-                        pl.col("basic_average_shares_ttm"),
-                    ).alias("shares_ttm"),
-                ]
-            ).sort("report_date")
+                        pl.col("eps_ttm"),
+                        pl.col("net_income_ttm") / pl.col("shares_ttm"),
+                    ).alias("eps_ttm")
+                )
+                .sort("report_date")
+            )
         else:
             q_ttm = pl.DataFrame()
 
