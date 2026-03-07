@@ -1,78 +1,13 @@
-from dataclasses import dataclass
-
 import plotly.express as px
 import polars as pl
 import streamlit as st
 
+import src.app.logic.dcf as logic
 import src.app.views.entry as view
 from src.app.logic.data_loader import DashboardData, load_all_stock_data
+from src.app.logic.dcf import CurrentStockData, DCFInputs, DCFResult, DCFScenario
 from src.app.views.colors import COLOR_SCALE_CONTRAST
 from src.app.views.constants import CURRENCY_SYMBOLS, assign_info_emojis
-from src.core.domain_models import Sector
-
-# import colors
-
-
-PRICE_COLS = [
-    "ticker",
-    "date",
-    "close",
-    "currency",
-    "pe_ratio",
-    "forward_pe",
-    "median_pe",
-]
-FUND_COLS = [
-    "ticker",
-    "date",
-    "currency",
-    "revenue",
-    "net_income",
-    "free_cash_flow",
-    "diluted_average_shares",
-    "roce",
-    "net_profit_margin",
-    "ebit_margin",
-    "revenue_growth",
-    "diluted_eps",
-]
-
-
-@dataclass
-class DCFResult:
-    n_year: int
-    total_value: float
-    total_value_per_share: float
-    terminal_value: float
-    terminal_value_per_share: float
-
-
-@dataclass
-class CurrentStockData:
-    ticker: str
-    currency: str
-    revenue: float
-    net_income: float
-    earnings_per_share: float
-    free_cash_flow: float
-    diluted_average_shares: float
-    profit_margin: float
-    revenue_growth: float
-    mean_revenue_growth: float
-    current_price: float
-    current_pe: float
-    median_pe: float
-    sector_pe: float
-
-
-@dataclass
-class DCFInputs:
-    projected_margin_5y: float
-    projected_margin_10y: float
-    projected_growth_5y: float
-    projected_growth_10y: float
-    discount_rate: float
-    terminal_pe: float
 
 
 def display_selection_headline(ticker: str, metadata: pl.DataFrame) -> None:
@@ -112,14 +47,22 @@ def display_relevant_data(ticker: str, data: DashboardData, current_data: Curren
     current_growth = (
         fund.filter(pl.col("metric") == "Revenue Growth").select("value").tail(1).item()
     )
-    col1, col2 = st.columns([3, 1])
+    col1, col2 = st.columns([3, 2])
     with col2:
-        st.metric("Current Net Profit Margin", f"{current_margin:.1f}%")
-        st.metric("Current Revenue Growth", f"{current_growth:.1f}%")
         sub_col_1, sub_col_2 = st.columns(2)
         with sub_col_1:
+            st.metric("Current Net Profit Margin", f"{current_margin:.1f}%")
+            st.metric(
+                "Curr Cash Conversion",
+                f"{current_data.cash_conversion_ratio*100:.1f}%",
+            )
             st.metric("Median PE", f"{current_data.median_pe:.1f}")
         with sub_col_2:
+            st.metric("Current Revenue Growth", f"{current_growth:.1f}%")
+            st.metric(
+                "Mean Cash Conversion",
+                f"{current_data.mean_cash_conversion_ratio*100:.1f}%",
+            )
             st.metric("Current PE", f"{current_data.current_pe:.1f}")
         st.metric("Sector PE", f"{current_data.sector_pe:.1f}")
         st.metric("Current Price", f"{current_data.current_price:.2f} {currency_symbol}")
@@ -140,55 +83,6 @@ def display_relevant_data(ticker: str, data: DashboardData, current_data: Curren
         st.plotly_chart(fig)
 
 
-def run_dcf_simulation(data: CurrentStockData, inputs: DCFInputs) -> DCFResult:
-    initial_data = []
-    for year in range(1, 11):
-        if year <= 5:
-            rate = inputs.projected_growth_5y
-            margin = (
-                inputs.projected_margin_5y - data.profit_margin
-            ) / 5 * year + data.profit_margin
-        else:
-            rate = ((inputs.projected_growth_10y - inputs.projected_growth_5y) / 5) * (
-                year - 5
-            ) + inputs.projected_growth_5y
-            margin = ((inputs.projected_margin_10y - inputs.projected_margin_5y) / 5) * (
-                year - 5
-            ) + inputs.projected_margin_5y
-        initial_data.append(
-            {
-                "year": year,
-                "rate": rate,
-                "margin": margin,
-            }
-        )
-
-    revenue = (1 + pl.col("rate")).cum_prod() * data.revenue
-    profit = revenue * pl.col("margin")
-    df_dcf = pl.DataFrame(initial_data).with_columns(
-        revenue.alias("revenue"),
-        profit.alias("net_income"),
-        # discounted profit
-        (profit / ((1 + inputs.discount_rate) ** pl.col("year"))).alias("discounted_net_income"),
-    )
-    terminal_value = (
-        df_dcf.select(pl.col("net_income").last()).item()
-        * inputs.terminal_pe
-        / ((1 + inputs.discount_rate) ** 10)
-    )
-
-    total_value = df_dcf.select(pl.col("discounted_net_income").sum()).item() + terminal_value
-
-    result = DCFResult(
-        n_year=10,
-        total_value=total_value,
-        total_value_per_share=total_value / data.diluted_average_shares,
-        terminal_value=terminal_value,
-        terminal_value_per_share=terminal_value / data.diluted_average_shares,
-    )
-    return result
-
-
 def display_dcf_result(result: DCFResult, data: CurrentStockData) -> None:
     currency_symbol = CURRENCY_SYMBOLS.get(data.currency, data.currency)
     st.subheader("DCF Simulation Result")
@@ -207,19 +101,54 @@ def display_dcf_result(result: DCFResult, data: CurrentStockData) -> None:
     st.metric("Total Company Value", f"{result.total_value / 1e9:.2f}B {currency_symbol}")
 
 
-sector_pe_mapping = {
-    Sector.TECHNOLOGY.value: 22,
-    Sector.HEALTHCARE.value: 20,
-    Sector.FINANCIALS.value: 12,
-    Sector.CONSUMER_DISCRETIONARY.value: 20,
-    Sector.CONSUMER_STAPLES.value: 18,
-    Sector.ENERGY.value: 12,
-    Sector.INDUSTRIALS.value: 18,
-    Sector.MATERIALS.value: 15,
-    Sector.UTILITIES.value: 12,
-    Sector.REAL_ESTATE.value: 15,
-    Sector.COMMUNICATION.value: 20,
+input_prettify_mapping = {
+    "projected_margin_5y": "5y Margin",
+    "projected_margin_10y": "10y Margin",
+    "projected_growth_5y": "5y Growth",
+    "projected_growth_10y": "10y Growth",
+    "discount_rate": "Discount Rate",
+    "terminal_pe": "Terminal PE",
 }
+
+
+def display_dcf_matrix_index_element(ind_dict: dict[str, float], order: str = "vertical") -> None:
+    if order == "vertical":
+        for k, v in ind_dict.items():
+            st.metric(label=input_prettify_mapping.get(k, k), value=v)
+    elif order == "horizontal":
+        cols = st.columns(len(ind_dict))
+        for i, (k, v) in enumerate(ind_dict.items()):
+            with cols[i]:
+                st.metric(label=input_prettify_mapping.get(k, k), value=v)
+    else:
+        raise ValueError("Invalid order value")
+
+
+def display_dcf_matrix(
+    data: pl.DataFrame, scenario_row: DCFScenario, scenario_col: DCFScenario
+) -> None:
+    cols = st.columns(len(scenario_col) + 1)
+    for i, col in enumerate(scenario_col):
+        with cols[i + 1]:
+            display_dcf_matrix_index_element(col, order="vertical")
+    for i, row in enumerate(scenario_row):
+        cols = st.columns(len(scenario_col) + 1)
+        with cols[0]:
+            display_dcf_matrix_index_element(row, order="horizontal")
+        for j, _ in enumerate(scenario_col):
+            value = (
+                data.filter((pl.col("row_id") == i) & (pl.col("col_id") == j))
+                .select("value_per_share")
+                .item()
+            )
+            implied_pe = (
+                data.filter((pl.col("row_id") == i) & (pl.col("col_id") == j))
+                .select("implied_pe")
+                .item()
+            )
+            with cols[j + 1]:
+                st.metric("", f"{value:.2f}")
+                st.caption(f"PE: {implied_pe:.1f}")
 
 
 def display_input_form(data: CurrentStockData) -> DCFInputs:
@@ -287,44 +216,118 @@ def display_input_form(data: CurrentStockData) -> DCFInputs:
     )
 
 
-def extract_data(ticker: str, data: DashboardData) -> CurrentStockData:
-    sector = data.metadata.filter(pl.col("ticker") == ticker).select("sector").item()
-    sector_pe = sector_pe_mapping.get(sector, 15)
-    prices_last = (
-        data.prices.filter(pl.col("ticker") == ticker).sort("date").tail(1).select(PRICE_COLS)
-    )
-    current_price = prices_last.select("close").item()
-    mean_revenue_growth = (
-        data.fundamentals.filter((pl.col("ticker") == ticker) & (pl.col("period_type") == "annual"))
-        .select("revenue_growth")
-        .filter(pl.col("revenue_growth").is_not_null())
-        .select(pl.col("revenue_growth").mean())
-        .item()
-    )
-    fundamentals_last = (
-        data.fundamentals.filter((pl.col("ticker") == ticker) & (pl.col("period_type") == "annual"))
-        .sort("date")
-        .tail(1)
-        .select(FUND_COLS)
-    )
-    median_pe = prices_last.select("median_pe").item()
-    return_data = CurrentStockData(
-        ticker=ticker,
-        currency=fundamentals_last.select("currency").item(),
-        revenue=fundamentals_last.select("revenue").item(),
-        net_income=fundamentals_last.select("net_income").item(),
-        free_cash_flow=fundamentals_last.select("free_cash_flow").item(),
-        diluted_average_shares=fundamentals_last.select("diluted_average_shares").item(),
-        profit_margin=fundamentals_last.select("net_profit_margin").item(),
-        revenue_growth=fundamentals_last.select("revenue_growth").item(),
-        mean_revenue_growth=mean_revenue_growth,
-        earnings_per_share=fundamentals_last.select("diluted_eps").item(),
-        current_price=current_price,
-        current_pe=prices_last.select("pe_ratio").item(),
-        median_pe=median_pe,
-        sector_pe=sector_pe,
-    )
-    return return_data
+def prettify_label(var_name: str) -> str:
+    return var_name.replace("_", " ").title()
+
+
+def get_default_input_value(var_name: str, data: CurrentStockData) -> tuple[float, float, str]:
+    # TODO: We can make this more elaborate later
+    is_pe = var_name == "terminal_pe"
+    step_size = 1.0 if is_pe else 0.01
+    default_val = 20.0 if is_pe else 0.10
+    fmt = "%.1f" if is_pe else "%.3f"
+    return default_val, step_size, fmt
+
+
+def display_sensitivity_analysis_input(
+    data: CurrentStockData,
+) -> tuple[DCFScenario, DCFScenario, dict[str, float]]:
+    st.subheader("🌡️ Sensitivity Matrix Configuration")
+    dcf_inputs = [
+        "projected_margin_5y",
+        "projected_margin_10y",
+        "projected_growth_5y",
+        "projected_growth_10y",
+        "discount_rate",
+        "terminal_pe",
+    ]
+
+    col1, col2 = st.columns(2)
+
+    scenario1_dict: dict[str, list[float]] = {}
+    scenario2_dict: dict[str, list[float]] = {}
+
+    with col1:
+        st.markdown("### X-Axis (Scenario 1)")
+        s_cols1 = st.multiselect(
+            options=dcf_inputs,
+            label="Select variables to vary on X-Axis",
+            format_func=prettify_label,
+            default=["projected_growth_5y"],
+        )
+        n_scenarios_1 = st.number_input(
+            "Number of steps", min_value=1, max_value=5, value=2, key="n_scen_1"
+        )
+
+        st.divider()
+        for c in s_cols1:
+            st.markdown(f"**{prettify_label(c)}**")
+            cols = st.columns(n_scenarios_1)
+            vals = []
+
+            for i in range(n_scenarios_1):
+                with cols[i]:
+                    default_val, step_size, fmt = get_default_input_value(c, data)
+                    val = st.number_input(
+                        f"Step {i+1}",
+                        key=f"sc1_{c}_{i+1}",
+                        value=default_val + (i * step_size),
+                        step=step_size,
+                        format=fmt,
+                    )
+                    vals.append(val)
+            scenario1_dict[c] = vals
+
+    with col2:
+        st.markdown("### Y-Axis (Scenario 2)")
+        remaining_cols = [col for col in dcf_inputs if col not in s_cols1]
+        s_cols2 = st.multiselect(
+            options=remaining_cols,
+            label="Select variables to vary on Y-Axis",
+            format_func=prettify_label,
+            default=["terminal_pe"] if "terminal_pe" in remaining_cols else [],
+        )
+        n_scenarios_2 = st.number_input(
+            "Number of steps", min_value=1, max_value=5, value=2, key="n_scen_2"
+        )
+
+        st.divider()
+        for c in s_cols2:
+            st.markdown(f"**{prettify_label(c)}**")
+            cols = st.columns(n_scenarios_2)
+            vals = []
+
+            default_val, step_size, fmt = get_default_input_value(c, data)
+
+            for i in range(n_scenarios_2):
+                with cols[i]:
+                    val = st.number_input(
+                        f"Step {i+1}",
+                        key=f"sc2_{c}_{i+1}",
+                        value=default_val + (i * step_size),
+                        step=step_size,
+                        format=fmt,
+                    )
+                    vals.append(val)
+            scenario2_dict[c] = vals
+    static_cols = [col for col in dcf_inputs if col not in s_cols1 and col not in s_cols2]
+
+    st.subheader("Static Variables")
+    static_dict = {}
+    col1, _ = st.columns([1, 2])
+    with col1:
+        for c in static_cols:
+            default_val, step_size, fmt = get_default_input_value(c, data)
+            val = st.number_input(
+                f"{prettify_label(c)}",
+                key=f"static_{c}",
+                value=default_val,
+                step=step_size,
+                format=fmt,
+            )
+            static_dict[c] = val
+
+    return DCFScenario(scenario1_dict), DCFScenario(scenario2_dict), static_dict
 
 
 st.set_page_config(
@@ -356,19 +359,15 @@ if selected_tickers:
     ticker = selected_tickers[0]
     display_selection_headline(ticker, dashboard_data.metadata)
 
-    data = extract_data(ticker, dashboard_data)
+    data = logic.extract_data(ticker, dashboard_data)
     display_relevant_data(ticker, dashboard_data, data)
 
-    simulation_type = st.selectbox(
-        "Select Simulation Method",
-        options=["Single Scenario", "Multiple Scenarios (coming soon)"],
-    )
-
-    if simulation_type == "Single Scenario":
+    tab1, tab2 = st.tabs(["Single Scenario", "Multiple Scenarios"])
+    with tab1:
         col1, col2 = st.columns([2, 1])
         with col1:
             inputs = display_input_form(data)
-        result = run_dcf_simulation(data, inputs)
+        result = logic.run_dcf_simulation(data, inputs)
         with col2:
             display_dcf_result(result, data)
         with st.expander("LLM ready data (for debugging and export)"):
@@ -378,5 +377,17 @@ if selected_tickers:
                 dcf_result=result.__dict__,
             )
             st.json(json_data_dict)
-    else:
-        st.info("Multiple Scenarios simulation is coming soon!")
+    with tab2:
+        s1, s2, remaining_inputs = display_sensitivity_analysis_input(data)
+        df_scenarios = logic.run_sensitivity_analysis(
+            data,
+            base_inputs=remaining_inputs,
+            s1=s1,
+            s2=s2,
+        )
+
+        display_dcf_matrix(
+            df_scenarios,
+            scenario_row=s1,
+            scenario_col=s2,
+        )

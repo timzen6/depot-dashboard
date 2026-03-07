@@ -61,7 +61,12 @@ class UserPortfolioManager:
             model_dump = config.model_dump(mode="json")
             yaml.safe_dump(model_dump, f)
 
-    def create_portfolio(self, name: str, display_name: str | None = None) -> None:
+    def create_portfolio(
+        self,
+        name: str,
+        display_name: str | None = None,
+        start_date: str = "2024-01-01",
+    ) -> None:
         """Create a new user portfolio with the given name."""
         all_portfolios = self.get_all_portfolios()
         if name in all_portfolios:
@@ -73,6 +78,7 @@ class UserPortfolioManager:
             positions=[],
             type=PortfolioType.ABSOLUTE,
             is_editable=True,
+            start_date=start_date,
         )
         all_portfolios[name] = new_portfolio
         self._dump_portfolios(all_portfolios)
