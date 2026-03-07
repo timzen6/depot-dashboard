@@ -95,7 +95,7 @@ def display_dcf_result(result: DCFResult, data: CurrentStockData) -> None:
     st.caption(
         f"""
         Relative Terminal Value:
-        {result.terminal_value_per_share / result.total_value_per_share:.2%}"
+        {result.terminal_value_per_share / result.total_value_per_share:.2%}
         """
     )
     st.metric("Total Company Value", f"{result.total_value / 1e9:.2f}B {currency_symbol}")
