@@ -920,7 +920,7 @@ def render_analyst_metrics(stock_data: StockData) -> None:
             st.metric(
                 "Estimated Forward P/E Ratio",
                 f"{fwd_pe:.2f}",
-                delta=f"{delta_pe:.2f}",
+                delta=f"{delta_pe:.2f}" if delta_pe is not None else None,
                 delta_color="inverse",
             )
         if trailing_pe:

@@ -99,20 +99,22 @@ def get_portfolio_performance(
 
 
 def fill_days_with_missing_tickers(df_history: pl.DataFrame) -> pl.DataFrame:
-    """Fill missing days for tickers in portfolio history with forward filled values."""
-    all_dates = df_history.select(pl.col("date").unique()).sort("date")
-    all_tickers = df_history.select(pl.col("ticker").unique()).sort("ticker")
+    """Align all tickers to the global trading calendar, forward-filling gaps up to the max date.
 
-    value_cols = [col for col in df_history.columns if col not in ["ticker", "date"]]
-    fill_exprs = [pl.col(col).fill_null(strategy="forward").alias(col) for col in value_cols]
+    Uses a cross-join master grid so tickers missing recent days are extended
+    to the global max date rather than left truncated.
+    """
+    global_calendar = df_history.select("date").unique()
+    tickers = df_history.select("ticker").unique()
 
-    df_filled = (
-        all_tickers.join(all_dates, how="cross")
-        .join(df_history, on=["ticker", "date"], how="left")
-        .sort(["ticker", "date"])
-        .with_columns(*fill_exprs)
-    )
-    return df_filled
+    master_grid = tickers.join(global_calendar, how="cross").sort(["ticker", "date"])
+
+    return master_grid.join_asof(
+        df_history.sort(["ticker", "date"]),
+        on="date",
+        by="ticker",
+        strategy="backward",
+    ).drop_nulls(subset=["position_value_EUR"])
 
 
 @dataclass
