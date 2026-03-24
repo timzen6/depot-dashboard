@@ -80,6 +80,9 @@ class ContextBuilder:
             data = data.with_columns(exprs)
         return data
 
+    def _get_filtered_descriptions(self, category: str, columns: list[str]) -> dict[str, str]:
+        return {k: v for k, v in METRIC_DESCRIPTIONS.get(category, {}).items() if k in columns}
+
     def _to_split_json(self, data: pl.DataFrame) -> dict[str, Any]:
         """Convert DataFrame to a JSON structure suitable for LLM context."""
         return {
@@ -155,12 +158,9 @@ class ContextBuilder:
             )
             .pipe(self._to_split_json)
         )
-        descriptions = {
-            k: v
-            for k, v in METRIC_DESCRIPTIONS.get("valuations", {}).items()
-            if k in export_valuations["columns"]
-        }
-        export_valuations["metric_descriptions"] = descriptions
+        export_valuations["metric_descriptions"] = self._get_filtered_descriptions(
+            "valuations", export_valuations["columns"]
+        )
         export_valuations["source_descriptions"] = METRIC_DESCRIPTIONS.get("sources", {})
         return export_valuations
 
@@ -189,12 +189,9 @@ class ContextBuilder:
             .pipe(self._sanitize)
             .pipe(self._to_split_json)
         )
-        descriptions = {
-            k: v
-            for k, v in METRIC_DESCRIPTIONS.get("fundamentals", {}).items()
-            if k in export_fundamentals["columns"]
-        }
-        export_fundamentals["metric_descriptions"] = descriptions
+        export_fundamentals["metric_descriptions"] = self._get_filtered_descriptions(
+            "fundamentals", export_fundamentals["columns"]
+        )
         export_fundamentals["source_descriptions"] = METRIC_DESCRIPTIONS.get("sources", {})
         return export_fundamentals
 
@@ -226,12 +223,9 @@ class ContextBuilder:
             .pipe(self._sanitize)
             .pipe(self._to_split_json)
         )
-        descriptions = {
-            k: v
-            for k, v in METRIC_DESCRIPTIONS.get("timing", {}).items()
-            if k in export_timing["columns"]
-        }
-        export_timing["metric_descriptions"] = descriptions
+        export_timing["metric_descriptions"] = self._get_filtered_descriptions(
+            "timing", export_timing["columns"]
+        )
         return export_timing
 
     def get_strategy_context(self) -> dict[str, Any]:
