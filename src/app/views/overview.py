@@ -9,15 +9,13 @@ import streamlit as st
 from views.colors import COLOR_SCALE_CONTRAST, STRATEGY_FACTOR_COLOR_MAP, Colors
 
 from src.app.logic.common import COUNTRY_REGION_MAP
-from src.app.logic.portfolio import filter_days_with_incomplete_tickers
+from src.app.logic.portfolio import fill_days_with_missing_tickers
 from src.app.views.common import (
     make_pie_chart,
     make_sunburst_chart,
     style_pie_chart,
 )
-from src.app.views.constants import (
-    assign_info_emojis,
-)
+from src.app.views.constants import assign_info_emojis
 from src.core.domain_models import AssetType
 from src.core.strategy_engine import StrategyEngine, safe_column_expr
 
@@ -57,7 +55,7 @@ def render_portfolio_chart(
         use_group = True
 
     df_plot = (
-        df_history.pipe(filter_days_with_incomplete_tickers)
+        df_history.pipe(fill_days_with_missing_tickers)
         .group_by(gr_cols)
         .agg(pl.sum("position_value_EUR").alias("total_value"))
     )

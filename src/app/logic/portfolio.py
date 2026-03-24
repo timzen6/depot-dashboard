@@ -98,26 +98,23 @@ def get_portfolio_performance(
     return df_history_target_currency
 
 
-def filter_days_with_incomplete_tickers(df_history: pl.DataFrame) -> pl.DataFrame:
-    """Filter out dates where not all tickers have price data.
+def fill_days_with_missing_tickers(df_history: pl.DataFrame) -> pl.DataFrame:
+    """Align all tickers to the global trading calendar, forward-filling gaps up to the max date.
 
-    Prevents artificial portfolio value drops caused by missing data on holidays.
-    Different exchanges may have different trading calendars.
-
-    Args:
-        df_history: Portfolio history with ticker-level data
-
-    Returns:
-        Filtered DataFrame containing only dates with complete ticker coverage
+    Uses a cross-join master grid so tickers missing recent days are extended
+    to the global max date rather than left truncated.
     """
-    required_tickers = df_history.select(pl.col("ticker").unique()).height
-    dates_with_all_tickers = (
-        df_history.group_by("date")
-        .agg(pl.count("ticker").alias("ticker_count"))
-        .filter(pl.col("ticker_count") == required_tickers)
-        .select("date")
-    )
-    return df_history.join(dates_with_all_tickers, on="date", how="inner")
+    global_calendar = df_history.select("date").unique()
+    tickers = df_history.select("ticker").unique()
+
+    master_grid = tickers.join(global_calendar, how="cross").sort(["ticker", "date"])
+
+    return master_grid.join_asof(
+        df_history.sort(["ticker", "date"]),
+        on="date",
+        by="ticker",
+        strategy="backward",
+    ).drop_nulls(subset=["position_value_EUR"])
 
 
 @dataclass
@@ -158,7 +155,7 @@ def get_portfolio_kpis(df_history: pl.DataFrame) -> PortfolioKPIs:
         )
 
     df_daily = (
-        df_history.pipe(filter_days_with_incomplete_tickers)
+        df_history.pipe(fill_days_with_missing_tickers)
         .group_by("date")
         .agg(
             pl.sum("position_value_EUR").alias("total_value"),
@@ -177,7 +174,15 @@ def get_portfolio_kpis(df_history: pl.DataFrame) -> PortfolioKPIs:
         current_yoy_dividend_value = 0
 
     total_pnl = df_daily.select(pl.last("total_absolute_pnl_EUR")).item()
-    total_return_pct = (total_pnl / (current_value - total_pnl) * 100) if current_value else 0.0
+
+    if abs(total_pnl - current_value) < 1e-6:
+        logger.warning(
+            "Total PnL is very close to current value, "
+            "setting total return to 0% to avoid division by zero"
+        )
+        total_return_pct = 0.0
+    else:
+        total_return_pct = (total_pnl / (current_value - total_pnl) * 100) if current_value else 0.0
 
     yoy_return = df_daily.select(pl.last("yoy_absolute_pnl_EUR")).item()
     yoy_return_pct = (yoy_return / (current_value - yoy_return) * 100) if current_value else 0.0

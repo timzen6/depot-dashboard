@@ -88,9 +88,14 @@ st.title(f"📊 {selected_portfolio.ui_name}")
 
 try:
     # Get portfolio performance
-    df_history = get_portfolio_performance(
-        selected_portfolio, df_prices, fx_engine, portfolio_engine
-    ).join(data.metadata, on="ticker", how="left")
+    df_history = (
+        get_portfolio_performance(selected_portfolio, df_prices, fx_engine, portfolio_engine)
+        .join(data.metadata, on="ticker", how="left")
+        .with_columns(
+            pl.col("sector").fill_null("Other"),
+            pl.col("country").fill_null("Other"),
+        )
+    )
 
     if df_history.is_empty():
         render_empty_state(
