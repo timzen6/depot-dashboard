@@ -905,34 +905,43 @@ def render_analyst_metrics(stock_data: StockData) -> None:
     st.subheader("📊 Analyst Estimates: Forward Looking")
     cols = st.columns(6)
     with cols[0]:
+        n_analyst_estimates = stock_data.metadata.get("number_of_analyst_opinions", 0) or 0
         st.metric(
             "Number of Analyst Estimates",
-            f"{stock_data.metadata.get('number_of_analyst_opinions', 0)}",
+            f"{n_analyst_estimates}",
         )
         fwd_pe = latest_price_metrics.select("forward_pe").item()
         trailing_pe = latest_price_metrics.select("pe_ratio").item()
-        delta_pe = fwd_pe - trailing_pe
-        st.metric(
-            "Estimated Forward P/E Ratio",
-            f"{fwd_pe:.2f}",
-            delta=f"{delta_pe:.2f}",
-            delta_color="inverse",
-        )
-        st.metric(
-            "Trailing P/E Ratio",
-            f"{trailing_pe:.2f}",
-        )
+        if fwd_pe and trailing_pe:
+            delta_pe = fwd_pe - trailing_pe
+        else:
+            delta_pe = None
+        if fwd_pe:
+            st.metric(
+                "Estimated Forward P/E Ratio",
+                f"{fwd_pe:.2f}",
+                delta=f"{delta_pe:.2f}",
+                delta_color="inverse",
+            )
+        if trailing_pe:
+            st.metric(
+                "Trailing P/E Ratio",
+                f"{trailing_pe:.2f}",
+            )
     with cols[1]:
-        st.metric(
-            "Implied EPS Growth",
-            f"{latest_price_metrics.select('implied_eps_growth').item() * 100:.1f}%",
-        )
+        implied_eps_growth = latest_price_metrics.select("implied_eps_growth").item()
+        if implied_eps_growth:
+            st.metric(
+                "Implied EPS Growth",
+                f"{implied_eps_growth * 100:.1f}%",
+            )
         peg_ratio = latest_price_metrics.select("peg_ratio").item()
         peg_label = None
-        if peg_ratio < 1.0:
-            peg_label = "🟢🟢🟢"
-        if peg_ratio >= 2.5:
-            peg_label = "🔴🔴🔴"
+        if peg_ratio is not None:
+            if peg_ratio < 1.0:
+                peg_label = "🟢🟢🟢"
+            if peg_ratio >= 2.5:
+                peg_label = "🔴🔴🔴"
         if not peg_ratio or peg_ratio <= 0:
             st.metric(
                 "PEG Ratio",
@@ -941,17 +950,18 @@ def render_analyst_metrics(stock_data: StockData) -> None:
         else:
             st.metric(
                 "PEG Ratio",
-                f"{latest_price_metrics.select('peg_ratio').item():.2f}",
+                f"{peg_ratio:.2f}",
                 delta=peg_label,
                 delta_color="off",
                 delta_arrow="off",
             )
         pegy = latest_price_metrics.select("pegy_ratio").item()
         pegy_label = None
-        if pegy < 1.2:
-            pegy_label = "🟢🟢🟢"
-        if pegy >= 2.5:
-            pegy_label = "🔴🔴🔴"
+        if pegy is not None:
+            if pegy < 1.2:
+                pegy_label = "🟢🟢🟢"
+            if pegy >= 2.5:
+                pegy_label = "🔴🔴🔴"
         if not pegy or pegy <= 0:
             st.metric(
                 "PEGY Ratio",
@@ -1325,51 +1335,75 @@ def render_etf_composition_charts(
 
 def render_fundamentals_reference(df_fund: pl.DataFrame) -> None:
     """Render key fundamental metrics as Reference for Debugging."""
-    raw_fundamentals = (
-        df_fund.select(
-            [
-                # fmt: off
-                "ticker",
-                "report_date",
-                "revenue",
-                "gross_profit",
-                "ebit",
-                "net_income",
-                "tax_provision",
-                "interest_expense",
-                "diluted_eps",
-                "basic_eps",
-                "operating_cash_flow",
-                "capital_expenditure",
-                "free_cash_flow",
-                "cash_dividends_paid",
-                "basic_average_shares",
-                "diluted_average_shares",
-                "share_issued",
-                "total_assets",
-                "total_current_liabilities",
-                "total_equity",
-                "long_term_debt",
-                "short_term_debt",
-                "cash_and_equivalents",
-                "total_debt",
-                "goodwill",
-                "intangible_assets",
-                "goodwill_and_intangible_assets",
-                # fmt: on
-            ]
-        )
-        .unpivot(
-            index=[
-                "report_date",
-            ],
-            variable_name="metric",
-            value_name="value",
-        )
-        .sort(["report_date", "metric"], descending=[True, False])
+    raw_fundamentals = df_fund.select(
+        [
+            # fmt: off
+            "ticker",
+            "report_date",
+            "revenue",
+            "gross_profit",
+            "ebit",
+            "net_income",
+            "tax_provision",
+            "interest_expense",
+            "diluted_eps",
+            "basic_eps",
+            "operating_cash_flow",
+            "capital_expenditure",
+            "free_cash_flow",
+            "cash_dividends_paid",
+            "basic_average_shares",
+            "diluted_average_shares",
+            "share_issued",
+            "total_assets",
+            "total_current_liabilities",
+            "total_equity",
+            "long_term_debt",
+            "short_term_debt",
+            "cash_and_equivalents",
+            "total_debt",
+            "goodwill",
+            "intangible_assets",
+            "goodwill_and_intangible_assets",
+            # fmt: on
+        ]
     )
+    basic_fundamentals = df_fund.select(
+        [
+            "ticker",
+            "report_date",
+            "revenue",
+            "net_income",
+            "roce",
+            "gross_margin",
+            "ebit_margin",
+            "net_profit_margin",
+            "free_cash_flow",
+            "cash_conversion_ratio",
+            "net_debt",
+            "net_debt_to_ebit",
+            "net_debt_to_ebitda",
+        ]
+    )
+    record_fundamentals = raw_fundamentals.unpivot(
+        index=[
+            "report_date",
+        ],
+        variable_name="metric",
+        value_name="value",
+    ).sort(["report_date", "metric"], descending=[True, False])
     with st.expander("Show Raw Fundamental Data"):
         st.dataframe(
             raw_fundamentals,
+            use_container_width=True,
+        )
+        st.divider()
+        st.dataframe(
+            basic_fundamentals,
+            use_container_width=True,
+        )
+        st.divider()
+        st.dataframe(
+            record_fundamentals,
             use_container_width=True,
         )

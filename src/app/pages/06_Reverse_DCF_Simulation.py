@@ -331,11 +331,11 @@ def display_sensitivity_analysis_input(
 
 
 st.set_page_config(
-    page_title="Reverse DFC Simulation",
+    page_title="Reverse DCF Simulation",
     page_icon="⚙️",
     layout="wide",
 )
-st.title("⚙️ Reverse DFC Simulation")
+st.title("⚙️ Reverse DCF Simulation")
 
 dashboard_data, portfolio_dict, fx_engine = load_all_stock_data()
 filter_portfolios = st.sidebar.multiselect(

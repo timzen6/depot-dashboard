@@ -14,9 +14,13 @@ METRIC_DESCRIPTIONS = {
         "dist_200_pct": (
             "Structural trend: % distance to 200-day SMA. " ">0 indicates uptrend context."
         ),
-        "vola_annual_pct": "Annualized volatility based on 200-day window of daily returns.",
+        "vola_annual_pct": (
+            "Annualized volatility based on 200-day window of daily returns."
+            "Typically: < 18% = Low, > 30% = High."
+        ),
     },
     "valuations": {
+        "median_pe_ttm": ("Median P/E over the last 5 years."),
         "fair_value": (
             "Intrinsic value estimate: Current TTM EPS * 5-Year Median P/E "
             "(excluding outliers > 250)."
@@ -29,14 +33,20 @@ METRIC_DESCRIPTIONS = {
             "Free Cash Flow per share / Price. "
             "Measure of cash generation relative to market cap."
         ),
-        "implied_eps_growth": "Market implied growth: (Forward EPS / Trailing EPS) - 1.",
     },
     "fundamentals": {
+        "implied_eps_growth": "Market implied growth: (Forward EPS / Trailing EPS) - 1.",
         "rule_40": (
             "SaaS Efficiency: EBITDA Margin % + Revenue Growth %. "
             ">40 is widely considered elite."
         ),
         "roce": "Return on Capital Employed. Measures efficiency of capital allocation.",
+        "rotce": (
+            "Return on Tangible Capital Employed. " "ROCE excluding goodwill and intangibles."
+        ),
+        "net_debt_to_ebit": (
+            "Leverage ratio. Higher values indicate higher debt relative to earnings."
+        ),
         "net_debt_to_ebitda": (
             "Leverage ratio. Higher values indicate higher debt relative to earnings."
         ),
@@ -65,7 +75,7 @@ class ContextBuilder:
             exprs.append(pl.col(col).dt.strftime("%Y-%m-%d").fill_null("N/A").alias(col))
 
         for col in float_cols:
-            exprs.append(pl.col(col).round(2).fill_null("N/A").alias(col))
+            exprs.append(pl.col(col).round(3).fill_null("N/A").alias(col))
         if exprs:
             data = data.with_columns(exprs)
         return data
@@ -130,8 +140,6 @@ class ContextBuilder:
                 "date",
                 "close",
                 "close_EUR",
-                "fair_value",
-                "fair_value_EUR",
                 "pe_ratio",
                 "median_pe",
                 "fcf_yield",
@@ -147,7 +155,12 @@ class ContextBuilder:
             )
             .pipe(self._to_split_json)
         )
-        export_valuations["metric_descriptions"] = METRIC_DESCRIPTIONS.get("valuations", {})
+        descriptions = {
+            k: v
+            for k, v in METRIC_DESCRIPTIONS.get("valuations", {}).items()
+            if k in export_valuations["columns"]
+        }
+        export_valuations["metric_descriptions"] = descriptions
         export_valuations["source_descriptions"] = METRIC_DESCRIPTIONS.get("sources", {})
         return export_valuations
 
@@ -163,13 +176,10 @@ class ContextBuilder:
                 "ticker",
                 "report_date",
                 "currency",
-                "basic_eps",
                 "diluted_eps",
                 "roce",
                 "rotce",
                 "net_debt_to_ebit",
-                "net_debt_to_ebitda",
-                "net_profit_margin",
                 "gross_margin",
                 "ebit_margin",
                 "cash_conversion_ratio",
@@ -179,7 +189,12 @@ class ContextBuilder:
             .pipe(self._sanitize)
             .pipe(self._to_split_json)
         )
-        export_fundamentals["metric_descriptions"] = METRIC_DESCRIPTIONS.get("fundamentals", {})
+        descriptions = {
+            k: v
+            for k, v in METRIC_DESCRIPTIONS.get("fundamentals", {}).items()
+            if k in export_fundamentals["columns"]
+        }
+        export_fundamentals["metric_descriptions"] = descriptions
         export_fundamentals["source_descriptions"] = METRIC_DESCRIPTIONS.get("sources", {})
         return export_fundamentals
 
@@ -211,7 +226,12 @@ class ContextBuilder:
             .pipe(self._sanitize)
             .pipe(self._to_split_json)
         )
-        export_timing["metric_descriptions"] = METRIC_DESCRIPTIONS.get("timing", {})
+        descriptions = {
+            k: v
+            for k, v in METRIC_DESCRIPTIONS.get("timing", {}).items()
+            if k in export_timing["columns"]
+        }
+        export_timing["metric_descriptions"] = descriptions
         return export_timing
 
     def get_strategy_context(self) -> dict[str, Any]:
