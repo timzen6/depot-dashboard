@@ -73,7 +73,7 @@ else:
     relevant_portfolios = {
         k: v
         for k, v in portfolios_config.items()
-        if (v is not None) and (v.type == PortfolioType.ABSOLUTE)
+        if (v is not None) and (v.type in (PortfolioType.ABSOLUTE, PortfolioType.TRANSACTIONAL))
     }
 df_portfolio = calculate_multiple_portfolio_metrics(
     data,
