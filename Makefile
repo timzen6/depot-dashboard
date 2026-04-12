@@ -52,9 +52,10 @@ get-context:
 	@echo "✅ Project context ($(CONTEXT_DOCS)) copied to clipboard."
 
 project-export:
-	@gh project item-list 1 --owner timzen6 --format json > llm_inputs/project_items.json
+	@mkdir -p llm_inputs
+	@gh project item-list 1 --owner timzen6 --format json | jq '[.items[] | {number: .content.number, title: .title, status: .status, body: .content.body}]' > llm_inputs/project_items.json
 	@cat llm_inputs/project_items.json | pbcopy
-	@echo "✅ Project items exported to llm_inputs/project_items.json and copied to clipboard"
+	@echo "✅ LLM-optimized project items exported to llm_inputs/project_items.json and copied to clipboard"
 
 pr-diff: pc
 	@mkdir -p llm_inputs
