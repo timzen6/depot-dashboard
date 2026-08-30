@@ -116,6 +116,8 @@ def _calculate_metrics(
 
     # Enrich prices with valuation metrics if we have both datasets
     if not prices.is_empty() and not fundamentals.is_empty():
+        # there has to be at least a close price for the data to make sense
+        prices = prices.drop_nulls(subset=["close"])
         prices = metrics_engine.calculate_valuation_metrics(
             metadata,
             prices,

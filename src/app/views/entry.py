@@ -8,7 +8,7 @@ from plotly.subplots import make_subplots
 
 from src.app.logic.data_loader import DashboardData
 from src.app.views.colors import Colors
-from src.app.views.constants import assign_info_emojis
+from src.app.views.constants import assign_info_emojis, get_default_depot_selection
 from src.app.views.screener import key_to_selected_tickers
 from src.core.domain_models import AssetType
 
@@ -123,7 +123,7 @@ def render_sidebar_selection(
         filter_portfolios = st.multiselect(
             "Filter by Portfolios (optional)",
             options=(list(portfolio_dict.keys())),
-            default=[],
+            default=get_default_depot_selection(portfolio_dict),
         )
         if filter_portfolios:
             selected_tickers_set = set()
