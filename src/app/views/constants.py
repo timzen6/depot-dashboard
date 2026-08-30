@@ -93,6 +93,13 @@ COMPANY_EMOJIS = {
     "EL.PA": "🕶️",
 }
 
+DEFAULT_DEPOT_SELECTION = ["Quality Core Transactional"]
+
+
+def get_default_depot_selection(portfolio_dic: dict[str, list[str]]) -> list[str]:
+    selection = [d for d in DEFAULT_DEPOT_SELECTION if d in portfolio_dic]
+    return selection
+
 
 def assign_info_emojis(
     df_data: pl.DataFrame,
