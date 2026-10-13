@@ -62,5 +62,10 @@ testpaths = ["tests"]
 python_files = "test_*.py"
 python_functions = "test_*"
 
+[dependency-groups]
+dev = [
+    "aider-chat>=0.86.2",
+]
+
 [project.scripts]
 qc = "src.main:main"

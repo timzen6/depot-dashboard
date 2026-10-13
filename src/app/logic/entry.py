@@ -80,7 +80,7 @@ def calculate_ticker_status(
                 # Historical Context
                 pl.col("dist_200_pct").quantile(0.10).alias("p10_dist"),
                 pl.col("dist_200_pct").quantile(0.90).alias("p90_dist"),
-                pl.count().alias("data_points"),
+                pl.len().alias("data_points"),
                 # Percentile Rank Calculation
                 (
                     (pl.col("dist_200_pct") < pl.col("dist_200_pct").last())
