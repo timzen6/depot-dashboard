@@ -2,7 +2,7 @@ BASE_BRANCH ?= origin/main
 EXCLUDES := ':!uv.lock' ':!*.pyc' ':!data/*' ':!llm_inputs/*'
 CONTEXT_DOCS := README.md docs/STRUCTURE.md docs/ARCH_DECISIONS.md
 
-.PHONY: pc etl snapshot restore test app get-context help
+.PHONY: pc etl snapshot restore test app get-context help aider
 
 help:
 	@echo "Available commands:"
@@ -78,3 +78,7 @@ pr-diff: pc
 	} > llm_inputs/pr_context_report.txt
 	@cat llm_inputs/pr_context_report.txt | pbcopy
 	@echo "✅ PR context saved to llm_inputs/pr_context_report.txt and copied to clipboard."
+
+# experimental test of aider-chat with mistral
+aider:
+	uv run --env-file .env aider --config .aider.conf.yaml
