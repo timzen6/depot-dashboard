@@ -9,7 +9,7 @@ def get_sorted_occurrences(df: pl.DataFrame, column: str, descending: bool = Tru
         df.select(column)
         .drop_nulls()
         .group_by(column)
-        .agg(pl.count().alias("count"))
+        .agg(pl.len().alias("count"))
         .sort("count", descending=descending)
         .select([column])
         .to_series()
