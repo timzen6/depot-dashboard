@@ -10,8 +10,9 @@ help:
 	@echo "  make etl        - Run ETL pipeline"
 	@echo "  make snapshot   - Create data snapshots"
 	@echo "  make test       - Run tests"
-	@echo "  make app         - Launch Streamlit dashboard"
+	@echo "  make app        - Launch Streamlit dashboard"
 	@echo "  make get-context - Copy project context (README, STRUCTURE, ARCH_DECISIONS) to clipboard"
+	@echo "  make aider      - Start Aider with Mistral for token-efficient pair programming"
 
 pc:
 	uv run --extra dev pre-commit run --all-files
@@ -79,6 +80,10 @@ pr-diff: pc
 	@cat llm_inputs/pr_context_report.txt | pbcopy
 	@echo "✅ PR context saved to llm_inputs/pr_context_report.txt and copied to clipboard."
 
-# experimental test of aider-chat with mistral
+# Token-efficient alternative to Copilot for evaluating Mistral's capabilities
+# This target is part of our evaluation of:
+# 1. Aider's token efficiency compared to Copilot
+# 2. Mistral's code understanding and generation capabilities
+# 3. Integration with our project's architecture patterns
 aider:
 	uv run --env-file .env aider --config .aider.conf.yaml
