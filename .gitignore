@@ -219,3 +219,5 @@ data/production/*
 
 playground
 .aider*
+!.aider.conf.yaml
+!.aider.model.settings.yaml

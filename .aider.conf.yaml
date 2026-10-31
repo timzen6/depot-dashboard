@@ -1,0 +1,13 @@
+model: mistral/mistral-large-4
+# model: mistral/codestral-latest
+read:
+  - .env
+  - .github/copilot-instructions.general.md
+  - .github/copilot-instructions.md
+  - README.md
+chat-language: en
+commit-language: en
+
+auto-commits: false
+dark-mode: false
+model-settings-file: .aider.model.settings.yaml
