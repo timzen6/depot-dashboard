@@ -86,4 +86,4 @@ pr-diff: pc
 # 2. Mistral's code understanding and generation capabilities
 # 3. Integration with our project's architecture patterns
 aider:
-	uv run --env-file .env aider --config .aider.conf.yaml
+	uvx --env-file .env --from aider-chat aider --config .aider.conf.yaml
