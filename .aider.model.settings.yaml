@@ -1,0 +1,4 @@
+- name: mistral/mistral-large-4
+  edit_format: whole
+  extra_params:
+    top_p: 1.0

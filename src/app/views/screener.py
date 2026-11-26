@@ -156,8 +156,11 @@ def key_to_selected_tickers(
 ) -> list[str]:
     selected_rows = st.session_state.get(key_name, {}).get("selection", {}).get("rows", [])
 
+    # Filter out-of-bounds indices (selection can become stale when the dataframe changes)
+    valid_rows = [i for i in selected_rows if 0 <= i < len(filtered_metadata)]
+
     selected_tickers = (
-        filtered_metadata.select(pl.col("ticker").gather(selected_rows)).to_series().to_list()
+        filtered_metadata.select(pl.col("ticker").gather(valid_rows)).to_series().to_list()
     )
 
     if not selected_tickers and return_all_if_none:

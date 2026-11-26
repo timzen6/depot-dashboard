@@ -46,6 +46,7 @@ Instead of relying on black-box metrics, the core logic implements a customizabl
 
 * **Language:** Python 3.11+
 * **Package Manager:** [`uv`](https://github.com/astral-sh/uv) (For deterministic builds)
+* **Task Runner:** [`just`](https://github.com/casey/just) (Cross-platform recipes, see `justfile`)
 * **Core Engine:** **Polars** (High-performance Dataframes)
 * **Validation:** **Pydantic** (Domain Modeling)
 * **Frontend:** **Streamlit** (MVC Pattern implementation)
@@ -71,49 +72,66 @@ A focus on Separation of Concerns (SoC) and modularity:
 │   ├── core/               # Domain Models (The Source of Truth)
 │   ├── etl/                # Pipeline Logic (Extract -> Validate -> Load)
 │   └── main.py             # CLI Entry Point
-├── Makefile                # DevOps / Automation
+├── justfile                # Cross-platform task runner (uv run just --list)
 └── pyproject.toml          # Dependency Specification
+```
 
-🚀 Getting Started
+## 🚀 Getting Started
 
-This project uses uv for blazing fast dependency management.
-Prerequisites
+This project uses `uv` for blazing fast dependency management and `just` for task automation.
 
-    Python 3.11+
+### Prerequisites
 
-    uv (Recommended) or pip
+- Python 3.11+
+- `uv` (recommended) or `pip`
+- `just` works out of the box via `uv run just ...` (bundled as `rust-just` in the dev dependency group). For global convenience: `uv tool install rust-just`
 
-    Make
+### Installation
 
-Installation
+Clone & Sync:
 
-    Clone & Sync:
-
-Bash
-
-git clone [https://github.com/timzen6/quality-core.git](https://github.com/timzen6/quality-core.git)
+```bash
+git clone https://github.com/timzen6/quality-core.git
 cd quality-core
 uv sync  # Installs virtual env and dependencies
+```
 
-    Run the ETL (Hydrate Data):
+Run the ETL (Hydrate Data):
 
-Bash
+```bash
+just etl --full  # Fetches data, runs validation pipelines, updates Parquet lake
+```
 
-make etl-full  # Fetches data, runs validation pipelines, updates Parquet lake
+Launch Dashboard:
 
-    Launch Dashboard:
+```bash
+just app
+```
 
-Bash
+### 🧰 Common Tasks
 
-make app
+Run `uv run just --list` to see all recipes with their descriptions:
 
-🛠 Quality Assurance
+```bash
+just pc              # pre-commit on all files (ruff, ruff-format, mypy, ...)
+just meta --full     # update asset metadata for all tickers
+just etl --full      # metadata + prices + fundamentals ETL
+just snapshot        # create compressed data snapshots
+just test            # run pytest
+just app             # launch the Streamlit dashboard
+just get-context     # bundle project docs into a Markdown payload (qc dev context)
+just project-export  # export GitHub Project items to llm_inputs/project_items.json
+just pr-diff         # pre-commit, then PR diff report against the base branch
+just aider           # Aider chat with Mistral (.env is loaded by just)
+```
+
+## 🛠 Quality Assurance
 
 The codebase enforces strict standards to ensure maintainability (simulating a long-term industrial project lifecycle).
-Bash
 
-make qc  # Runs ruff (linting), black (formatting), and mypy (strict type checking)
-
+```bash
+just pc  # Runs pre-commit on all files: ruff (linting), ruff-format, mypy (strict type checking), ...
+```
 
 ## 📝 License
 
