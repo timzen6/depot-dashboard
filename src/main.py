@@ -423,7 +423,10 @@ def main() -> None:
         "--project-number", type=int, default=1, help="GitHub Project number (default: 1)"
     )
     parser_dev_export.add_argument(
-        "--owner", type=str, default="timzen6", help="Project owner (default: timzen6)"
+        "--owner",
+        type=str,
+        default=None,
+        help="Project owner (default: authenticated gh user, fallback: timzen6)",
     )
     parser_dev_export.add_argument(
         "--output",

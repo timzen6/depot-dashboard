@@ -50,4 +50,5 @@ pr-diff branch=base_branch: pc
 
 # Start Aider with Mistral for token-efficient pair programming (.env is loaded by just)
 aider:
-    uvx --from aider-chat aider --config .aider.conf.yaml
+    aider --config .aider.conf.yaml
+    # uvx --from aider-chat --with "scipy>=1.17.1" aider --config .aider.conf.yaml

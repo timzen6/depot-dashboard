@@ -127,8 +127,10 @@ def assign_info_emojis(
         )
     else:
         df_data = df_data.with_columns(
-            pl.col(country_col).replace_strict(COUNTRY_FLAGS, default="🏳️")
-            + pl.col(sector_col).replace_strict(SECTOR_EMOJI, default="👻").alias("info")
+            (
+                pl.col(country_col).replace_strict(COUNTRY_FLAGS, default="🏳️")
+                + pl.col(sector_col).replace_strict(SECTOR_EMOJI, default="👻")
+            ).alias("info")
         )
     return df_data.with_columns(
         pl.col("ticker").replace_strict(COMPANY_EMOJIS, default="🏢").alias("ticker_emoji")

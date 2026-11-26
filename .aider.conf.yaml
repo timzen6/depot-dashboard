@@ -1,7 +1,6 @@
 model: mistral/mistral-large-4
 # model: mistral/codestral-latest
 read:
-  - .env
   - .github/copilot-instructions.general.md
   - .github/copilot-instructions.md
   - README.md

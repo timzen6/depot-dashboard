@@ -18,6 +18,7 @@ from loguru import logger
 DEFAULT_CONTEXT_DOCS = ["README.md", "docs/STRUCTURE.md", "docs/ARCH_DECISIONS.md"]
 DEFAULT_PROJECT_EXPORT_OUTPUT = Path("llm_inputs/project_items.json")
 DEFAULT_PR_DIFF_OUTPUT = Path("llm_inputs/pr_context_report.txt")
+DEFAULT_PROJECT_OWNER = "timzen6"
 
 # Git magic pathspecs, passed as list items (never wrapped in literal quotes).
 PR_DIFF_EXCLUDES = [
@@ -31,6 +32,30 @@ PR_DIFF_EXCLUDES = [
 def _utc_timestamp() -> str:
     """Current UTC time as an ISO-8601 string."""
     return datetime.now(UTC).isoformat()
+
+
+def _repo_root() -> Path:
+    """Resolve the git repository root, falling back to the current directory."""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            check=True,
+        )
+        return Path(result.stdout.strip())
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        logger.warning("Could not resolve git repo root; falling back to current directory")
+        return Path.cwd()
+
+
+def _atomic_write_text(path: Path, text: str) -> None:
+    """Write text to path atomically: write to a .tmp file, then rename."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(text, encoding="utf-8")
+    tmp.replace(path)
 
 
 def _copy_to_clipboard(text: str) -> None:
@@ -70,9 +95,30 @@ def _run(cmd: list[str]) -> subprocess.CompletedProcess[str]:
         sys.exit(1)
 
 
+def _gh_authenticated_user() -> str:
+    """Resolve the authenticated GitHub user via gh, falling back to a default."""
+    try:
+        result = subprocess.run(
+            ["gh", "api", "user", "--jq", ".login"],
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            check=True,
+        )
+        login = result.stdout.strip()
+        if login:
+            return login
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        pass
+    logger.warning(
+        f"Could not resolve GitHub user via gh; falling back to {DEFAULT_PROJECT_OWNER!r}"
+    )
+    return DEFAULT_PROJECT_OWNER
+
+
 def dev_context(docs: list[str], output: Path | None, no_clipboard: bool) -> None:
     """Bundle project documentation into a single Markdown payload."""
-    repo_root = Path.cwd()
+    repo_root = _repo_root()
     parts = ["# Project Context", f"Generated on: {_utc_timestamp()}", ""]
     included: list[str] = []
     for doc in docs:
@@ -89,8 +135,7 @@ def dev_context(docs: list[str], output: Path | None, no_clipboard: bool) -> Non
         included.append(rel)
     payload = "\n".join(parts)
     if output is not None:
-        output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_text(payload, encoding="utf-8")
+        _atomic_write_text(output, payload)
         logger.info(f"Context written to {output}")
     if not no_clipboard:
         _copy_to_clipboard(payload)
@@ -110,16 +155,15 @@ def dev_project_export(project_number: int, owner: str, output: Path, no_clipboa
     raw: dict[str, Any] = json.loads(result.stdout)
     items = [
         {
-            "number": item.get("content", {}).get("number"),
+            "number": (item.get("content") or {}).get("number"),
             "title": item.get("title"),
             "status": item.get("status"),
-            "body": item.get("content", {}).get("body"),
+            "body": (item.get("content") or {}).get("body"),
         }
         for item in raw.get("items", [])
     ]
     payload = json.dumps(items, indent=2, ensure_ascii=False) + "\n"
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(payload, encoding="utf-8")
+    _atomic_write_text(output, payload)
     if not no_clipboard:
         _copy_to_clipboard(payload)
     logger.success(f"Exported {len(items)} project item(s) to {output}")
@@ -135,9 +179,6 @@ def _parse_remote_base(base: str) -> tuple[str, str] | None:
 
 def dev_pr_diff(base: str, output: Path, no_fetch: bool, no_clipboard: bool) -> None:
     """Generate a structured PR diff report against a base branch."""
-    if shutil.which("git") is None:
-        logger.error("git not found on PATH. Install it and retry.")
-        sys.exit(1)
     if not no_fetch:
         parsed = _parse_remote_base(base)
         if parsed is not None:
@@ -168,8 +209,7 @@ def dev_pr_diff(base: str, output: Path, no_fetch: bool, no_clipboard: bool) -> 
             "",
         ]
     )
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(report, encoding="utf-8")
+    _atomic_write_text(output, report)
     if not no_clipboard:
         _copy_to_clipboard(report)
     logger.success(f"PR context report saved to {output} (base: {base}, merge-base: {merge_base})")
@@ -180,7 +220,8 @@ def cmd_dev_context(args: argparse.Namespace) -> None:
 
 
 def cmd_dev_project_export(args: argparse.Namespace) -> None:
-    dev_project_export(args.project_number, args.owner, args.output, args.no_clipboard)
+    owner = args.owner if args.owner is not None else _gh_authenticated_user()
+    dev_project_export(args.project_number, owner, args.output, args.no_clipboard)
 
 
 def cmd_dev_pr_diff(args: argparse.Namespace) -> None:

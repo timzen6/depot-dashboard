@@ -32,7 +32,7 @@ We're evaluating Aider as a strategic alternative to GitHub Copilot for several 
 Our project uses a specialized Aider configuration that integrates with:
 - **uv** for Python package management
 - **Mistral** as the LLM provider
-- **Makefile** for common development tasks
+- **justfile** for common development tasks
 - **Project-specific architecture patterns**
 
 ### Installation
@@ -43,13 +43,13 @@ Our project uses a specialized Aider configuration that integrates with:
 
 2. The project includes a pre-configured Aider setup:
    - `.aider.conf.yaml` contains our project-specific settings
-   - `.env` file provides the Mistral API key
-   - Makefile provides the `aider` command
+   - `.env` file provides the Mistral API key (loaded automatically by Aider, never added to the read context)
+   - justfile provides the `aider` command
 
 ### Running Aider
-Use the project's Makefile command to start Aider with our pre-configured settings:
+Use the project's just command to start Aider with our pre-configured settings:
 ```bash
-make aider
+just aider
 ```
 
 This command:
