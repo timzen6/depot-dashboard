@@ -4,6 +4,7 @@ Supports:
 - etl: Run data extraction and storage pipeline
 - snapshot: Create compressed backup snapshots
 - restore: Restore data from snapshots
+- dev: Developer and LLM-context workflows (context, project-export, pr-diff)
 """
 
 import argparse
@@ -17,6 +18,14 @@ from src.config.settings import Config, load_config
 from src.core.domain_models import AssetType
 from src.core.file_manager import ParquetStorage
 from src.data_mgmt.archiver import DataArchiver
+from src.dev_commands import (
+    DEFAULT_CONTEXT_DOCS,
+    DEFAULT_PR_DIFF_OUTPUT,
+    DEFAULT_PROJECT_EXPORT_OUTPUT,
+    cmd_dev_context,
+    cmd_dev_pr_diff,
+    cmd_dev_project_export,
+)
 from src.etl.extract import DataExtractor
 from src.etl.pipeline import ETLPipeline
 from src.etl.snapshot import make_snapshot
@@ -373,6 +382,89 @@ def main() -> None:
         help="Filter by data type",
     )
     parser_list.set_defaults(func=cmd_list_snapshots)
+
+    # Dev subcommand group (developer / LLM-context workflows)
+    parser_dev = subparsers.add_parser("dev", help="Developer and LLM-context workflows")
+    dev_subparsers = parser_dev.add_subparsers(
+        dest="dev_command", required=True, help="Dev commands"
+    )
+
+    parser_dev_context = dev_subparsers.add_parser(
+        "context",
+        help="Bundle project docs into a Markdown payload and copy it to the clipboard",
+    )
+    parser_dev_context.add_argument(
+        "--docs",
+        nargs="+",
+        default=DEFAULT_CONTEXT_DOCS,
+        help=(
+            "Docs to include, relative to repo root "
+            "(default: README.md docs/STRUCTURE.md docs/ARCH_DECISIONS.md)"
+        ),
+    )
+    parser_dev_context.add_argument(
+        "--output",
+        type=Path,
+        default=None,
+        help="Also write the generated context to this file",
+    )
+    parser_dev_context.add_argument(
+        "--no-clipboard",
+        action="store_true",
+        help="Do not copy the payload to the clipboard",
+    )
+    parser_dev_context.set_defaults(func=cmd_dev_context)
+
+    parser_dev_export = dev_subparsers.add_parser(
+        "project-export",
+        help="Export GitHub Project items to an LLM-friendly JSON file",
+    )
+    parser_dev_export.add_argument(
+        "--project-number", type=int, default=1, help="GitHub Project number (default: 1)"
+    )
+    parser_dev_export.add_argument(
+        "--owner", type=str, default="timzen6", help="Project owner (default: timzen6)"
+    )
+    parser_dev_export.add_argument(
+        "--output",
+        type=Path,
+        default=DEFAULT_PROJECT_EXPORT_OUTPUT,
+        help="Output JSON file (default: llm_inputs/project_items.json)",
+    )
+    parser_dev_export.add_argument(
+        "--no-clipboard",
+        action="store_true",
+        help="Do not copy the JSON to the clipboard",
+    )
+    parser_dev_export.set_defaults(func=cmd_dev_project_export)
+
+    parser_dev_pr_diff = dev_subparsers.add_parser(
+        "pr-diff",
+        help="Generate a structured PR diff report against a base branch",
+    )
+    parser_dev_pr_diff.add_argument(
+        "--base",
+        type=str,
+        default="origin/main",
+        help="Base branch/ref to diff against (default: origin/main)",
+    )
+    parser_dev_pr_diff.add_argument(
+        "--output",
+        type=Path,
+        default=DEFAULT_PR_DIFF_OUTPUT,
+        help="Output report file (default: llm_inputs/pr_context_report.txt)",
+    )
+    parser_dev_pr_diff.add_argument(
+        "--no-fetch",
+        action="store_true",
+        help="Skip fetching the base branch from its remote",
+    )
+    parser_dev_pr_diff.add_argument(
+        "--no-clipboard",
+        action="store_true",
+        help="Do not copy the report to the clipboard",
+    )
+    parser_dev_pr_diff.set_defaults(func=cmd_dev_pr_diff)
 
     # Parse arguments and execute
     args = parser.parse_args()
