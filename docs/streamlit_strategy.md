@@ -43,8 +43,8 @@ if not data:
     st.stop()
 
 selection = st.sidebar.selectbox("Pick one", options)
-result = compute_something(data, selection)   # logic call
-render_result_chart(result)                    # view call
+result = compute_something(data, selection)  # logic call
+render_result_chart(result)  # view call
 ```
 
 #### Logic (Model)
@@ -88,6 +88,7 @@ Caching is the single most impactful performance lever in Streamlit.
 class DataLoader:
     def load(self) -> DataFrame:
         return _load_cached(self.path)
+
 
 @st.cache_data(ttl=3600)
 def _load_cached(path: Path) -> DataFrame:
@@ -139,6 +140,7 @@ def clear_filters():
     st.session_state["sector_filter"] = []
     st.session_state["portfolio_filter"] = []
 
+
 st.sidebar.button("Clear Filters", on_click=clear_filters, type="primary")
 ```
 
@@ -155,11 +157,13 @@ st.sidebar.button("Clear Filters", on_click=clear_filters, type="primary")
 data = load_data()
 filters = sidebar_widgets()
 
+
 @st.fragment()
 def render_dashboard(data, filters):
     # Only this block re-runs on widget interaction inside it
     chart = build_chart(data, filters)
     st.plotly_chart(chart)
+
 
 render_dashboard(data, filters)
 ```
@@ -183,7 +187,14 @@ class Colors:
     red = "#dc2626"
     amber = "#d97706"
 
-COLOR_SCALE_GREEN_RED = [Colors.green, Colors.light_green, Colors.yellow, Colors.light_red, Colors.red]
+
+COLOR_SCALE_GREEN_RED = [
+    Colors.green,
+    Colors.light_green,
+    Colors.yellow,
+    Colors.light_red,
+    Colors.red,
+]
 COLOR_SCALE_CONTRAST = [Colors.blue, Colors.orange, Colors.teal, Colors.purple, ...]
 ```
 

@@ -199,9 +199,9 @@ def run_provider_comparison() -> tuple[pl.DataFrame, pl.DataFrame]:
     price_results = []
 
     for ticker in TEST_TICKERS:
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"Processing: {ticker}")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
 
         for provider in PROVIDERS:
             print(f"\n  Provider: {provider}")

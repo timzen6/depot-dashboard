@@ -54,14 +54,14 @@ def display_relevant_data(ticker: str, data: DashboardData, current_data: Curren
             st.metric("Current Net Profit Margin", f"{current_margin:.1f}%")
             st.metric(
                 "Curr Cash Conversion",
-                f"{current_data.cash_conversion_ratio*100:.1f}%",
+                f"{current_data.cash_conversion_ratio * 100:.1f}%",
             )
             st.metric("Median PE", f"{current_data.median_pe:.1f}")
         with sub_col_2:
             st.metric("Current Revenue Growth", f"{current_growth:.1f}%")
             st.metric(
                 "Mean Cash Conversion",
-                f"{current_data.mean_cash_conversion_ratio*100:.1f}%",
+                f"{current_data.mean_cash_conversion_ratio * 100:.1f}%",
             )
             st.metric("Current PE", f"{current_data.current_pe:.1f}")
         st.metric("Sector PE", f"{current_data.sector_pe:.1f}")
@@ -269,8 +269,8 @@ def display_sensitivity_analysis_input(
                 with cols[i]:
                     default_val, step_size, fmt = get_default_input_value(c, data)
                     val = st.number_input(
-                        f"Step {i+1}",
-                        key=f"sc1_{c}_{i+1}",
+                        f"Step {i + 1}",
+                        key=f"sc1_{c}_{i + 1}",
                         value=default_val + (i * step_size),
                         step=step_size,
                         format=fmt,
@@ -302,8 +302,8 @@ def display_sensitivity_analysis_input(
             for i in range(n_scenarios_2):
                 with cols[i]:
                     val = st.number_input(
-                        f"Step {i+1}",
-                        key=f"sc2_{c}_{i+1}",
+                        f"Step {i + 1}",
+                        key=f"sc2_{c}_{i + 1}",
                         value=default_val + (i * step_size),
                         step=step_size,
                         format=fmt,

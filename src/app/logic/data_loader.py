@@ -131,7 +131,7 @@ def _calculate_metrics(
     return prices, fundamentals
 
 
-@st.cache_data(ttl=3600, show_spinner="Loading data...")  # type: ignore[misc]
+@st.cache_data(ttl=3600, show_spinner="Loading data...")
 def _load_cached_raw_data(
     metadata_dir: Path,
     prices_dir: Path,
@@ -207,8 +207,8 @@ def _load_cached_raw_data(
 
 
 # we need the caching to stabilize the selection
-@st.cache_data(ttl=3600, show_spinner="Loading data...")  # type: ignore[misc]
-def load_all_stock_data() -> tuple[DashboardData, dict[str | None, list[str]], FXEngine]:
+@st.cache_data(ttl=3600, show_spinner="Loading data...")
+def load_all_stock_data() -> tuple[DashboardData, dict[str, list[str]], FXEngine]:
     # Load data
     try:
         loader = GlobalDataLoader()
@@ -222,7 +222,7 @@ def load_all_stock_data() -> tuple[DashboardData, dict[str | None, list[str]], F
         raise (Exception("No price data available"))
 
     portfolio_dict_raw = loader.load_portfolios()
-    portfolio_dict = {p.display_name: p.tickers for p in portfolio_dict_raw.values()}
+    portfolio_dict = {p.display_name or name: p.tickers for name, p in portfolio_dict_raw.items()}
     fx_engine = FXEngine(dashboard_data.prices, target_currency="EUR")
 
     return dashboard_data, portfolio_dict, fx_engine

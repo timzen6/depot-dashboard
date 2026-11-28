@@ -112,8 +112,7 @@ All data transformations use **method chaining**:
 
 ```python
 df_result = (
-    df_source
-    .filter(pl.col("ticker") == selected_ticker)
+    df_source.filter(pl.col("ticker") == selected_ticker)
     .select(["date", "close", "volume"])
     .sort("date")
 )

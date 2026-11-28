@@ -38,7 +38,7 @@ class UserPortfolioManager:
         for name, pdata in raw_data.get("portfolios", {}).items():
             if name in final_portfolios:
                 logger.warning(
-                    f"User portfolio '{name}'. Name conflicts with system portfolio. " "Skipping."
+                    f"User portfolio '{name}'. Name conflicts with system portfolio. Skipping."
                 )
                 continue
             pdata["is_editable"] = True
@@ -99,7 +99,9 @@ class UserPortfolioManager:
         self._dump_portfolios(all_portfolios)
         return "Success: Portfolio deleted successfully."
 
-    def add_ticker_to_portfolio(self, portfolio_name: str, ticker: str, quantity: int = 1) -> None:
+    def add_ticker_to_portfolio(
+        self, portfolio_name: str, ticker: str, quantity: float = 1
+    ) -> None:
         all_portfolios = self.get_all_portfolios()
         if portfolio_name not in all_portfolios:
             logger.error(f"Portfolio '{portfolio_name}' does not exist.")

@@ -4,7 +4,8 @@ Wiring layer for stock-specific analysis with multiple tabs.
 Shows valuation, quality, and financial health metrics.
 """
 
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
+from typing import cast
 
 import polars as pl
 import streamlit as st
@@ -93,11 +94,14 @@ st.sidebar.subheader("Filters")
 min_date = dashboard_data.prices.select("date").min().item()
 max_date = dashboard_data.prices.select("date").max().item()
 
-date_range = st.sidebar.date_input(
-    "Date Range",
-    value=(min_date, max_date),
-    min_value=min_date,
-    max_value=max_date,
+date_range = cast(
+    "tuple[date, date]",
+    st.sidebar.date_input(
+        "Date Range",
+        value=(min_date, max_date),
+        min_value=min_date,
+        max_value=max_date,
+    ),
 )
 
 try:
@@ -157,7 +161,7 @@ try:
     }
 
     now = datetime.now().date()
-    time_delta = time_delta_mapping.get(time_delta_selection, 12)
+    time_delta = time_delta_mapping.get(time_delta_selection or "", 12)
 
     if time_delta_selection == "Max" or time_delta_selection is None or time_delta is None:
         start_date = None

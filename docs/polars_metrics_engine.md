@@ -45,7 +45,9 @@ The most distinctive Polars pattern in this project. Instead of calculating metr
 exprs = []
 
 # Each expression is self-contained
-exprs.append((pl.col("total_assets") - pl.col("total_current_liabilities")).alias("capital_employed"))
+exprs.append(
+    (pl.col("total_assets") - pl.col("total_current_liabilities")).alias("capital_employed")
+)
 exprs.append((pl.col("ebit") / capital_employed_expr).alias("roce"))
 exprs.append((pl.col("gross_profit") / pl.col("revenue")).alias("gross_margin"))
 exprs.append((pl.col("ebit") / pl.col("revenue")).alias("ebit_margin"))
@@ -121,23 +123,24 @@ Trailing Twelve Months is the standard for fresh valuations. The engine uses Pol
 
 ```python
 df_ttm = (
-    df_quarterly
-    .sort(["ticker", "report_date"])
+    df_quarterly.sort(["ticker", "report_date"])
     .rolling(
         index_column="report_date",
-        period="395d",          # ~13 months: safely captures 4 quarters
+        period="395d",  # ~13 months: safely captures 4 quarters
         group_by="ticker",
         closed="right",
     )
-    .agg([
-        # Flow metrics (P&L, Cash Flow): sum of last 4 quarters
-        pl.col("revenue").tail(4).sum().alias("revenue_ttm"),
-        pl.col("free_cash_flow").tail(4).sum().alias("fcf_ttm"),
-        # Point metrics (Balance Sheet): latest snapshot
-        pl.col("total_debt").last().alias("total_debt_ttm"),
-        # Quality gate
-        pl.len().alias("_record_count"),
-    ])
+    .agg(
+        [
+            # Flow metrics (P&L, Cash Flow): sum of last 4 quarters
+            pl.col("revenue").tail(4).sum().alias("revenue_ttm"),
+            pl.col("free_cash_flow").tail(4).sum().alias("fcf_ttm"),
+            # Point metrics (Balance Sheet): latest snapshot
+            pl.col("total_debt").last().alias("total_debt_ttm"),
+            # Quality gate
+            pl.len().alias("_record_count"),
+        ]
+    )
     .filter(pl.col("_record_count") >= 4)  # Only emit when we have a full year
 )
 ```
@@ -203,9 +206,12 @@ Instead of deeply nested function calls, chain transformations with `.pipe()`:
 
 ```python
 df_prices_latest = (
-    df_prices
-    .filter(pl.col("ticker").is_in(selected_tickers))
-    .pipe(fx_engine.convert_multiple_to_target, amount_cols=["close", "fair_value"], source_currency_col="currency")
+    df_prices.filter(pl.col("ticker").is_in(selected_tickers))
+    .pipe(
+        fx_engine.convert_multiple_to_target,
+        amount_cols=["close", "fair_value"],
+        source_currency_col="currency",
+    )
     .sort(["ticker", "date"])
     .group_by("ticker")
     .agg(...)
@@ -292,10 +298,12 @@ The strongest practical win is the **expression model**. Building a list of 15 m
 capital_employed = pl.col("total_assets") - pl.col("total_current_liabilities")
 roce = pl.col("ebit") / capital_employed
 
-df = df.with_columns([
-    capital_employed.alias("capital_employed"),
-    roce.alias("roce"),
-])
+df = df.with_columns(
+    [
+        capital_employed.alias("capital_employed"),
+        roce.alias("roce"),
+    ]
+)
 ```
 
 This avoids chained `.with_columns()` calls and keeps everything in a single pass. The project uses this in some places but not consistently — worth adopting as the default style going forward.

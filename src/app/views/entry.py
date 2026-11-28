@@ -334,8 +334,8 @@ def render_tactic_strategic_overview_table(
                 "Tactical Z-Score(50d)",
                 format="%.1f",
                 help=(
-                    "Short-term timing indicator based on 50-day price deviations."
-                    ">2 = running hot, < -2 = panic.",
+                    "Short-term timing indicator based on 50-day price deviations. "
+                    ">2 = running hot, < -2 = panic."
                 ),
             ),
             # 2. STRATEGIC (Langfristig / Valuation)
@@ -349,8 +349,8 @@ def render_tactic_strategic_overview_table(
                 min_value=0,
                 max_value=1,
                 help=(
-                    "Percentile Rank (3y). 0.10 = The stock was historically only"
-                    " 10% of the time this cheap (relative to the trend).",
+                    "Percentile Rank (3y). 0.10 = The stock was historically only "
+                    "10% of the time this cheap (relative to the trend)."
                 ),
             ),
             "valuation_classification": st.column_config.TextColumn(

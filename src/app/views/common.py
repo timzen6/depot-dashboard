@@ -100,7 +100,7 @@ def render_kpi_cards(metrics: PortfolioKPIs) -> None:
     with cols[5]:
         st.metric(
             label="Dividends (Last 12M)",
-            value=(f"{metrics.current_yoy_dividend_value:,.0f} €" f" ({dividend_percent:.2f}%)"),
+            value=(f"{metrics.current_yoy_dividend_value:,.0f} € ({dividend_percent:.2f}%)"),
         )
 
 

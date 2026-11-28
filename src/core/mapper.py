@@ -447,27 +447,29 @@ def map_fundamentals_to_domain(
 
 def _get_float(data: dict[str, Any], keys: list[str]) -> float | None:
     for key in keys:
-        value = data.get(key, None)
-        if pd.notna(value):
-            try:
-                if isinstance(value, str):
-                    return float(value.replace(",", ""))
-                return float(value)
-            except (ValueError, TypeError):
-                continue
+        value = data.get(key)
+        if value is None or pd.isna(value):
+            continue
+        try:
+            if isinstance(value, str):
+                return float(value.replace(",", ""))
+            return float(value)
+        except (ValueError, TypeError):
+            continue
     return None
 
 
 def _get_int(data: dict[str, Any], keys: list[str]) -> int | None:
     for key in keys:
-        value = data.get(key, None)
-        if pd.notna(value):
-            try:
-                if isinstance(value, str):
-                    return int(value.replace(",", ""))
-                return int(value)
-            except (ValueError, TypeError):
-                continue
+        value = data.get(key)
+        if value is None or pd.isna(value):
+            continue
+        try:
+            if isinstance(value, str):
+                return int(value.replace(",", ""))
+            return int(value)
+        except (ValueError, TypeError):
+            continue
     return None
 
 

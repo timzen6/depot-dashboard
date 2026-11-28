@@ -25,7 +25,7 @@ def custom_rerun() -> None:
     st.rerun()
 
 
-@st.cache_resource  # type: ignore[misc]
+@st.cache_resource
 def get_admin_engine() -> AdminEngine:
     return AdminEngine()
 
@@ -58,7 +58,7 @@ selected_portfolio = portfolios[portfolio_selection]
 is_editable = selected_portfolio.is_editable
 
 
-@st.dialog("Confirm Delete Portfolio")  # type: ignore[misc]
+@st.dialog("Confirm Delete Portfolio")
 def show_delete_dialog(portfolio_name: str) -> None:
     st.warning(f"Are you sure you want to delete '{portfolio_name}'?")
     if st.button("Confirm Delete", type="primary"):
@@ -67,7 +67,7 @@ def show_delete_dialog(portfolio_name: str) -> None:
         custom_rerun()
 
 
-@st.dialog("Create New Portfolio")  # type: ignore[misc]
+@st.dialog("Create New Portfolio")
 def show_create_dialog() -> None:
     name = st.text_input("Name (ID):")
     display = st.text_input("Display Name:")
@@ -76,7 +76,7 @@ def show_create_dialog() -> None:
         value=date(2024, 1, 1),
         min_value=date(2021, 1, 1),
     )
-    start_date_str = start_date.isoformat() if start_date else None
+    start_date_str = start_date.isoformat() if start_date else "2024-01-01"
     if st.button("Create"):
         if name in engine.portfolio_manager.get_all_portfolios():
             st.error("Exists already.")

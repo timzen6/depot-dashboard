@@ -50,7 +50,7 @@ if sector_filter:
     filtered_metadata = filtered_metadata.filter(pl.col("sector").is_in(sector_filter))
 
 
-@st.fragment()  # type: ignore[misc]
+@st.fragment()
 def render_dashboard_content(
     filtered_metadata: pl.DataFrame,
     dashboard_data: DashboardData,

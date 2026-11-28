@@ -11,6 +11,12 @@ default:
 pc:
     uv run pre-commit run --all-files
 
+# Run CI quality checks (lint, format, type-check)
+check:
+    uv run ruff check .
+    uv run ruff format --check .
+    uv run mypy src
+
 # Update asset metadata (e.g. just meta --full)
 meta *flags:
     uv run qc meta {{flags}}

@@ -12,15 +12,15 @@ import plotly.graph_objects as go
 import polars as pl
 import streamlit as st
 from plotly.subplots import make_subplots
-from views.colors import (
+
+from src.analysis.fx import FXEngine
+from src.app.logic.common import get_strategy_factor_profiles
+from src.app.views.colors import (
     COLOR_SCALE_CONTRAST,
     COLOR_SCALE_GREEN_RED,
     STRATEGY_FACTOR_COLOR_MAP,
     Colors,
 )
-
-from src.analysis.fx import FXEngine
-from src.app.logic.common import get_strategy_factor_profiles
 from src.app.views.common import make_pie_chart, style_pie_chart
 from src.app.views.constants import (
     COUNTRY_FLAGS,
@@ -796,7 +796,7 @@ def render_valuation_data(stock_data: StockData, fx_engine: FXEngine) -> None:
             if latest_fcf_yield is not None:
                 st.metric(
                     "Current FCF Yield",
-                    f"{ latest_fcf_yield * 100:.1f}%",
+                    f"{latest_fcf_yield * 100:.1f}%",
                 )
         with sub_col1:
             forward_pe = stock_data.metadata.get("forward_pe", None)
@@ -1073,11 +1073,11 @@ def render_growth_data(stock_data: StockData) -> None:
         latest_fund = df_fund.tail(1)
         st.metric(
             "Latest Revenue Growth",
-            f"{latest_fund.select('revenue_growth').item()*100:.2f}%",
+            f"{latest_fund.select('revenue_growth').item() * 100:.2f}%",
         )
         st.metric(
             "Latest Net Income Growth",
-            f"{latest_fund.select('net_income_growth').item()*100:.2f}%",
+            f"{latest_fund.select('net_income_growth').item() * 100:.2f}%",
         )
     with col2:
         tab1, tab2 = st.tabs(["Growth Metrics", "Total Revenue & Net Income"])
@@ -1182,7 +1182,7 @@ def render_health_data(stock_data: StockData) -> None:
     with col1:
         st.metric(
             "Latest Net Debt",
-            f"{latest_fund.select('net_debt').item()/1e6:.2f} M {symbol}",
+            f"{latest_fund.select('net_debt').item() / 1e6:.2f} M {symbol}",
         )
         st.metric(
             "Latest Net Debt to EBIT",

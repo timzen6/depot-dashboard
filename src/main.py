@@ -321,7 +321,7 @@ def main() -> None:
         "--full",
         action="store_true",
         help=(
-            "Run ETL for all tickers (full load). " "If not set, only portfolio tickers are loaded."
+            "Run ETL for all tickers (full load). If not set, only portfolio tickers are loaded."
         ),
     )
 
@@ -332,7 +332,7 @@ def main() -> None:
         "--full",
         action="store_true",
         help=(
-            "Run ETL for all tickers (full load). " "If not set, only portfolio tickers are loaded."
+            "Run ETL for all tickers (full load). If not set, only portfolio tickers are loaded."
         ),
     )
     parser_etl.set_defaults(func=cmd_etl)

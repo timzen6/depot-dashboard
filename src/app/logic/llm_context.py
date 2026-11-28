@@ -9,10 +9,10 @@ from src.app.logic.entry import calculate_volatility_metrics
 METRIC_DESCRIPTIONS = {
     "timing": {
         "z_score": (
-            "Tactical deviation: (Close - SMA_50) / STD_50. " "Measures short-term overextension."
+            "Tactical deviation: (Close - SMA_50) / STD_50. Measures short-term overextension."
         ),
         "dist_200_pct": (
-            "Structural trend: % distance to 200-day SMA. " ">0 indicates uptrend context."
+            "Structural trend: % distance to 200-day SMA. >0 indicates uptrend context."
         ),
         "vola_annual_pct": (
             "Annualized volatility based on 200-day window of daily returns."
@@ -26,24 +26,19 @@ METRIC_DESCRIPTIONS = {
             "(excluding outliers > 250)."
         ),
         "pegy_ratio": (
-            "Valuation/Growth adjustment: Forward P/E / "
-            "(Implied EPS Growth % + Dividend Yield %)."
+            "Valuation/Growth adjustment: Forward P/E / (Implied EPS Growth % + Dividend Yield %)."
         ),
         "fcf_yield": (
-            "Free Cash Flow per share / Price. "
-            "Measure of cash generation relative to market cap."
+            "Free Cash Flow per share / Price. Measure of cash generation relative to market cap."
         ),
     },
     "fundamentals": {
         "implied_eps_growth": "Market implied growth: (Forward EPS / Trailing EPS) - 1.",
         "rule_40": (
-            "SaaS Efficiency: EBITDA Margin % + Revenue Growth %. "
-            ">40 is widely considered elite."
+            "SaaS Efficiency: EBITDA Margin % + Revenue Growth %. >40 is widely considered elite."
         ),
         "roce": "Return on Capital Employed. Measures efficiency of capital allocation.",
-        "rotce": (
-            "Return on Tangible Capital Employed. " "ROCE excluding goodwill and intangibles."
-        ),
+        "rotce": ("Return on Tangible Capital Employed. ROCE excluding goodwill and intangibles."),
         "net_debt_to_ebit": (
             "Leverage ratio. Higher values indicate higher debt relative to earnings."
         ),
@@ -245,12 +240,9 @@ class ContextBuilder:
                     "Owner-Operator Governance (No Black Boxes)",
                 ],
                 "portfolio_structure": (
-                    "Concentrated Quality Core (15-20 stocks) + "
-                    "Developed Markets ETF Foundation."
+                    "Concentrated Quality Core (15-20 stocks) + Developed Markets ETF Foundation."
                 ),
-                "goal": (
-                    "Reduce ETF dependency over time; " "wealth accumulation through substance."
-                ),
+                "goal": ("Reduce ETF dependency over time; wealth accumulation through substance."),
             },
             "selection_criteria": {
                 "moat": "Required. Must have a credible 10-Year Scenario (No Melting Ice Cubes).",
@@ -263,7 +255,7 @@ class ContextBuilder:
             },
             "execution_rules": {
                 "gardener_rule": (
-                    "Max 15% per single stock. " "Rebalance organically (fresh cash/dividends)."
+                    "Max 15% per single stock. Rebalance organically (fresh cash/dividends)."
                 ),
                 "sleep_test": (
                     "Volatility is acceptable; ",

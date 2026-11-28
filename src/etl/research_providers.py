@@ -169,9 +169,9 @@ def run_data_analysis() -> tuple[pl.DataFrame, pl.DataFrame]:
     price_results = []
 
     for ticker in TEST_TICKERS:
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"Processing: {ticker}")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
 
         # Fetch current stock price and info
         stock_info = fetch_stock_info(ticker)

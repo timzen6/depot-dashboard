@@ -6,10 +6,10 @@ Renders portfolio performance charts and position tables.
 import plotly.express as px
 import polars as pl
 import streamlit as st
-from views.colors import COLOR_SCALE_CONTRAST, STRATEGY_FACTOR_COLOR_MAP, Colors
 
 from src.app.logic.common import COUNTRY_REGION_MAP
 from src.app.logic.portfolio import fill_days_with_missing_tickers
+from src.app.views.colors import COLOR_SCALE_CONTRAST, STRATEGY_FACTOR_COLOR_MAP, Colors
 from src.app.views.common import (
     make_pie_chart,
     make_sunburst_chart,
@@ -64,7 +64,7 @@ def render_portfolio_chart(
         df_plot = df_plot.with_columns(
             pl.col("asset_type").str.to_uppercase(),
         ).sort("date")
-    if time_select != "All":
+    if time_select and time_select != "All":
         df_history_date_max = df_plot.select(pl.max("date")).item()
         days_delta = timedelta_map[time_select]
         df_plot = df_plot.filter(

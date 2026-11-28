@@ -17,7 +17,7 @@ from src.core.domain_models import ReportType
 class DataExtractor:
     """Handles all external data fetching from yfinance with retry logic."""
 
-    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))  # type: ignore[misc]
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
     def get_ticker_info(self, ticker: str) -> dict[str, str]:
         """
         Fetches metadata like currency.
@@ -43,7 +43,7 @@ class DataExtractor:
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=2, max=10),
         reraise=True,
-    )  # type: ignore[misc]
+    )
     def get_full_ticker_info(self, ticker: str) -> dict[str, str]:
         """
         Fetches full ticker info for discovery/debugging purposes.
@@ -70,7 +70,7 @@ class DataExtractor:
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=2, max=10),
         reraise=True,
-    )  # type: ignore[misc]
+    )
     def get_prices(self, ticker: str, start_date: date) -> pd.DataFrame:
         """
         Fetch historical price data for a ticker starting from a specific date.
@@ -116,7 +116,7 @@ class DataExtractor:
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=2, max=10),
         reraise=True,
-    )  # type: ignore[misc]
+    )
     def get_financials(
         self,
         ticker: str,

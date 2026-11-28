@@ -1,7 +1,7 @@
 """Pydantic models for portfolio configuration."""
 
 from datetime import date as date_type
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field, field_validator
 from src.core.domain_models import Transaction
 
 
-class PortfolioType(str, Enum):
+class PortfolioType(StrEnum):
     """Portfolio strategy type."""
 
     ABSOLUTE = "absolute"

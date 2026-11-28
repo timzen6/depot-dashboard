@@ -151,8 +151,7 @@ def fetch_and_test_fundamentals(storage: ParquetStorage) -> None:
 
             log_method = logger.warning if missing_fields else logger.success
             log_method(
-                f"[{ticker}] Fundamentals OK. Periods: {len(reports)}. "
-                f"Missing: {missing_fields}"
+                f"[{ticker}] Fundamentals OK. Periods: {len(reports)}. Missing: {missing_fields}"
             )
 
             # 4. Convert to Polars DataFrame and store

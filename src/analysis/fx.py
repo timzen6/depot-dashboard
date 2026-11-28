@@ -3,6 +3,8 @@
 Handles multi-currency portfolio conversions using historical FX rates.
 """
 
+from datetime import date
+
 import polars as pl
 from loguru import logger
 
@@ -130,7 +132,7 @@ class FXEngine:
         # Combine all chunks
         return pl.concat([df_home] + converted_chunks, how="vertical_relaxed").sort("date")
 
-    def convert_amount(self, amount: float, date: pl.Date, source_currency: str) -> float:
+    def convert_amount(self, amount: float, date: date, source_currency: str) -> float:
         """Convert a single amount on a specific date to the target currency.
 
         Args:

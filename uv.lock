@@ -1646,6 +1646,7 @@ dependencies = [
     { name = "plotly" },
     { name = "polars" },
     { name = "pydantic" },
+    { name = "pydantic-settings" },
     { name = "python-dateutil" },
     { name = "pyyaml" },
     { name = "streamlit" },
@@ -1659,7 +1660,6 @@ dependencies = [
 dev = [
     { name = "mypy" },
     { name = "pre-commit" },
-    { name = "pydantic-settings" },
     { name = "pyperclip" },
     { name = "pytest" },
     { name = "ruff" },
@@ -1675,11 +1675,12 @@ requires-dist = [
     { name = "plotly", specifier = ">=5.18.0" },
     { name = "polars", specifier = ">=0.20.0" },
     { name = "pydantic", specifier = ">=2.0.0" },
+    { name = "pydantic-settings", specifier = ">=2.0.0" },
     { name = "python-dateutil", specifier = ">=2.8.2" },
     { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "streamlit", specifier = ">=1.30.0" },
     { name = "tabulate", specifier = ">=0.9.0" },
-    { name = "tenacity" },
+    { name = "tenacity", specifier = ">=8.2.0" },
     { name = "tqdm", specifier = ">=4.67.1" },
     { name = "yfinance", specifier = ">=0.2.35" },
 ]
@@ -1688,7 +1689,6 @@ requires-dist = [
 dev = [
     { name = "mypy", specifier = ">=1.8.0" },
     { name = "pre-commit", specifier = ">=3.6.0" },
-    { name = "pydantic-settings", specifier = ">=2.0.0" },
     { name = "pyperclip", specifier = ">=1.8.2" },
     { name = "pytest", specifier = ">=7.4.0" },
     { name = "ruff", specifier = ">=0.1.0" },
